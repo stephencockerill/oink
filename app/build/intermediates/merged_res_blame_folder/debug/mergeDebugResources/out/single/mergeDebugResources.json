@@ -1,0 +1,50 @@
+[
+    {
+        "merged": "/Users/stephencockerill/.gradle/daemon/8.13/com.oink.app-debug-70:/drawable_ic_notification.xml.flat",
+        "source": "/Users/stephencockerill/.gradle/daemon/8.13/com.oink.app-main-72:/drawable/ic_notification.xml"
+    },
+    {
+        "merged": "/Users/stephencockerill/.gradle/daemon/8.13/com.oink.app-debug-70:/layout_widget_loading.xml.flat",
+        "source": "/Users/stephencockerill/.gradle/daemon/8.13/com.oink.app-main-72:/layout/widget_loading.xml"
+    },
+    {
+        "merged": "/Users/stephencockerill/.gradle/daemon/8.13/com.oink.app-debug-70:/drawable_widget_preview.xml.flat",
+        "source": "/Users/stephencockerill/.gradle/daemon/8.13/com.oink.app-main-72:/drawable/widget_preview.xml"
+    },
+    {
+        "merged": "/Users/stephencockerill/.gradle/daemon/8.13/com.oink.app-debug-70:/drawable_ic_launcher_background.xml.flat",
+        "source": "/Users/stephencockerill/.gradle/daemon/8.13/com.oink.app-main-72:/drawable/ic_launcher_background.xml"
+    },
+    {
+        "merged": "/Users/stephencockerill/.gradle/daemon/8.13/com.oink.app-debug-70:/layout_widget_preview.xml.flat",
+        "source": "/Users/stephencockerill/.gradle/daemon/8.13/com.oink.app-main-72:/layout/widget_preview.xml"
+    },
+    {
+        "merged": "/Users/stephencockerill/.gradle/daemon/8.13/com.oink.app-debug-70:/drawable_ic_launcher_foreground.xml.flat",
+        "source": "/Users/stephencockerill/.gradle/daemon/8.13/com.oink.app-main-72:/drawable/ic_launcher_foreground.xml"
+    },
+    {
+        "merged": "/Users/stephencockerill/.gradle/daemon/8.13/com.oink.app-debug-70:/xml_data_extraction_rules.xml.flat",
+        "source": "/Users/stephencockerill/.gradle/daemon/8.13/com.oink.app-main-72:/xml/data_extraction_rules.xml"
+    },
+    {
+        "merged": "/Users/stephencockerill/.gradle/daemon/8.13/com.oink.app-debug-70:/xml_oink_widget_info.xml.flat",
+        "source": "/Users/stephencockerill/.gradle/daemon/8.13/com.oink.app-main-72:/xml/oink_widget_info.xml"
+    },
+    {
+        "merged": "/Users/stephencockerill/.gradle/daemon/8.13/com.oink.app-debug-70:/xml_backup_rules.xml.flat",
+        "source": "/Users/stephencockerill/.gradle/daemon/8.13/com.oink.app-main-72:/xml/backup_rules.xml"
+    },
+    {
+        "merged": "/Users/stephencockerill/.gradle/daemon/8.13/com.oink.app-debug-70:/mipmap-anydpi-v26_ic_launcher_round.xml.flat",
+        "source": "/Users/stephencockerill/.gradle/daemon/8.13/com.oink.app-main-72:/mipmap-anydpi-v26/ic_launcher_round.xml"
+    },
+    {
+        "merged": "com.oink.app-debug-70:/xml_oink_widget_info.xml.flat",
+        "source": "com.oink.app-main-72:/xml/oink_widget_info.xml"
+    },
+    {
+        "merged": "/Users/stephencockerill/.gradle/daemon/8.13/com.oink.app-debug-70:/mipmap-anydpi-v26_ic_launcher.xml.flat",
+        "source": "/Users/stephencockerill/.gradle/daemon/8.13/com.oink.app-main-72:/mipmap-anydpi-v26/ic_launcher.xml"
+    }
+]

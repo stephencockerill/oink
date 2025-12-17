@@ -1,0 +1,36 @@
+{
+    "logs": [
+        {
+            "outputFile": "com.oink.app-mergeDebugResources-68:/values-v23/values-v23.xml",
+            "map": [
+                {
+                    "source": "/Users/stephencockerill/.gradle/caches/8.13/transforms/b17dc106329a3b1051b02de230bf5455/transformed/work-runtime-2.9.1/res/values-v23/values-v23.xml",
+                    "from": {
+                        "startLines": "2,3",
+                        "startColumns": "4,4",
+                        "startOffsets": "55,121",
+                        "endColumns": "65,62",
+                        "endOffsets": "116,179"
+                    }
+                },
+                {
+                    "source": "/Users/stephencockerill/.gradle/caches/8.13/transforms/a72a6fd5dda11f3e5cd1e842becbe8c6/transformed/glance-appwidget-1.1.1/res/values-v23/values-v23.xml",
+                    "from": {
+                        "startLines": "2",
+                        "startColumns": "4",
+                        "startOffsets": "55",
+                        "endColumns": "55",
+                        "endOffsets": "106"
+                    },
+                    "to": {
+                        "startLines": "4",
+                        "startColumns": "4",
+                        "startOffsets": "184",
+                        "endColumns": "55",
+                        "endOffsets": "235"
+                    }
+                }
+            ]
+        }
+    ]
+}

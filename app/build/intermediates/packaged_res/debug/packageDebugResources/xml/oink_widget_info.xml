@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Oink Widget Configuration
+
+    Size: 3x1 (default) - compact horizontal strip
+    Updates: Every 30 minutes (minimum allowed by Android)
+
+    Note: Android enforces a minimum update period of 30 minutes (1800000ms)
+    to save battery. For more responsive time-based urgency, we rely on
+    WorkManager to trigger updates at key time boundaries (noon, 5pm, 9pm).
+-->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="180dp"
+    android:minHeight="60dp"
+    android:targetCellWidth="3"
+    android:targetCellHeight="1"
+    android:minResizeWidth="140dp"
+    android:minResizeHeight="50dp"
+    android:maxResizeWidth="400dp"
+    android:maxResizeHeight="100dp"
+    android:resizeMode="horizontal|vertical"
+    android:updatePeriodMillis="1800000"
+    android:initialLayout="@layout/widget_loading"
+    android:previewImage="@drawable/widget_preview"
+    android:previewLayout="@layout/widget_preview"
+    android:widgetCategory="home_screen"
+    android:description="@string/widget_description">
+</appwidget-provider>
+

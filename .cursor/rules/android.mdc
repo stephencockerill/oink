@@ -1,0 +1,103 @@
+---
+description: Android development
+alwaysApply: false
+---
+# Android Development Expert
+
+You are an expert Android developer using Kotlin and Jetpack Compose.
+
+## Tech Stack
+
+- **Language**: Kotlin (idiomatic, concise)
+- **UI**: Jetpack Compose with Material 3
+- **Architecture**: MVVM with ViewModels
+- **Local Storage**: DataStore for preferences, Room for structured data
+- **Dependency Injection**: Hilt (only when complexity justifies it)
+- **Async**: Kotlin Coroutines and Flow
+
+## Code Style
+
+- Use Kotlin idioms: data classes, sealed classes, when expressions, extension functions
+- Prefer immutability and functional patterns
+- Use coroutines for async work (never callbacks)
+- Follow Material Design 3 guidelines
+- Keep composables small, focused, and reusable
+- Use meaningful naming: `userRepository` not `repo`, `isLoading` not `loading`
+- Prefer `StateFlow` over `LiveData` for new code
+
+## Architecture Patterns
+
+- Separate UI (composables) from logic (ViewModels)
+- Use state hoisting in Compose - lift state to the lowest common ancestor
+- ViewModels should expose UI state via `StateFlow` or `State`
+- Repository pattern for data access (abstracts data sources)
+- Handle configuration changes properly (ViewModels survive rotation)
+- Use `remember` and `rememberSaveable` appropriately
+
+## Compose Best Practices
+
+- Use `Column`, `Row`, `Box` for layouts (not ConstraintLayout unless complex)
+- Apply modifiers in logical order: size → padding → clickable
+- Preview composables with `@Preview` annotation
+- Use `LaunchedEffect` for side effects, `derivedStateOf` for computed state
+- Avoid side effects in composition (no launching coroutines directly in composables)
+
+## Room Database
+
+- Entities should be data classes with `@Entity` annotation
+- DAOs should be interfaces with suspend functions for async operations
+- Use Flow return types for observable queries
+- Migrations for schema changes (or fallback to destructive migration in dev)
+
+## Testing Philosophy
+
+- Test ViewModels with unit tests (easier than UI tests)
+- Use fake repositories for ViewModel tests
+- UI tests only for critical user flows
+- Mock time/date dependencies for testability
+
+## Dependency Management
+
+- Use version catalogs (`libs.versions.toml`) for dependency management
+- Explain why each dependency is needed when adding it
+- Prefer official Jetpack libraries over third-party when available
+
+## When Suggesting Code
+
+- Explain Android/Kotlin patterns that differ from Python/Django (e.g., "Unlike Django's ORM, Room requires explicit DAOs")
+- Highlight Android lifecycle considerations (activity/fragment lifecycle, process death)
+- Point out Gradle configuration needs and where they go
+- Suggest realistic error handling (network failures, database errors)
+- Consider background/foreground state (apps can be killed anytime)
+
+## Common Pitfalls to Avoid
+
+- Don't perform long operations on the main thread
+- Don't leak context references in ViewModels
+- Don't use `GlobalScope` - use `viewModelScope` or `lifecycleScope`
+- Don't forget to handle permission requests for sensitive APIs
+- Don't ignore null safety - use Kotlin's null-safe operators
+
+## File Organization
+```
+app/src/main/
+├── java/com/package/
+│   ├── data/
+│   │   ├── local/        # Room database, DAOs, entities
+│   │   ├── repository/   # Repository implementations
+│   │   └── model/        # Data models
+│   ├── ui/
+│   │   ├── screens/      # Screen-level composables
+│   │   ├── components/   # Reusable UI components
+│   │   └── theme/        # Material theme, colors, typography
+│   ├── viewmodel/        # ViewModels
+│   └── utils/            # Helpers, extensions
+└── res/                  # Resources (minimal with Compose)
+```
+
+## Build Configuration
+
+- `build.gradle.kts` (Kotlin DSL preferred over Groovy)
+- Enable ViewBinding/Compose as needed
+- Use `buildFeatures { compose = true }`
+- Keep Compose compiler version compatible with Kotlin version

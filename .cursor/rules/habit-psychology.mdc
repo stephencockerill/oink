@@ -1,0 +1,160 @@
+---
+alwaysApply: true
+---
+# Psychology-Driven Design Principles for Oink
+
+You are building Oink, a workout habit tracker that uses behavioral economics and gamification psychology to help users build consistent exercise habits.
+
+## Core Psychological Foundation
+
+### Loss Aversion (Kahneman & Tversky)
+- **Key Principle**: Losses loom larger than gains—the pain of losing is ~2x as powerful as the pleasure of gaining
+- **In Oink**: The halving penalty (÷2) creates stronger motivation to maintain streaks than the +$5 reward alone
+- **Design Implication**: Visual and emotional weight of losing should feel significant but not devastating
+
+### Positive Reinforcement Over Punishment
+- **Key Principle**: Apps using only positive reinforcement (like Finch) prevent guilt spirals that cause abandonment
+- **In Oink**: Balance the penalty with celebration, progress visualization, and recovery narratives
+- **Design Implication**: When user misses, show the loss but immediately frame next workout as "comeback opportunity"
+
+### Recovery Mechanisms
+- **Key Principle**: Users with clear recovery paths are 3x more likely to maintain long-term habits
+- **In Oink**: Consider streak freezes, insurance options, or "comeback bonuses"
+- **Design Implication**: Never make the user feel like one miss destroys everything
+
+### Visual Progress & Streaks
+- **Key Principle**: Making progress highly visible increases commitment by 60%
+- **In Oink**: The pig character should visually evolve (get stronger, change appearance) as balance grows
+- **Design Implication**: Use animations, progressive visual changes, and prominent streak displays
+
+### Character Attachment
+- **Key Principle**: Pet-care metaphors (like Finch's bird) create emotional investment that drives consistency
+- **In Oink**: The pig is not just a mascot—it's a companion whose wellbeing reflects user's habits
+- **Design Implication**: Give pig personality, expressions, and reactions to user actions
+
+## Design Guidelines for Every Feature
+
+When implementing ANY feature in Oink, ask yourself:
+
+1. **Does this leverage loss aversion appropriately?**
+   - Show what user stands to lose (but don't be cruel)
+   - Make gains feel celebratory but losses feel recoverable
+
+2. **Does this maintain positive reinforcement?**
+   - Avoid shame, guilt, or harsh language
+   - Frame misses as temporary setbacks, not failures
+   - Celebrate small wins enthusiastically
+
+3. **Does this make progress visible?**
+   - Use animations, visual changes, numbers
+   - Show both short-term (today) and long-term (total balance, streak) progress
+   - Make the pig's state immediately reflect current status
+
+4. **Does this build character attachment?**
+   - Give pig personality through animations and reactions
+   - Make interactions feel personal and meaningful
+   - Create moments of delight (pig celebrating, doing exercises)
+
+5. **Does this support recovery?**
+   - Provide paths back after misses
+   - Don't punish too harshly (halving is already significant)
+   - Show that coming back is always possible
+
+## UI/UX Principles
+
+### Tone
+- **Encouraging, not preachy**: "Ready to earn another $5?" not "You should exercise today"
+- **Playful, not childish**: Gym humor, fitness puns, but respect user's intelligence
+- **Supportive, not guilt-tripping**: "Comeback time!" not "You missed yesterday"
+
+### Visual Hierarchy
+1. **Most Prominent**: Current balance (user's "score")
+2. **Second**: Today's check-in status (did they exercise yet?)
+3. **Third**: Streak counter
+4. **Supporting**: Pig character state, history, settings
+
+### Animations & Feedback
+- **Instant feedback**: Every action gets immediate visual/haptic response
+- **Celebratory moments**: Coins dropping, pig jumping, confetti on milestones
+- **Empathetic losses**: Pig looks disappointed but not destroyed when balance halves
+
+### Accessibility
+- High contrast for balance numbers
+- Clear, large tap targets
+- Haptic feedback for important actions
+- Support for reduced motion if needed
+
+## Anti-Patterns to Avoid
+
+❌ **Don't**: Make streaks the ONLY metric (if broken, users abandon)
+✅ **Do**: Show streak but also cumulative earnings, total workouts, personal records
+
+❌ **Don't**: Shame users for missing ("You failed again")
+✅ **Do**: Encourage recovery ("One workout brings you back on track!")
+
+❌ **Don't**: Make the pig "die" or disappear
+✅ **Do**: Make pig sad/smaller but always present and hopeful
+
+❌ **Don't**: Add too many features at once (cognitive overload)
+✅ **Do**: Start simple, add depth gradually as user engages
+
+❌ **Don't**: Ignore the halving mechanic's psychological weight
+✅ **Do**: Make halving feel significant through animation/sound but show immediate path forward
+
+## Milestone System
+
+Design milestones that create sub-goals and variety:
+
+**Financial Milestones**:
+- $25 - "Quarter Pounder"
+- $50 - "Half-Swole"
+- $100 - "Century Club"
+- $200 - "Swole Savings"
+
+**Streak Milestones**:
+- 7 days - "Week Warrior"
+- 14 days - "Fortnight Fighter"
+- 30 days - "Monthly Muscle"
+- 60 days - "Habit Hero"
+
+**Visual Rewards**:
+- Unlock pig outfits/accessories
+- New background environments
+- Special animations
+- Different exercise types pig performs
+
+## References for Deep Dives
+
+If you need to understand the psychology more deeply:
+
+- **Loss Aversion**: Kahneman & Tversky (1979) "Prospect Theory"
+- **Gamification**: Duolingo's case studies (60% engagement boost from streaks)
+- **Habit Formation**: "3x more likely to succeed with recovery mechanisms"
+- **Pet-Care Apps**: Finch app—positive reinforcement without punishment
+
+## Implementation Priority
+
+When building features, prioritize based on psychological impact:
+
+**HIGH PRIORITY** (Core psychological hooks):
+1. Visual pig character with emotional states
+2. Clear balance display with gain/loss preview
+3. Celebration animations for check-ins
+4. Streak counter with visual prominence
+5. Recovery messaging after misses
+
+**MEDIUM PRIORITY** (Enhanced engagement):
+1. Milestone badges/achievements
+2. History view showing progress over time
+3. Pig progression (getting stronger)
+4. Sound effects for key actions
+5. Streak freeze/insurance mechanic
+
+**LOW PRIORITY** (Nice-to-haves):
+1. Social features (share achievements)
+2. Customizable pig appearance
+3. Different workout types
+4. Statistics/analytics
+5. Spending tracker
+
+Remember: Every design choice should answer "How does this use psychology to help users build a lasting exercise habit?"

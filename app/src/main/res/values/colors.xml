@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Oink Piggy Bank Theme Colors 🐷 -->
+
+    <!-- Widget Colors (dark mode optimized) -->
+    <color name="widget_background">#FF1C1B1F</color>
+    <color name="widget_text_primary">#FFFFFFFF</color>
+    <color name="widget_text_secondary">#B3FFFFFF</color>
+    <color name="widget_accent">#FFFFB1C8</color>  <!-- Piggy pink accent -->
+    <color name="widget_success">#FF81C784</color>
+    <color name="widget_error">#FFEF9A9A</color>
+
+    <!-- Urgency gradient backgrounds (for time-based reminders) -->
+    <color name="widget_urgency_calm">#FF1C1B1F</color>       <!-- Default dark - morning/logged -->
+    <color name="widget_urgency_nudge">#FF2D2520</color>      <!-- Warm hint - afternoon -->
+    <color name="widget_urgency_warn">#FF3D2A1A</color>       <!-- Orange undertone - evening -->
+    <color name="widget_urgency_critical">#FF4A1F1F</color>   <!-- Red undertone - night -->
+
+    <!-- Streak tier colors -->
+    <color name="widget_streak_fire">#FFFF6B35</color>        <!-- 1-6 days: Orange fire -->
+    <color name="widget_streak_blaze">#FFFF4500</color>       <!-- 7-13 days: Hot orange-red -->
+    <color name="widget_streak_inferno">#FFFF1744</color>     <!-- 14-29 days: Intense red -->
+    <color name="widget_streak_legendary">#FFFFD700</color>   <!-- 30+ days: Gold -->
+
+    <!-- Primary brand color for widget preview and launcher -->
+    <color name="widget_preview_background">#FFE91E63</color>  <!-- Piggy pink -->
+
+    <!-- Launcher icon background -->
+    <color name="ic_launcher_background">#FFE91E63</color>
+</resources>

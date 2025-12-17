@@ -1,0 +1,32 @@
+R_DEF: Internal format may change without notice
+local
+color ic_launcher_background
+color widget_accent
+color widget_background
+color widget_error
+color widget_preview_background
+color widget_streak_blaze
+color widget_streak_fire
+color widget_streak_inferno
+color widget_streak_legendary
+color widget_success
+color widget_text_primary
+color widget_text_secondary
+color widget_urgency_calm
+color widget_urgency_critical
+color widget_urgency_nudge
+color widget_urgency_warn
+drawable ic_launcher_background
+drawable ic_launcher_foreground
+drawable ic_notification
+drawable widget_preview
+layout widget_loading
+layout widget_preview
+mipmap ic_launcher
+mipmap ic_launcher_round
+string app_name
+string widget_description
+style Theme.Oink
+xml backup_rules
+xml data_extraction_rules
+xml oink_widget_info
