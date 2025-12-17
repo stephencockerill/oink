@@ -53,6 +53,107 @@ This roadmap tracks features planned for Oink, organized by psychological impact
 
 ---
 
+## 🎨 Art & Design
+
+### Pig Character Art
+The pig is the soul of this app. We need actual art, not just emoji placeholders.
+
+**Options to explore:**
+- [ ] **Commission an artist** — Find someone on Fiverr, Upwork, or r/HungryArtists
+  - Need: Multiple pig states (tiny → swole progression)
+  - Need: Different expressions (happy, sad, excited, sleeping)
+  - Need: Animations/sprite sheets for movement
+  - Budget estimate: $200-500 for full character set
+
+- [ ] **AI-generated art** — Use Midjourney/DALL-E for concepts, then refine
+  - Pros: Fast iteration, cheap
+  - Cons: May lack consistency, licensing questions
+
+- [ ] **Lottie animations** — Consider [LottieFiles](https://lottiefiles.com/) for pre-made pig animations
+  - Pros: Easy to implement, looks great
+  - Cons: Less custom, may not match our vision
+
+- [ ] **DIY pixel art** — Retro style could be charming and achievable
+  - Tools: Aseprite, Piskel
+
+**Art requirements checklist:**
+- [ ] Pig progression states (5+ versions from piglet to swole)
+- [ ] Facial expressions (happy, sad, excited, determined, sleeping)
+- [ ] Exercise animations (push-ups, jumping, celebrating)
+- [ ] Idle animation (breathing, blinking)
+- [ ] App icon (pig face, recognizable at small sizes)
+- [ ] Widget assets
+- [ ] Splash screen
+
+### Visual Style & Theming
+Currently using Material 3 defaults. Need to define our actual brand.
+
+- [ ] **Color palette** — What vibe do we want?
+  - Playful & bright? (Duolingo-style greens/oranges)
+  - Warm & cozy? (Soft pinks, warm neutrals)
+  - Bold & energetic? (High contrast, gym vibes)
+  - Money-focused? (Greens and golds)
+
+- [ ] **Typography** — Current fonts are generic
+  - Consider: Rounded, friendly fonts (Nunito, Poppins, Quicksand)
+  - Balance display: Bold, impactful numbers
+
+- [ ] **Overall aesthetic direction**
+  - Reference apps: Finch (soft, nurturing), Duolingo (playful), Cash App (bold money vibes)
+
+- [ ] **Dark mode polish** — Make it actually look good, not just inverted
+
+---
+
+## 🚀 Play Store Release
+
+Getting on Google Play is a multi-step process. Here's what we need:
+
+### Pre-Launch Checklist
+- [ ] **Google Play Developer account** — $25 one-time fee
+  - Sign up at [play.google.com/console](https://play.google.com/console)
+
+- [ ] **App signing & release build**
+  - Generate upload key (keep it SAFE - lose it = lose app)
+  - Create signed APK/AAB (Android App Bundle preferred)
+  - Enable Play App Signing (recommended)
+
+- [ ] **Store listing assets**
+  - [ ] App icon (512x512 PNG)
+  - [ ] Feature graphic (1024x500 PNG) — the banner image
+  - [ ] Screenshots (phone, maybe tablet)
+    - At least 2, recommended 4-8
+    - Show key features: balance, streak, widget, rewards
+  - [ ] Short description (80 chars max)
+  - [ ] Full description (4000 chars max)
+
+- [ ] **Content rating questionnaire** — Answer questions about app content
+
+- [ ] **Privacy policy** — Required! Host somewhere (GitHub Pages works)
+  - What data we collect (local only? any analytics?)
+  - How it's used
+
+- [ ] **Target audience & content** — Confirm not targeted at children under 13
+
+### Technical Requirements
+- [ ] **Remove destructive migration** — Add proper Room migrations before release!
+- [ ] **Crash reporting** — Consider Firebase Crashlytics
+- [ ] **Analytics** (optional) — Firebase Analytics, privacy-respecting
+- [ ] **Test on multiple devices** — Different screen sizes, Android versions
+- [ ] **ProGuard/R8 optimization** — Shrink release build
+
+### Launch Strategy
+- [ ] **Closed testing first** — Internal testing track, then closed beta
+- [ ] **Gather feedback** — Fix issues before public launch
+- [ ] **Open production** — Go live!
+
+### Post-Launch
+- [ ] **Monitor reviews** — Respond to feedback
+- [ ] **Crash monitoring** — Fix issues fast
+- [ ] **Update regularly** — Shows app is maintained
+
+---
+
 ## 📋 Planned Features
 
 ### HIGH PRIORITY — Core Psychological Hooks
@@ -80,20 +181,46 @@ These features have the highest psychological impact and should be built first.
   - Exercise animations (push-ups, jumping jacks)
   - Idle breathing/movement
 
-#### 🎉 Celebration Animations
+#### 🎉 Animations & Effects
 **Impact**: Instant feedback creates dopamine hits that reinforce behavior
 
-- [ ] **Check-in success animation**:
-  - Coins flying into piggy bank
+##### Check-in Animations
+- [ ] **Exercise check-in success**:
+  - Coins flying into piggy bank (Lottie animation)
   - Confetti burst
-  - "+$5.00" floating text
-  - Haptic feedback
-- [ ] **Streak milestone celebration**:
-  - Special animation at 7, 14, 30, 60 days
+  - "+$5.00" floating text with spring animation
+  - Haptic feedback (success pattern)
+  - Pig celebration animation
+
+- [ ] **Miss check-in**:
+  - Gentle "deflate" animation (not harsh!)
+  - Balance reduction shown visually
+  - Immediate "You can come back!" messaging
+  - Soft haptic (not punishing)
+
+##### Milestone Celebrations
+- [ ] **Streak milestones** (7, 14, 30, 60 days):
+  - Full-screen celebration overlay
   - Badge unlock animation
-- [ ] **Balance milestone celebration**:
-  - Special animation at $25, $50, $100, $200
-  - Achievement unlock animation
+  - Shareable achievement card
+
+- [ ] **Balance milestones** ($25, $50, $100, $200):
+  - Pig evolution animation
+  - "Level up" fanfare
+  - New pig state reveal
+
+##### Cash-Out Celebration (Current: basic, needs enhancement)
+- [ ] **Enhanced reward animation**:
+  - Piggy bank "breaking open" effect
+  - Money/coins shower
+  - Big celebratory "YOU EARNED IT!" with confetti
+  - Pig doing victory dance
+
+##### Implementation Notes
+- Consider [Lottie](https://lottiefiles.com/) for complex animations
+- Use Compose animation APIs for simpler transitions
+- Always include haptic feedback option (can be disabled)
+- Respect "reduce motion" accessibility setting
 
 #### 🏆 Milestone System
 **Impact**: Sub-goals create variety and motivation beyond just the streak
@@ -225,14 +352,43 @@ See `.cursor/rules/habit-psychology.mdc` for full guidelines.
 - Core mechanics complete
 - Widget with escalating urgency
 - Streak freezes
-- Basic UI
+- Cash-out / Rewards system
+- Basic UI (Material 3 defaults)
 
-### v1.1.0 (Next)
-- Visual pig character
-- Celebration animations
-- Milestone system
+### v1.1.0 (Next) — "The Pig Update"
+**Goal: Make this app actually feel like OINK, not a generic habit tracker**
+
+- [ ] Pig character art (commissioned or DIY)
+- [ ] Basic pig integration on home screen
+- [ ] Celebration animations (check-in success)
+- [ ] Defined color palette and typography
+- [ ] App icon and splash screen
+
+### v1.2.0 — "Polish & Play Store"
+- [ ] Full pig animation system
+- [ ] Milestone celebrations
+- [ ] Sound effects (optional)
+- [ ] Dark mode polish
+- [ ] **Google Play Store launch** 🚀
+
+### Future (v2.0+)
+- Pig customization & accessories
+- Social sharing
+- Advanced stats & insights
+- Watch OS widget
 
 ---
 
-*Last updated: December 2024*
+## 🔗 Useful Links
+
+- [Google Play Console](https://play.google.com/console) — Where we publish
+- [LottieFiles](https://lottiefiles.com/) — Pre-made animations
+- [r/HungryArtists](https://reddit.com/r/HungryArtists) — Commission artists
+- [Fiverr](https://fiverr.com) — Freelance artists
+- [Material 3 Color Tool](https://m3.material.io/theme-builder) — Design our palette
+- [Firebase](https://firebase.google.com/) — Crashlytics, Analytics
+
+---
+
+*Last updated: December 2025*
 
