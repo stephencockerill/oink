@@ -89,15 +89,14 @@ Research shows gamification dramatically improves habit consistency:
 - **60% boost** in commitment when progress is highly visible[^4]
 - **3.6x more likely** to stay engaged long-term after maintaining a 7-day streak[^4]
 - **3x more likely** to maintain habits with clear recovery mechanisms[^5]
-- **42% more likely** to reach goals when actively tracking[^6]
 
 ### Inspired By
 
 Oink combines proven patterns from successful habit apps:
 - **Duolingo**: Streak mechanics and visible progress
-- **Finch**: Pet-care metaphor that creates emotional investment[^7]
-- **Habitica**: Gamified progression for routine tasks[^8]
-- **StickK**: Financial commitment devices[^9]
+- **Finch**: Pet-care metaphor that creates emotional investment[^6]
+- **Habitica**: Gamified progression for routine tasks[^7]
+- **StickK**: Financial commitment devices[^8]
 
 But Oink has a unique twist: **you're building toward rewards (things you want to buy) while protecting against losses (the halving mechanic)**. Unlike penalty apps where you risk your own money upfront, you start at zero and earn your way up. Unlike virtual reward apps, your balance represents real purchasing power. It's loss aversion applied to *gains you've earned*, not money you started with.
 
@@ -105,7 +104,7 @@ But Oink has a unique twist: **you're building toward rewards (things you want t
 
 Every feature follows these psychology-backed guidelines:
 
-1. **Positive Reinforcement** - Celebrate wins, frame recovery as achievable, no shame or guilt[^7]
+1. **Positive Reinforcement** - Celebrate wins, frame recovery as achievable, no shame or guilt[^6]
 2. **Visual Progress** - Pig's appearance reflects your commitment, animations create delight
 3. **Recovery Friendly** - Halving hurts but you can always bounce back (3x better retention)[^5]
 4. **Clear Feedback** - Always know what you'll gain (+$5) or lose (÷2) before checking in
@@ -177,13 +176,11 @@ MIT License
 
 [^5]: Liberty, S. (2025). How To Actually Gamify Your Life (A Game Designer's Guide). *Medium*. https://sa-liberty.medium.com/how-to-actually-gamify-your-life-a-game-designers-guide-e54cd91c79b1
 
-[^6]: Daylox. (2025). Top Habit Tracker Apps for 2025. https://www.daylox.com/productivity/top-habit-tracker-apps-for-2025/
+[^6]: Naavik. (2024). New Horizons in Habit-Building Gamification. https://naavik.co/deep-dives/deep-dives-new-horizons-in-gamification/
 
-[^7]: Yoga Journal. (2025). The Finch Self Care App Made Bettering My Mental Health a Game. https://www.yogajournal.com/lifestyle/finch-self-care-app/
+[^7]: Habitica. https://habitica.com/
 
-[^8]: Naavik. (2024). New Horizons in Habit-Building Gamification. https://naavik.co/deep-dives/deep-dives-new-horizons-in-gamification/
-
-[^9]: BehavioralEconomics.com. (2024). Loss Aversion. https://www.behavioraleconomics.com/resources/mini-encyclopedia-of-be/loss-aversion/
+[^8]: BehavioralEconomics.com. (2024). Loss Aversion. https://www.behavioraleconomics.com/resources/mini-encyclopedia-of-be/loss-aversion/
 
 ## Further Reading
 
@@ -196,7 +193,7 @@ MIT License
 - Eyal, N. (2014). *Hooked*. Portfolio.
 
 **Research**:
-- Lieder, F., et al. (2022). Gamification of Behavior Change. *Journal of Medical Internet Research*. https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10998180/
+- Lieder, F., et al. (2022). Gamification of Behavior Change. *Journal of Medical Internet Research*, 24(4). https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10998180/
 
 ## Acknowledgments
 
