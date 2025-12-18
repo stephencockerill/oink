@@ -15,10 +15,14 @@ import kotlin.math.roundToLong
  * 1. It keeps business logic out of the ViewModel
  * 2. Makes testing easier (you can mock this)
  * 3. If we ever switch from Room to something else, only this changes
+ *
+ * The exerciseRewardProvider parameter uses an interface instead of
+ * the concrete PreferencesRepository to enable testing with fakes.
+ * PreferencesRepository implements ExerciseRewardProvider.
  */
 class CheckInRepository(
     private val checkInDao: CheckInDao,
-    private val preferencesRepository: PreferencesRepository
+    private val exerciseRewardProvider: ExerciseRewardProvider
 ) {
 
     companion object {
@@ -30,7 +34,7 @@ class CheckInRepository(
      * Get the current exercise reward from preferences.
      */
     suspend fun getExerciseReward(): Double {
-        return preferencesRepository.getExerciseReward()
+        return exerciseRewardProvider.getExerciseReward()
     }
 
     /**
@@ -132,6 +136,57 @@ class CheckInRepository(
         recalculateBalancesAfter(existing.date)
 
         return updated
+    }
+
+    /**
+     * Bulk record check-ins for multiple dates.
+     *
+     * This is optimized for batch operations like selecting multiple days
+     * in the calendar and marking them all as exercised or missed.
+     *
+     * Processes dates in chronological order and only recalculates
+     * balances once after all updates are complete.
+     *
+     * @param dates The dates to update
+     * @param didExercise Whether these days were exercise days
+     */
+    suspend fun bulkRecordCheckIns(dates: Set<LocalDate>, didExercise: Boolean) {
+        if (dates.isEmpty()) return
+
+        val exerciseReward = getExerciseReward()
+        val sortedDates = dates.sorted()
+        val earliestDate = sortedDates.first()
+
+        // Process each date
+        for (date in sortedDates) {
+            val existing = checkInDao.getCheckInForDate(date.toEpochDay())
+            val previousBalance = getPreviousBalance(date)
+            val newBalance = calculateNewBalance(previousBalance, didExercise, exerciseReward)
+
+            if (existing != null) {
+                // Update existing
+                if (existing.didExercise != didExercise) {
+                    checkInDao.update(
+                        existing.copy(
+                            didExercise = didExercise,
+                            balanceAfter = newBalance
+                        )
+                    )
+                }
+            } else {
+                // Create new
+                checkInDao.insert(
+                    CheckIn(
+                        date = date,
+                        didExercise = didExercise,
+                        balanceAfter = newBalance
+                    )
+                )
+            }
+        }
+
+        // Recalculate all balances after the earliest date we touched
+        recalculateBalancesAfter(earliestDate)
     }
 
     /**
@@ -333,27 +388,15 @@ class CheckInRepository(
         return checkInDao.getTotalWorkoutCount()
     }
 
-    /**
-     * Deduct an amount from the current balance.
-     * Used for streak freeze purchases, etc.
-     *
-     * This updates the most recent check-in's balanceAfter.
-     * If no check-ins exist, this is a no-op (can't go negative from 0).
-     *
-     * @param amount Amount to deduct
-     * @return true if successful, false if insufficient balance
-     */
-    suspend fun deductBalance(amount: Double): Boolean {
-        val latestCheckIn = checkInDao.getLatestCheckIn() ?: return false
-        val currentBalance = latestCheckIn.balanceAfter
-
-        if (currentBalance < amount) {
-            return false
-        }
-
-        val newBalance = ((currentBalance - amount) * 100).roundToLong() / 100.0
-        checkInDao.update(latestCheckIn.copy(balanceAfter = newBalance))
-        return true
-    }
+    // NOTE: We intentionally DO NOT have a deductBalance() method!
+    //
+    // Deductions (cash-outs, freeze costs) are tracked SEPARATELY from check-ins.
+    // The actual balance is calculated as:
+    //   Check-in balance - Total cashed out - Total freeze spending
+    //
+    // This prevents the bug where toggling a check-in (exercise ↔ miss) would
+    // lose track of deductions that were previously baked into the check-in.
+    //
+    // See MainViewModel.currentBalance for the calculation.
 }
 

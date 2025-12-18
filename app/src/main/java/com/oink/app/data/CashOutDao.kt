@@ -1,8 +1,10 @@
 package com.oink.app.data
 
 import androidx.room.Dao
+import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.Query
+import androidx.room.Update
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -16,6 +18,24 @@ interface CashOutDao {
      */
     @Insert
     suspend fun insert(cashOut: CashOut): Long
+
+    /**
+     * Update an existing cash-out record.
+     */
+    @Update
+    suspend fun update(cashOut: CashOut)
+
+    /**
+     * Delete a cash-out record.
+     */
+    @Delete
+    suspend fun delete(cashOut: CashOut)
+
+    /**
+     * Get a cash-out by ID.
+     */
+    @Query("SELECT * FROM cash_outs WHERE id = :id")
+    suspend fun getById(id: Long): CashOut?
 
     /**
      * Get all cash-outs, most recent first.

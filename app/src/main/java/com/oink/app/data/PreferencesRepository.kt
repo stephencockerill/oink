@@ -49,7 +49,7 @@ data class UserPreferences(
  * 3. It handles errors gracefully
  * 4. SharedPreferences is legacy garbage
  */
-class PreferencesRepository(private val context: Context) {
+class PreferencesRepository(private val context: Context) : CashOutPreferencesProvider {
 
     companion object {
         const val MAX_FREEZES = 2
@@ -66,6 +66,7 @@ class PreferencesRepository(private val context: Context) {
         val AVAILABLE_FREEZES = intPreferencesKey("available_freezes")
         val FROZEN_DATES = stringSetPreferencesKey("frozen_dates") // Store as epoch day strings
         val EXERCISE_REWARD = doublePreferencesKey("exercise_reward")
+        val TOTAL_FREEZE_SPENDING = doublePreferencesKey("total_freeze_spending")
     }
 
     /**
@@ -197,8 +198,9 @@ class PreferencesRepository(private val context: Context) {
 
     /**
      * Get the current exercise reward amount.
+     * Implements ExerciseRewardProvider interface.
      */
-    suspend fun getExerciseReward(): Double {
+    override suspend fun getExerciseReward(): Double {
         return context.dataStore.data.first()[Keys.EXERCISE_REWARD] ?: DEFAULT_EXERCISE_REWARD
     }
 
@@ -217,6 +219,43 @@ class PreferencesRepository(private val context: Context) {
      */
     suspend fun getFreezeCost(): Double {
         return getExerciseReward() * 2
+    }
+
+    // ============================================================
+    // DEDUCTION TRACKING
+    // ============================================================
+    // We track deductions (like freeze costs) separately from check-in balances.
+    // This ensures that when a check-in is toggled/recalculated, we don't
+    // lose track of money that was spent on freezes.
+    //
+    // Cash-outs are already tracked in their own table (CashOut).
+    // Freeze spending needs to be tracked here since it's not in a table.
+    // ============================================================
+
+    /**
+     * Flow of total freeze spending.
+     * Use this for reactive UI updates.
+     */
+    val totalFreezeSpending: Flow<Double> = context.dataStore.data.map { prefs ->
+        prefs[Keys.TOTAL_FREEZE_SPENDING] ?: 0.0
+    }
+
+    /**
+     * Get total amount spent on freezes (one-time query).
+     */
+    override suspend fun getTotalFreezeSpending(): Double {
+        return context.dataStore.data.first()[Keys.TOTAL_FREEZE_SPENDING] ?: 0.0
+    }
+
+    /**
+     * Add to the total freeze spending.
+     * Called when a freeze is USED (not when it's acquired).
+     */
+    override suspend fun addFreezeSpending(amount: Double) {
+        context.dataStore.edit { prefs ->
+            val current = prefs[Keys.TOTAL_FREEZE_SPENDING] ?: 0.0
+            prefs[Keys.TOTAL_FREEZE_SPENDING] = current + amount
+        }
     }
 }
 

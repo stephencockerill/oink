@@ -57,7 +57,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -97,16 +97,16 @@ fun HomeScreen(
     onNavigateToSettings: () -> Unit,
     onNavigateToRewards: () -> Unit
 ) {
-    val balance by viewModel.currentBalance.collectAsState()
-    val todayCheckIn by viewModel.todayCheckIn.collectAsState()
-    val streak by viewModel.streak.collectAsState()
-    val exercisePreview by viewModel.exercisePreview.collectAsState()
-    val missPreview by viewModel.missPreview.collectAsState()
-    val isLoading by viewModel.isLoading.collectAsState()
-    val error by viewModel.error.collectAsState()
-    val availableFreezes by viewModel.availableFreezes.collectAsState()
-    val missedDayForFreeze by viewModel.missedDayForFreeze.collectAsState()
-    val freezeCost by viewModel.freezeCost.collectAsState()
+    val balance by viewModel.currentBalance.collectAsStateWithLifecycle()
+    val todayCheckIn by viewModel.todayCheckIn.collectAsStateWithLifecycle()
+    val streak by viewModel.streak.collectAsStateWithLifecycle()
+    val exercisePreview by viewModel.exercisePreview.collectAsStateWithLifecycle()
+    val missPreview by viewModel.missPreview.collectAsStateWithLifecycle()
+    val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
+    val error by viewModel.error.collectAsStateWithLifecycle()
+    val availableFreezes by viewModel.availableFreezes.collectAsStateWithLifecycle()
+    val missedDayForFreeze by viewModel.missedDayForFreeze.collectAsStateWithLifecycle()
+    val freezeCost by viewModel.freezeCost.collectAsStateWithLifecycle()
 
     val snackbarHostState = remember { SnackbarHostState() }
 

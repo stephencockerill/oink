@@ -43,6 +43,7 @@ import com.oink.app.R
 import com.oink.app.data.AppDatabase
 import com.oink.app.data.CheckInRepository
 import com.oink.app.data.PreferencesRepository
+import com.oink.app.utils.BalanceCalculator
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -106,10 +107,20 @@ class OinkWidget : GlanceAppWidget() {
         val todayCheckIn = database.checkInDao().getCheckInForDate(LocalDate.now().toEpochDay())
         val streak = repository.calculateStreak()
 
-        Log.d(TAG, "getWidgetData: latestCheckIn=$latestCheckIn, todayCheckIn=$todayCheckIn")
+        // Calculate ACTUAL balance using centralized BalanceCalculator
+        val checkInBalance = latestCheckIn?.balanceAfter ?: 0.0
+        val totalCashedOut = database.cashOutDao().getTotalCashedOut()
+        val totalFreezeSpending = preferencesRepository.getTotalFreezeSpending()
+        val actualBalance = BalanceCalculator.calculateActualBalance(
+            checkInBalance = checkInBalance,
+            totalCashedOut = totalCashedOut,
+            totalFreezeSpending = totalFreezeSpending
+        )
+
+        Log.d(TAG, "getWidgetData: checkInBalance=$checkInBalance, cashedOut=$totalCashedOut, freezeSpending=$totalFreezeSpending, actual=$actualBalance")
 
         return WidgetData(
-            balance = latestCheckIn?.balanceAfter ?: 0.0,
+            balance = actualBalance,
             streak = streak,
             checkedInToday = todayCheckIn != null,
             exercisedToday = todayCheckIn?.didExercise,

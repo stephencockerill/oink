@@ -9,7 +9,9 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -33,7 +35,10 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Deselect
+import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.LocalFireDepartment
+import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -50,7 +55,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -64,7 +69,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.oink.app.data.CashOut
 import com.oink.app.data.CheckIn
+import com.oink.app.ui.theme.MoneyGreen
 import com.oink.app.ui.theme.SuccessContainerLight
 import com.oink.app.ui.theme.SuccessLight
 import com.oink.app.viewmodel.MainViewModel
@@ -92,15 +99,21 @@ fun CalendarScreen(
     viewModel: MainViewModel,
     onNavigateBack: () -> Unit
 ) {
-    val checkIns by viewModel.allCheckIns.collectAsState()
-    val streak by viewModel.streak.collectAsState()
-    val isLoading by viewModel.isLoading.collectAsState()
+    val checkIns by viewModel.allCheckIns.collectAsStateWithLifecycle()
+    val cashOuts by viewModel.allCashOuts.collectAsStateWithLifecycle()
+    val streak by viewModel.streak.collectAsStateWithLifecycle()
+    val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
 
     // Current month being displayed
     var currentYearMonth by remember { mutableStateOf(YearMonth.now()) }
 
-    // Selected date for logging dialog
+    // Selected date for logging dialog (single day)
     var selectedDate by remember { mutableStateOf<LocalDate?>(null) }
+
+    // Multi-select mode state
+    var isSelectionMode by remember { mutableStateOf(false) }
+    var selectedDates by remember { mutableStateOf<Set<LocalDate>>(emptySet()) }
+    var rangeStartDate by remember { mutableStateOf<LocalDate?>(null) }
 
     // Create a map of date -> check-in for quick lookup
     val checkInMap by remember(checkIns) {
@@ -109,28 +122,109 @@ fun CalendarScreen(
         }
     }
 
+    // Create a map of date -> cash-outs for reward indicators
+    val cashOutsByDate by remember(cashOuts) {
+        derivedStateOf {
+            cashOuts.groupBy { cashOut ->
+                // Convert millis to LocalDate
+                java.time.Instant.ofEpochMilli(cashOut.cashedOutAt)
+                    .atZone(java.time.ZoneId.systemDefault())
+                    .toLocalDate()
+            }
+        }
+    }
+
+    // Exit selection mode when navigating away
+    val exitSelectionMode = {
+        isSelectionMode = false
+        selectedDates = emptySet()
+        rangeStartDate = null
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
                     Text(
-                        "Calendar",
+                        if (isSelectionMode) {
+                            "${selectedDates.size} selected"
+                        } else {
+                            "Calendar"
+                        },
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold
                     )
                 },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
+                    IconButton(
+                        onClick = {
+                            if (isSelectionMode) {
+                                exitSelectionMode()
+                            } else {
+                                onNavigateBack()
+                            }
+                        }
+                    ) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Go back"
+                            imageVector = if (isSelectionMode) {
+                                Icons.Default.Close
+                            } else {
+                                Icons.AutoMirrored.Filled.ArrowBack
+                            },
+                            contentDescription = if (isSelectionMode) "Cancel selection" else "Go back"
                         )
                     }
                 },
+                actions = {
+                    if (!isSelectionMode) {
+                        // Enter selection mode button
+                        IconButton(onClick = { isSelectionMode = true }) {
+                            Icon(
+                                imageVector = Icons.Default.SelectAll,
+                                contentDescription = "Multi-select mode"
+                            )
+                        }
+                    } else {
+                        // Clear selection button
+                        if (selectedDates.isNotEmpty()) {
+                            IconButton(onClick = { selectedDates = emptySet() }) {
+                                Icon(
+                                    imageVector = Icons.Default.Deselect,
+                                    contentDescription = "Clear selection"
+                                )
+                            }
+                        }
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent
+                    containerColor = if (isSelectionMode) {
+                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                    } else {
+                        Color.Transparent
+                    }
                 )
             )
+        },
+        bottomBar = {
+            // Bulk action bar when in selection mode with items selected
+            AnimatedVisibility(
+                visible = isSelectionMode && selectedDates.isNotEmpty(),
+                enter = fadeIn() + slideInHorizontally { it },
+                exit = fadeOut() + slideOutHorizontally { it }
+            ) {
+                BulkActionBar(
+                    selectedCount = selectedDates.size,
+                    onMarkExercised = {
+                        viewModel.bulkRecordCheckIns(selectedDates, true)
+                        exitSelectionMode()
+                    },
+                    onMarkMissed = {
+                        viewModel.bulkRecordCheckIns(selectedDates, false)
+                        exitSelectionMode()
+                    },
+                    isLoading = isLoading
+                )
+            }
         }
     ) { paddingValues ->
         Column(
@@ -169,10 +263,44 @@ fun CalendarScreen(
             CalendarGrid(
                 yearMonth = currentYearMonth,
                 checkInMap = checkInMap,
+                cashOutsByDate = cashOutsByDate,
+                isSelectionMode = isSelectionMode,
+                selectedDates = selectedDates,
+                rangeStartDate = rangeStartDate,
                 onDayClick = { date ->
                     // Only allow clicking on past or today
                     if (!date.isAfter(LocalDate.now())) {
-                        selectedDate = date
+                        if (isSelectionMode) {
+                            // In selection mode, toggle date selection
+                            selectedDates = if (selectedDates.contains(date)) {
+                                selectedDates - date
+                            } else {
+                                selectedDates + date
+                            }
+                        } else {
+                            // Normal mode - open single day dialog
+                            selectedDate = date
+                        }
+                    }
+                },
+                onDayLongClick = { date ->
+                    if (!date.isAfter(LocalDate.now())) {
+                        if (!isSelectionMode) {
+                            // Long press enters selection mode and selects this date
+                            isSelectionMode = true
+                            selectedDates = setOf(date)
+                            rangeStartDate = date
+                        } else if (rangeStartDate != null) {
+                            // In selection mode, long press extends range selection
+                            val start = minOf(rangeStartDate!!, date)
+                            val end = maxOf(rangeStartDate!!, date)
+                            val today = LocalDate.now()
+                            val range = generateSequence(start) { it.plusDays(1) }
+                                .takeWhile { !it.isAfter(end) && !it.isAfter(today) }
+                                .toSet()
+                            selectedDates = selectedDates + range
+                            rangeStartDate = date
+                        }
                     }
                 }
             )
@@ -344,7 +472,12 @@ private fun DayOfWeekHeader() {
 private fun CalendarGrid(
     yearMonth: YearMonth,
     checkInMap: Map<LocalDate, CheckIn>,
-    onDayClick: (LocalDate) -> Unit
+    cashOutsByDate: Map<LocalDate, List<CashOut>>,
+    isSelectionMode: Boolean,
+    selectedDates: Set<LocalDate>,
+    rangeStartDate: LocalDate?,
+    onDayClick: (LocalDate) -> Unit,
+    onDayLongClick: (LocalDate) -> Unit
 ) {
     val today = LocalDate.now()
     val firstDayOfMonth = yearMonth.atDay(1)
@@ -386,13 +519,21 @@ private fun CalendarGrid(
                 val checkIn = checkInMap[date]
                 val isToday = date == today
                 val isFuture = date.isAfter(today)
+                val isSelected = selectedDates.contains(date)
+                val isRangeStart = rangeStartDate == date
+                val hasReward = cashOutsByDate.containsKey(date)
 
                 CalendarDay(
                     date = date,
                     checkIn = checkIn,
                     isToday = isToday,
                     isFuture = isFuture,
-                    onClick = { onDayClick(date) }
+                    isSelectionMode = isSelectionMode,
+                    isSelected = isSelected,
+                    isRangeStart = isRangeStart,
+                    hasReward = hasReward,
+                    onClick = { onDayClick(date) },
+                    onLongClick = { onDayLongClick(date) }
                 )
             }
         }
@@ -402,16 +543,24 @@ private fun CalendarGrid(
 /**
  * Individual day cell in the calendar.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun CalendarDay(
     date: LocalDate,
     checkIn: CheckIn?,
     isToday: Boolean,
     isFuture: Boolean,
-    onClick: () -> Unit
+    isSelectionMode: Boolean,
+    isSelected: Boolean,
+    isRangeStart: Boolean,
+    hasReward: Boolean,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit
 ) {
+    // Determine background color based on selection and check-in status
     val backgroundColor = when {
         isFuture -> Color.Transparent
+        isSelected -> MaterialTheme.colorScheme.primaryContainer
         checkIn?.didExercise == true -> SuccessContainerLight
         checkIn?.didExercise == false -> MaterialTheme.colorScheme.errorContainer
         else -> Color.Transparent
@@ -419,9 +568,30 @@ private fun CalendarDay(
 
     val textColor = when {
         isFuture -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+        isSelected -> MaterialTheme.colorScheme.onPrimaryContainer
         checkIn?.didExercise == true -> SuccessLight
         checkIn?.didExercise == false -> MaterialTheme.colorScheme.error
         else -> MaterialTheme.colorScheme.onSurface
+    }
+
+    // Border: today gets primary border, selected items get thicker primary border
+    val borderModifier = when {
+        isSelected && isRangeStart -> Modifier.border(
+            width = 3.dp,
+            color = MaterialTheme.colorScheme.primary,
+            shape = CircleShape
+        )
+        isSelected -> Modifier.border(
+            width = 2.dp,
+            color = MaterialTheme.colorScheme.primary,
+            shape = CircleShape
+        )
+        isToday -> Modifier.border(
+            width = 2.dp,
+            color = MaterialTheme.colorScheme.primary,
+            shape = CircleShape
+        )
+        else -> Modifier
     }
 
     Box(
@@ -429,39 +599,53 @@ private fun CalendarDay(
             .aspectRatio(1f)
             .clip(CircleShape)
             .background(backgroundColor)
-            .then(
-                if (isToday) {
-                    Modifier.border(
-                        width = 2.dp,
-                        color = MaterialTheme.colorScheme.primary,
-                        shape = CircleShape
-                    )
-                } else {
-                    Modifier
-                }
+            .then(borderModifier)
+            .combinedClickable(
+                enabled = !isFuture,
+                onClick = onClick,
+                onLongClick = onLongClick
             )
-            .clickable(enabled = !isFuture) { onClick() }
             .padding(4.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            // Reward indicator at top
+            if (hasReward && !isSelectionMode) {
+                Text(
+                    text = "🎁",
+                    fontSize = 8.sp,
+                    modifier = Modifier.padding(bottom = 1.dp)
+                )
+            }
+
             Text(
                 text = date.dayOfMonth.toString(),
                 style = MaterialTheme.typography.bodyMedium,
-                fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal,
+                fontWeight = if (isToday || isSelected) FontWeight.Bold else FontWeight.Normal,
                 color = textColor
             )
 
             // Small icon indicator
-            if (checkIn != null) {
-                Icon(
-                    imageVector = if (checkIn.didExercise) Icons.Default.Check else Icons.Default.Close,
-                    contentDescription = null,
-                    modifier = Modifier.size(12.dp),
-                    tint = textColor
-                )
+            when {
+                isSelected && isSelectionMode -> {
+                    // Show checkmark for selected in selection mode
+                    Icon(
+                        imageVector = Icons.Default.Done,
+                        contentDescription = "Selected",
+                        modifier = Modifier.size(12.dp),
+                        tint = textColor
+                    )
+                }
+                checkIn != null -> {
+                    Icon(
+                        imageVector = if (checkIn.didExercise) Icons.Default.Check else Icons.Default.Close,
+                        contentDescription = null,
+                        modifier = Modifier.size(12.dp),
+                        tint = textColor
+                    )
+                }
             }
         }
     }
@@ -504,6 +688,22 @@ private fun CalendarLegend() {
                 label = "No log"
             )
         }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Reward indicator legend
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = "🎁 = Reward claimed on this day",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
     }
 }
 
@@ -633,5 +833,88 @@ private fun LogDayDialog(
             }
         }
     )
+}
+
+/**
+ * Bottom bar with bulk action buttons for selection mode.
+ */
+@Composable
+private fun BulkActionBar(
+    selectedCount: Int,
+    onMarkExercised: () -> Unit,
+    onMarkMissed: () -> Unit,
+    isLoading: Boolean
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "Mark $selectedCount day${if (selectedCount != 1) "s" else ""} as:",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Medium
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Mark as Missed button
+                OutlinedButton(
+                    onClick = onMarkMissed,
+                    enabled = !isLoading,
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Missed")
+                }
+
+                // Mark as Exercised button
+                Button(
+                    onClick = onMarkExercised,
+                    enabled = !isLoading,
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = SuccessLight
+                    )
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Check,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Exercised!")
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = "💡 Tip: Long-press a day to start range selection",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+            )
+        }
+    }
 }
 

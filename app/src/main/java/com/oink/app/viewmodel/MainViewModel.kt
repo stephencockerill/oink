@@ -5,14 +5,18 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.oink.app.data.CashOut
+import com.oink.app.data.CashOutRepository
 import com.oink.app.data.CheckIn
 import com.oink.app.data.CheckInRepository
 import com.oink.app.data.PreferencesRepository
+import com.oink.app.utils.BalanceCalculator
 import com.oink.app.widget.OinkWidget
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -37,19 +41,27 @@ import java.time.LocalDate
 class MainViewModel(
     application: Application,
     private val repository: CheckInRepository,
-    private val preferencesRepository: PreferencesRepository
+    private val preferencesRepository: PreferencesRepository,
+    private val cashOutRepository: CashOutRepository
 ) : AndroidViewModel(application) {
 
     /**
      * Current balance as a StateFlow.
-     * UI observes this to display the balance.
+     *
+     * Uses BalanceCalculator for the actual calculation - see that class
+     * for the formula and rationale.
      */
-    val currentBalance: StateFlow<Double> = repository.currentBalance
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = 0.0
-        )
+    val currentBalance: StateFlow<Double> = combine(
+        repository.currentBalance,
+        cashOutRepository.totalCashedOut,
+        preferencesRepository.totalFreezeSpending
+    ) { checkInBalance, cashedOut, freezeSpending ->
+        BalanceCalculator.calculateActualBalance(checkInBalance, cashedOut, freezeSpending)
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = 0.0
+    )
 
     /**
      * Today's check-in status.
@@ -66,6 +78,16 @@ class MainViewModel(
      * All check-ins for the history screen.
      */
     val allCheckIns: StateFlow<List<CheckIn>> = repository.allCheckIns
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
+    /**
+     * All cash-outs for reward indicators on calendar/history.
+     */
+    val allCashOuts: StateFlow<List<CashOut>> = cashOutRepository.allCashOuts
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
@@ -155,8 +177,18 @@ class MainViewModel(
 
                 // Calculate streak with frozen dates considered
                 _streak.value = repository.calculateStreak(_frozenDates.value)
-                _exercisePreview.value = repository.previewExerciseBalance()
-                _missPreview.value = repository.previewMissBalance()
+
+                // Calculate previews that account for deductions
+                // Raw preview = what the check-in balance would be
+                // Actual preview = raw preview - total deductions
+                val totalDeductions = cashOutRepository.getTotalCashedOut() +
+                    preferencesRepository.getTotalFreezeSpending()
+
+                val rawExercisePreview = repository.previewExerciseBalance()
+                val rawMissPreview = repository.previewMissBalance()
+
+                _exercisePreview.value = (rawExercisePreview - totalDeductions).coerceAtLeast(0.0)
+                _missPreview.value = (rawMissPreview - totalDeductions).coerceAtLeast(0.0)
 
                 // Check for missed days that could be frozen
                 _missedDayForFreeze.value = repository.findMissedDayForFreeze(_frozenDates.value)
@@ -196,6 +228,10 @@ class MainViewModel(
      * Use a freeze for a missed day.
      * This costs 2x exercise reward from balance and preserves the streak.
      *
+     * The cost is tracked separately as "freeze spending" rather than
+     * being deducted from check-in balances. This prevents the bug where
+     * toggling a check-in would lose track of money spent on freezes.
+     *
      * @param date The date to freeze
      */
     fun useFreeze(date: LocalDate) {
@@ -217,8 +253,8 @@ class MainViewModel(
                 kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
                     // Use the freeze (decrements available count, adds to frozen dates)
                     if (preferencesRepository.useFreeze(date)) {
-                        // Deduct freeze cost from balance
-                        repository.deductBalance(cost)
+                        // Track freeze spending separately (NOT deducting from check-in!)
+                        preferencesRepository.addFreezeSpending(cost)
                         // Update widget immediately
                         updateWidget()
                     }
@@ -282,6 +318,36 @@ class MainViewModel(
     }
 
     /**
+     * Bulk record check-ins for multiple dates.
+     *
+     * Used for calendar multi-select feature. Marks all selected dates
+     * as either exercised or missed in one operation.
+     *
+     * @param dates Set of dates to update
+     * @param didExercise Whether these days were exercise days
+     */
+    fun bulkRecordCheckIns(dates: Set<LocalDate>, didExercise: Boolean) {
+        if (dates.isEmpty()) return
+
+        viewModelScope.launch {
+            _isLoading.value = true
+            _error.value = null
+
+            try {
+                kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
+                    repository.bulkRecordCheckIns(dates, didExercise)
+                    updateWidget()
+                }
+                refreshData()
+            } catch (e: Exception) {
+                _error.value = "Failed to save check-ins: ${e.message}"
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    /**
      * Update the home screen widget.
      * Called within NonCancellable context from recordCheckIn.
      */
@@ -315,12 +381,13 @@ class MainViewModel(
     class Factory(
         private val application: Application,
         private val repository: CheckInRepository,
-        private val preferencesRepository: PreferencesRepository
+        private val preferencesRepository: PreferencesRepository,
+        private val cashOutRepository: CashOutRepository
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(MainViewModel::class.java)) {
-                return MainViewModel(application, repository, preferencesRepository) as T
+                return MainViewModel(application, repository, preferencesRepository, cashOutRepository) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
         }

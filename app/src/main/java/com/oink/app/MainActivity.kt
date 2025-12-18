@@ -51,11 +51,11 @@ class MainActivity : ComponentActivity() {
 
                     // Create ViewModels with our factories
                     val mainViewModel: MainViewModel = viewModel(
-                        factory = MainViewModel.Factory(application, checkInRepository, preferencesRepository)
+                        factory = MainViewModel.Factory(application, checkInRepository, preferencesRepository, cashOutRepository)
                     )
 
                     val rewardsViewModel: RewardsViewModel = viewModel(
-                        factory = RewardsViewModel.Factory(application, cashOutRepository, checkInRepository)
+                        factory = RewardsViewModel.Factory(application, cashOutRepository, checkInRepository, preferencesRepository)
                     )
 
                     // The NavHost handles all screen navigation

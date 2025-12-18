@@ -33,6 +33,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CardGiftcard
 import androidx.compose.material.icons.filled.Celebration
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.Button
@@ -43,9 +45,12 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
@@ -54,7 +59,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -96,21 +101,26 @@ fun RewardsScreen(
     viewModel: RewardsViewModel,
     onNavigateBack: () -> Unit
 ) {
-    val balance by viewModel.currentBalance.collectAsState()
-    val cashOuts by viewModel.allCashOuts.collectAsState()
-    val totalCashedOut by viewModel.totalCashedOut.collectAsState()
-    val totalWorkouts by viewModel.totalWorkouts.collectAsState()
-    val isLoading by viewModel.isLoading.collectAsState()
-    val error by viewModel.error.collectAsState()
-    val cashOutSuccess by viewModel.cashOutSuccess.collectAsState()
+    val balance by viewModel.currentBalance.collectAsStateWithLifecycle()
+    val cashOuts by viewModel.allCashOuts.collectAsStateWithLifecycle()
+    val totalCashedOut by viewModel.totalCashedOut.collectAsStateWithLifecycle()
+    val totalWorkouts by viewModel.totalWorkouts.collectAsStateWithLifecycle()
+    val totalEarned by viewModel.totalEarned.collectAsStateWithLifecycle()
+    val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
+    val error by viewModel.error.collectAsStateWithLifecycle()
+    val cashOutSuccess by viewModel.cashOutSuccess.collectAsStateWithLifecycle()
+    val selectedCashOut by viewModel.selectedCashOut.collectAsStateWithLifecycle()
+    val showDeleteConfirmation by viewModel.showDeleteConfirmation.collectAsStateWithLifecycle()
 
-    // Lifetime earnings = current balance + everything you've cashed out
-    val lifetimeEarned = balance + totalCashedOut
+    // Use totalEarned from ViewModel (raw check-in balance = total accumulated through exercise)
+    // This is correct even with freeze spending, because freezes don't reduce earnings - just spending
+    val lifetimeEarned = totalEarned
 
     val snackbarHostState = remember { SnackbarHostState() }
     var showCashOutSheet by remember { mutableStateOf(false) }
     var showCelebration by remember { mutableStateOf(false) }
     var celebrationCashOut by remember { mutableStateOf<CashOut?>(null) }
+    var showEditSheet by remember { mutableStateOf(false) }
 
     // Show error in snackbar
     LaunchedEffect(error) {
@@ -187,7 +197,13 @@ fun RewardsScreen(
 
                 // Reward History
                 items(cashOuts) { cashOut ->
-                    RewardHistoryItem(cashOut = cashOut)
+                    RewardHistoryItem(
+                        cashOut = cashOut,
+                        onClick = {
+                            viewModel.selectCashOut(cashOut)
+                            showEditSheet = true
+                        }
+                    )
                 }
 
                 // Empty state
@@ -222,6 +238,40 @@ fun RewardsScreen(
             onDismiss = { showCashOutSheet = false },
             onCashOut = { name, amount, emoji ->
                 viewModel.cashOut(name, amount, emoji)
+            }
+        )
+    }
+
+    // Edit Reward Bottom Sheet
+    if (showEditSheet && selectedCashOut != null) {
+        EditRewardBottomSheet(
+            cashOut = selectedCashOut!!,
+            currentBalance = balance,
+            isLoading = isLoading,
+            onDismiss = {
+                showEditSheet = false
+                viewModel.clearSelection()
+            },
+            onSave = { name, amount, emoji ->
+                viewModel.updateSelectedCashOut(name, amount, emoji)
+                showEditSheet = false
+            },
+            onDelete = {
+                viewModel.requestDelete()
+            }
+        )
+    }
+
+    // Delete Confirmation Dialog
+    if (showDeleteConfirmation && selectedCashOut != null) {
+        DeleteRewardConfirmationDialog(
+            cashOut = selectedCashOut!!,
+            onConfirm = {
+                viewModel.deleteSelectedCashOut()
+                showEditSheet = false
+            },
+            onDismiss = {
+                viewModel.cancelDelete()
             }
         )
     }
@@ -351,11 +401,16 @@ private fun StatCard(
 }
 
 @Composable
-private fun RewardHistoryItem(cashOut: CashOut) {
+private fun RewardHistoryItem(
+    cashOut: CashOut,
+    onClick: () -> Unit
+) {
     val dateFormat = remember { SimpleDateFormat("MMM d, yyyy", Locale.getDefault()) }
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         )
@@ -695,5 +750,205 @@ private fun CelebrationOverlay(
             }
         }
     }
+}
+
+/**
+ * Bottom sheet for editing an existing reward.
+ */
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+private fun EditRewardBottomSheet(
+    cashOut: CashOut,
+    currentBalance: Double,
+    isLoading: Boolean,
+    onDismiss: () -> Unit,
+    onSave: (name: String, amount: Double, emoji: String) -> Unit,
+    onDelete: () -> Unit
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    var name by remember { mutableStateOf(cashOut.name) }
+    var amountText by remember { mutableStateOf(cashOut.amount.toString()) }
+    var selectedEmoji by remember { mutableStateOf(cashOut.emoji) }
+
+    val amount = amountText.toDoubleOrNull() ?: 0.0
+    // Can increase amount up to: current balance + original amount (what we'd get back if we deleted it)
+    val maxAmount = currentBalance + cashOut.amount
+    val isValid = name.isNotBlank() && amount > 0 && amount <= maxAmount
+    val hasChanges = name != cashOut.name || amount != cashOut.amount || selectedEmoji != cashOut.emoji
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp)
+        ) {
+            // Header
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "✏️ Edit Reward",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                IconButton(
+                    onClick = onDelete,
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.errorContainer)
+                ) {
+                    Icon(
+                        Icons.Default.Delete,
+                        contentDescription = "Delete",
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Emoji picker
+            Text(
+                text = "Pick an emoji",
+                style = MaterialTheme.typography.labelLarge
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                RewardCategories.defaultEmojis.forEach { emoji ->
+                    EmojiButton(
+                        emoji = emoji,
+                        isSelected = emoji == selectedEmoji,
+                        onClick = { selectedEmoji = emoji }
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Name input
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text("What did you treat yourself to?") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Amount input
+            OutlinedTextField(
+                value = amountText,
+                onValueChange = { amountText = it.filter { c -> c.isDigit() || c == '.' } },
+                label = { Text("Amount") },
+                prefix = { Text("$") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                supportingText = {
+                    if (amount > cashOut.amount) {
+                        Text("Increasing will reduce balance by ${Formatters.formatCurrency(amount - cashOut.amount)}")
+                    } else if (amount < cashOut.amount) {
+                        Text("Decreasing will add ${Formatters.formatCurrency(cashOut.amount - amount)} back to balance")
+                    }
+                },
+                isError = amount > maxAmount
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Save button
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                OutlinedButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("Cancel")
+                }
+                Button(
+                    onClick = { onSave(name, amount, selectedEmoji) },
+                    enabled = isValid && hasChanges && !isLoading,
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MoneyGreen
+                    )
+                ) {
+                    if (isLoading) {
+                        Text("Saving...")
+                    } else {
+                        Icon(Icons.Default.Edit, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Save")
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Confirmation dialog for deleting a reward.
+ */
+@Composable
+private fun DeleteRewardConfirmationDialog(
+    cashOut: CashOut,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = {
+            Icon(
+                Icons.Default.Delete,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.error
+            )
+        },
+        title = {
+            Text("Delete Reward?")
+        },
+        text = {
+            Column {
+                Text(
+                    "Are you sure you want to delete \"${cashOut.name}\"?"
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "${Formatters.formatCurrency(cashOut.amount)} will be added back to your piggy bank!",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MoneyGreen
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onConfirm,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.error
+                )
+            ) {
+                Text("Delete")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Keep It")
+            }
+        }
+    )
 }
 
