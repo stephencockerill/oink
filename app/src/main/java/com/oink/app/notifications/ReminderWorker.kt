@@ -3,7 +3,9 @@ package com.oink.app.notifications
 import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
+import com.oink.app.data.AppDatabase
 import com.oink.app.widget.OinkWidget
+import java.time.LocalDate
 
 /**
  * Worker that shows the daily reminder notification.
@@ -22,10 +24,18 @@ class ReminderWorker(
 ) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
-        // Show the notification
-        NotificationHelper.showDailyReminder(applicationContext)
+        // Check if user already logged exercise today
+        val database = AppDatabase.getDatabase(applicationContext)
+        val todayCheckIn = database.checkInDao().getCheckInForDate(LocalDate.now().toEpochDay())
 
-        // Also refresh the widget so urgency state is current
+        // Only show notification if:
+        // - No check-in for today, OR
+        // - Check-in exists but user marked it as "didn't exercise" (rest day)
+        if (todayCheckIn == null || todayCheckIn.didExercise == false) {
+            NotificationHelper.showDailyReminder(applicationContext)
+        }
+
+        // Always refresh the widget so urgency state is current
         OinkWidget.updateAllWidgets(applicationContext)
 
         return Result.success()

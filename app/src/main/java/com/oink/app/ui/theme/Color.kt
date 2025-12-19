@@ -5,87 +5,130 @@ import androidx.compose.ui.graphics.Color
 /**
  * Color palette for Oink.
  *
- * Piggy bank pink theme with gold accents!
- * Because saving money in your piggy bank should feel
- * warm, cozy, and satisfying as fuck.
+ * Modern Pink + Teal palette that's vibrant, energetic, and modern.
+ * The pink is coral-toned (not baby pink), teal provides contrast,
+ * and we use amber for warnings (not punitive red).
  */
 
-// Primary - Piggy Pink
-val PrimaryLight = Color(0xFFE91E63)  // Vibrant pink
-val OnPrimaryLight = Color(0xFFFFFFFF)
-val PrimaryContainerLight = Color(0xFFFFD9E2)  // Soft pink container
-val OnPrimaryContainerLight = Color(0xFF3E001D)
+// =============================================================================
+// PRIMARY - Coral Pink (Main brand color, buttons, pig elements)
+// =============================================================================
+val OinkPink = Color(0xFFFF6B9D)           // Primary coral pink
+val OinkPinkLight = Color(0xFFFFB8CC)      // Lighter variant
+val OinkPinkDark = Color(0xFFE85A8A)       // Darker variant
+val OinkPinkContainer = Color(0xFFFFE4EC)  // Container/background
+val OnOinkPink = Color(0xFFFFFFFF)         // Text on pink
+val OnOinkPinkContainer = Color(0xFF4A1025) // Text on pink container
 
-val PrimaryDark = Color(0xFFFFB1C8)
-val OnPrimaryDark = Color(0xFF650033)
-val PrimaryContainerDark = Color(0xFF8E004A)
-val OnPrimaryContainerDark = Color(0xFFFFD9E2)
+// Dark mode primary
+val OinkPinkDarkTheme = Color(0xFFFFB1C8)
+val OinkPinkContainerDark = Color(0xFF8E3A5A)
+val OnOinkPinkDark = Color(0xFF5E1133)
+val OnOinkPinkContainerDark = Color(0xFFFFE4EC)
 
-// Secondary - Deep Rose for contrast
-val SecondaryLight = Color(0xFFC2185B)  // Deep rose
-val OnSecondaryLight = Color(0xFFFFFFFF)
-val SecondaryContainerLight = Color(0xFFFFD9E2)
-val OnSecondaryContainerLight = Color(0xFF3E001D)
+// =============================================================================
+// SECONDARY - Teal (Accent color, secondary actions, streaks)
+// =============================================================================
+val OinkTeal = Color(0xFF20C997)           // Vibrant teal
+val OinkTealLight = Color(0xFF6EE7C2)      // Lighter variant
+val OinkTealDark = Color(0xFF17A47A)       // Darker variant
+val OinkTealContainer = Color(0xFFD1FAE5)  // Container/background
+val OnOinkTeal = Color(0xFFFFFFFF)         // Text on teal
+val OnOinkTealContainer = Color(0xFF064E3B) // Text on teal container
 
-val SecondaryDark = Color(0xFFFFB1C8)
-val OnSecondaryDark = Color(0xFF5E1133)
-val SecondaryContainerDark = Color(0xFF7B294A)
-val OnSecondaryContainerDark = Color(0xFFFFD9E2)
+// Dark mode secondary
+val OinkTealDarkTheme = Color(0xFF6EE7C2)
+val OinkTealContainerDark = Color(0xFF065F46)
+val OnOinkTealDark = Color(0xFF064E3B)
+val OnOinkTealContainerDark = Color(0xFFD1FAE5)
 
-// Tertiary - Gold for the money/coin theme 🪙
-val TertiaryLight = Color(0xFFD4A017)  // Coin gold
-val OnTertiaryLight = Color(0xFFFFFFFF)
-val TertiaryContainerLight = Color(0xFFFFE9A8)  // Soft gold
-val OnTertiaryContainerLight = Color(0xFF261900)
+// =============================================================================
+// TERTIARY - Purple (Optional accent)
+// =============================================================================
+val OinkPurple = Color(0xFF8B5CF6)
+val OinkPurpleContainer = Color(0xFFEDE9FE)
+val OnOinkPurple = Color(0xFFFFFFFF)
+val OnOinkPurpleContainer = Color(0xFF4C1D95)
 
-val TertiaryDark = Color(0xFFFFCC00)
-val OnTertiaryDark = Color(0xFF402D00)
-val TertiaryContainerDark = Color(0xFF5C4200)
-val OnTertiaryContainerDark = Color(0xFFFFE9A8)
+// Dark mode tertiary
+val OinkPurpleDarkTheme = Color(0xFFA78BFA)
+val OinkPurpleContainerDark = Color(0xFF5B21B6)
+val OnOinkPurpleDark = Color(0xFF2E1065)
+val OnOinkPurpleContainerDark = Color(0xFFEDE9FE)
 
-// Success green for "exercised" states (added to piggy bank!)
-val SuccessLight = Color(0xFF2E7D32)
-val OnSuccessLight = Color(0xFFFFFFFF)
-val SuccessContainerLight = Color(0xFFA5D6A7)
-val OnSuccessContainerLight = Color(0xFF002105)
+// =============================================================================
+// SUCCESS - Green (Gains, positive feedback, +$5, exercise logged)
+// =============================================================================
+val OinkSuccess = Color(0xFF10B981)        // Vibrant success green
+val OinkSuccessLight = Color(0xFF34D399)   // Lighter
+val OinkSuccessContainer = Color(0xFFD1FAE5) // Background
+val OnOinkSuccess = Color(0xFFFFFFFF)
+val OnOinkSuccessContainer = Color(0xFF064E3B)
 
-val SuccessDark = Color(0xFF81C784)
-val OnSuccessDark = Color(0xFF003910)
-val SuccessContainerDark = Color(0xFF005320)
-val OnSuccessContainerDark = Color(0xFFA5D6A7)
+// Dark mode success
+val OinkSuccessDark = Color(0xFF34D399)
+val OinkSuccessContainerDark = Color(0xFF065F46)
+val OnOinkSuccessDark = Color(0xFF064E3B)
+val OnOinkSuccessContainerDark = Color(0xFFD1FAE5)
 
-// Error red for "missed" states (piggy bank sad!)
-val ErrorLight = Color(0xFFD32F2F)
-val OnErrorLight = Color(0xFFFFFFFF)
-val ErrorContainerLight = Color(0xFFFFCDD2)
-val OnErrorContainerLight = Color(0xFF410002)
+// =============================================================================
+// WARNING - Amber (Losses, penalties, ÷2 - not punitive, just clear)
+// =============================================================================
+val OinkWarning = Color(0xFFF59E0B)        // Clear amber
+val OinkWarningLight = Color(0xFFFBBF24)   // Lighter
+val OinkWarningContainer = Color(0xFFFEF3C7) // Background
+val OnOinkWarning = Color(0xFFFFFFFF)
+val OnOinkWarningContainer = Color(0xFF78350F)
 
-val ErrorDark = Color(0xFFEF9A9A)
-val OnErrorDark = Color(0xFF690005)
-val ErrorContainerDark = Color(0xFF93000A)
-val OnErrorContainerDark = Color(0xFFFFCDD2)
+// Dark mode warning
+val OinkWarningDark = Color(0xFFFBBF24)
+val OinkWarningContainerDark = Color(0xFFB45309)
+val OnOinkWarningDark = Color(0xFF78350F)
+val OnOinkWarningContainerDark = Color(0xFFFEF3C7)
 
-// Neutral backgrounds with warm tint
-val BackgroundLight = Color(0xFFFFFBFE)
-val OnBackgroundLight = Color(0xFF1C1B1F)
-val SurfaceLight = Color(0xFFFFFBFE)
-val OnSurfaceLight = Color(0xFF1C1B1F)
-val SurfaceVariantLight = Color(0xFFF4DDE4)  // Slight pink tint
-val OnSurfaceVariantLight = Color(0xFF524347)
-val OutlineLight = Color(0xFF847377)
+// =============================================================================
+// ERROR - Red (Errors, destructive actions only)
+// =============================================================================
+val OinkError = Color(0xFFEF4444)
+val OinkErrorContainer = Color(0xFFFEE2E2)
+val OnOinkError = Color(0xFFFFFFFF)
+val OnOinkErrorContainer = Color(0xFF7F1D1D)
 
-val BackgroundDark = Color(0xFF1C1B1F)
-val OnBackgroundDark = Color(0xFFE6E1E5)
-val SurfaceDark = Color(0xFF1C1B1F)
-val OnSurfaceDark = Color(0xFFE6E1E5)
-val SurfaceVariantDark = Color(0xFF524347)
-val OnSurfaceVariantDark = Color(0xFFD7C1C6)
-val OutlineDark = Color(0xFFA08C90)
+// Dark mode error
+val OinkErrorDark = Color(0xFFFCA5A5)
+val OinkErrorContainerDark = Color(0xFFB91C1C)
+val OnOinkErrorDark = Color(0xFF7F1D1D)
+val OnOinkErrorContainerDark = Color(0xFFFEE2E2)
 
-// Money colors - keep the green for that cash feel
-val MoneyGreen = Color(0xFF2E7D32)
-val MoneyGreenDark = Color(0xFF81C784)
+// =============================================================================
+// NEUTRALS - Background, surface, text
+// =============================================================================
+// Light mode
+val OinkBackground = Color(0xFFF8FAFC)     // Light gray background
+val OinkSurface = Color(0xFFFFFFFF)        // White cards/surfaces
+val OinkSurfaceVariant = Color(0xFFF1F5F9) // Subtle surface variation
+val OnOinkBackground = Color(0xFF1E293B)   // Dark slate - primary text
+val OnOinkSurface = Color(0xFF1E293B)      // Primary text on surface
+val OnOinkSurfaceVariant = Color(0xFF475569) // Secondary text (slate gray)
+val OinkOutline = Color(0xFFCBD5E1)        // Borders/dividers
 
-// Bonus: Coin gold for special accents
-val CoinGold = Color(0xFFFFD700)
-val CoinGoldDark = Color(0xFFFFC107)
+// Dark mode
+val OinkBackgroundDark = Color(0xFF0F172A)  // Dark slate background
+val OinkSurfaceDark = Color(0xFF1E293B)     // Dark surface
+val OinkSurfaceVariantDark = Color(0xFF334155)
+val OnOinkBackgroundDark = Color(0xFFF1F5F9)
+val OnOinkSurfaceDark = Color(0xFFF1F5F9)
+val OnOinkSurfaceVariantDark = Color(0xFF94A3B8)
+val OinkOutlineDark = Color(0xFF475569)
+
+// =============================================================================
+// LEGACY COLORS (keeping for backward compatibility during migration)
+// These map to new semantic colors
+// =============================================================================
+val MoneyGreen = OinkSuccess              // Use for cash-related success
+val MoneyGreenDark = OinkSuccessDark
+val SuccessLight = OinkSuccess            // Exercise logged
+val SuccessDark = OinkSuccessDark
+val SuccessContainerLight = OinkSuccessContainer
+val SuccessContainerDark = OinkSuccessContainerDark
+val CoinGold = OinkWarning                // Coin/money accent

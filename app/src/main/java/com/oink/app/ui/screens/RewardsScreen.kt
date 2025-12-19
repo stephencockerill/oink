@@ -79,8 +79,10 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.oink.app.data.CashOut
 import com.oink.app.data.RewardCategories
-import com.oink.app.ui.theme.MoneyGreen
-import com.oink.app.ui.theme.MoneyGreenDark
+import com.oink.app.ui.theme.OinkPink
+import com.oink.app.ui.theme.OinkPinkDark
+import com.oink.app.ui.theme.OinkTeal
+import com.oink.app.ui.theme.OinkTealContainer
 import com.oink.app.utils.Formatters
 import com.oink.app.viewmodel.RewardsViewModel
 import kotlinx.coroutines.delay
@@ -284,51 +286,60 @@ private fun BalanceCard(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer
-        )
+        shape = RoundedCornerShape(24.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
     ) {
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                text = "🐷 Piggy Bank Balance",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = Formatters.formatCurrency(balance),
-                style = MaterialTheme.typography.displayMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            Button(
-                onClick = onCashOut,
-                enabled = balance > 0,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MoneyGreen
-                ),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Icon(Icons.Default.ShoppingCart, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "Treat Yourself! 🎉",
-                    fontWeight = FontWeight.Bold
+                .background(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(OinkPink, OinkPinkDark)
+                    )
                 )
-            }
-            if (balance == 0.0) {
+                .padding(24.dp)
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "🐷 Piggy Bank Balance",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Color.White.copy(alpha = 0.85f)
+                )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "Work out to earn rewards!",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f)
+                    text = Formatters.formatCurrency(balance),
+                    style = MaterialTheme.typography.displayMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
                 )
+                Spacer(modifier = Modifier.height(16.dp))
+                Button(
+                    onClick = onCashOut,
+                    enabled = balance > 0,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = OinkTeal
+                    ),
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.ShoppingCart, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Treat Yourself! 🎉",
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                if (balance == 0.0) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Work out to earn rewards!",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White.copy(alpha = 0.7f)
+                    )
+                }
             }
         }
     }
@@ -374,9 +385,11 @@ private fun StatCard(
 ) {
     Card(
         modifier = modifier,
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(
             modifier = Modifier
@@ -384,7 +397,7 @@ private fun StatCard(
                 .padding(12.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(text = emoji, fontSize = 20.sp)
+            Text(text = emoji, fontSize = 24.sp)
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = value,
@@ -449,7 +462,7 @@ private fun RewardHistoryItem(
                 Text(
                     text = "${cashOut.workoutsToEarn} workouts earned this!",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MoneyGreen
+                    color = OinkTeal
                 )
             }
 
@@ -458,7 +471,7 @@ private fun RewardHistoryItem(
                 text = Formatters.formatCurrency(cashOut.amount),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color = MoneyGreen
+                color = OinkTeal
             )
         }
     }
@@ -587,7 +600,7 @@ private fun CashOutBottomSheet(
                 enabled = isValid && !isLoading,
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = MoneyGreen
+                    containerColor = OinkTeal
                 )
             ) {
                 if (isLoading) {
@@ -677,7 +690,7 @@ private fun CelebrationOverlay(
                     text = "YOU EARNED IT!",
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
-                    color = MoneyGreen
+                    color = OinkTeal
                 )
 
                 Spacer(modifier = Modifier.height(24.dp))
@@ -690,8 +703,8 @@ private fun CelebrationOverlay(
                         .background(
                             Brush.radialGradient(
                                 colors = listOf(
-                                    MoneyGreen.copy(alpha = 0.3f),
-                                    MoneyGreen.copy(alpha = 0.1f)
+                                    OinkTeal.copy(alpha = 0.3f),
+                                    OinkTeal.copy(alpha = 0.1f)
                                 )
                             )
                         ),
@@ -715,7 +728,7 @@ private fun CelebrationOverlay(
                     text = Formatters.formatCurrency(cashOut.amount),
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
-                    color = MoneyGreen
+                    color = OinkTeal
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -742,7 +755,7 @@ private fun CelebrationOverlay(
                 Button(
                     onClick = onDismiss,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = MoneyGreen
+                        containerColor = OinkTeal
                     )
                 ) {
                     Text("Awesome! 🐷")
@@ -883,7 +896,7 @@ private fun EditRewardBottomSheet(
                     enabled = isValid && hasChanges && !isLoading,
                     modifier = Modifier.weight(1f),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = MoneyGreen
+                        containerColor = OinkTeal
                     )
                 ) {
                     if (isLoading) {
@@ -930,7 +943,7 @@ private fun DeleteRewardConfirmationDialog(
                     text = "${Formatters.formatCurrency(cashOut.amount)} will be added back to your piggy bank!",
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Bold,
-                    color = MoneyGreen
+                    color = OinkTeal
                 )
             }
         },

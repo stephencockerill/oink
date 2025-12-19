@@ -71,12 +71,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.oink.app.data.PreferencesRepository
-import com.oink.app.ui.theme.MoneyGreen
-import com.oink.app.ui.theme.MoneyGreenDark
-import com.oink.app.ui.theme.SuccessContainerDark
-import com.oink.app.ui.theme.SuccessContainerLight
-import com.oink.app.ui.theme.SuccessDark
-import com.oink.app.ui.theme.SuccessLight
+import com.oink.app.ui.theme.OinkPink
+import com.oink.app.ui.theme.OinkPinkDark
+import com.oink.app.ui.theme.OinkTeal
+import com.oink.app.ui.theme.OinkTealContainer
+import com.oink.app.ui.theme.OinkSuccess
+import com.oink.app.ui.theme.OinkSuccessContainer
+import com.oink.app.ui.theme.OinkWarning
 import com.oink.app.utils.Formatters
 import com.oink.app.viewmodel.MainViewModel
 import java.time.LocalDate
@@ -218,6 +219,9 @@ fun HomeScreen(
 
 /**
  * Animated balance display card.
+ *
+ * Uses a coral → magenta gradient for visual impact with
+ * white text for maximum contrast and readability.
  */
 @Composable
 private fun BalanceCard(balance: Double) {
@@ -234,11 +238,8 @@ private fun BalanceCard(balance: Double) {
         modifier = Modifier
             .fillMaxWidth()
             .scale(scale),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+        shape = RoundedCornerShape(28.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 12.dp)
     ) {
         Box(
             modifier = Modifier
@@ -246,12 +247,12 @@ private fun BalanceCard(balance: Double) {
                 .background(
                     brush = Brush.verticalGradient(
                         colors = listOf(
-                            MaterialTheme.colorScheme.primaryContainer,
-                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)
+                            OinkPink,              // Coral pink at top
+                            OinkPinkDark           // Deeper pink at bottom
                         )
                     )
                 )
-                .padding(32.dp),
+                .padding(36.dp),
             contentAlignment = Alignment.Center
         ) {
             Column(
@@ -260,7 +261,7 @@ private fun BalanceCard(balance: Double) {
                 Text(
                     text = "🐷 Piggy Bank",
                     style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                    color = Color.White.copy(alpha = 0.85f)
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -279,7 +280,7 @@ private fun BalanceCard(balance: Double) {
                             fontSize = 56.sp,
                             fontWeight = FontWeight.Bold
                         ),
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                        color = Color.White
                     )
                 }
             }
@@ -288,7 +289,7 @@ private fun BalanceCard(balance: Double) {
 }
 
 /**
- * Streak and freeze display.
+ * Streak and freeze display - styled as chips for visual punch.
  */
 @Composable
 private fun StreakAndFreezeDisplay(streak: Int, availableFreezes: Int) {
@@ -297,51 +298,49 @@ private fun StreakAndFreezeDisplay(streak: Int, availableFreezes: Int) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center
     ) {
-        // Streak
-        Row(
-            verticalAlignment = Alignment.CenterVertically
+        // Streak chip
+        Surface(
+            shape = RoundedCornerShape(20.dp),
+            color = if (streak > 0) OinkPink.copy(alpha = 0.15f) else Color.Transparent
         ) {
-            if (streak > 0) {
-                Icon(
-                    imageVector = Icons.Default.LocalFireDepartment,
-                    contentDescription = null,
-                    modifier = Modifier.size(28.dp),
-                    tint = MaterialTheme.colorScheme.primary
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-            }
-
-            Text(
-                text = Formatters.formatStreakWithEmoji(streak),
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.SemiBold,
-                color = if (streak > 0) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                }
-            )
-        }
-
-        // Freeze count
-        if (availableFreezes > 0) {
-            Spacer(modifier = Modifier.width(20.dp))
             Row(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = Icons.Default.AcUnit,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp),
-                    tint = MaterialTheme.colorScheme.secondary
-                )
-                Spacer(modifier = Modifier.width(4.dp))
                 Text(
-                    text = "$availableFreezes",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.secondary
+                    text = Formatters.formatStreakWithEmoji(streak),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = if (streak > 0) OinkPink else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                 )
+            }
+        }
+
+        // Freeze count chip
+        if (availableFreezes > 0) {
+            Spacer(modifier = Modifier.width(12.dp))
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = OinkTeal.copy(alpha = 0.15f)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.AcUnit,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                        tint = OinkTeal
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "$availableFreezes",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = OinkTeal
+                    )
+                }
             }
         }
     }
@@ -349,6 +348,7 @@ private fun StreakAndFreezeDisplay(streak: Int, availableFreezes: Int) {
 
 /**
  * Card prompting user to use a freeze for a missed day.
+ * Uses amber/warning colors - not punishing, just informative.
  */
 @Composable
 private fun FreezePromptCard(
@@ -372,9 +372,9 @@ private fun FreezePromptCard(
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f)
+            containerColor = OinkWarning.copy(alpha = 0.12f)
         )
     ) {
         Column(
@@ -383,18 +383,16 @@ private fun FreezePromptCard(
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = Icons.Default.Warning,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.size(24.dp)
+                Text(
+                    text = "⚠️",
+                    style = MaterialTheme.typography.titleLarge
                 )
-                Spacer(modifier = Modifier.width(12.dp))
+                Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = "Streak in danger!",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onErrorContainer
+                    color = OinkWarning
                 )
             }
 
@@ -403,30 +401,32 @@ private fun FreezePromptCard(
             Text(
                 text = "You missed $formattedDate. Use a freeze to save your streak!",
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f)
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 // Dismiss button
                 OutlinedButton(
                     onClick = onDismiss,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp)
                 ) {
                     Text("Let it go")
                 }
 
-                // Use freeze button
+                // Use freeze button - teal, action-oriented
                 if (hasFreeze && canAffordFreeze) {
                     Button(
                         onClick = onUseFreeze,
                         modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.secondary
+                            containerColor = OinkTeal
                         )
                     ) {
                         Icon(
@@ -435,12 +435,16 @@ private fun FreezePromptCard(
                             modifier = Modifier.size(18.dp)
                         )
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("Use Freeze (\$${freezeCost.toInt()})")
+                        Text("Use Freeze")
                     }
                 } else if (!hasFreeze) {
                     Button(
                         onClick = onNavigateToSettings,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = OinkPink
+                        )
                     ) {
                         Text("Get Freeze")
                     }
@@ -448,6 +452,7 @@ private fun FreezePromptCard(
                     Button(
                         onClick = {},
                         modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp),
                         enabled = false
                     ) {
                         Text("Need \$${freezeCost.toInt()}")
@@ -502,22 +507,23 @@ private fun CheckInSection(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // YES / NO buttons
+                // YES / NO buttons - teal for success, outlined for miss
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // YES button
+                    // YES button - teal, prominent, encouraging!
                     Button(
                         onClick = { onCheckIn(true) },
                         modifier = Modifier
                             .weight(1f)
-                            .height(56.dp),
+                            .height(58.dp),
                         enabled = !isLoading,
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = SuccessLight
+                            containerColor = OinkTeal
                         ),
-                        shape = RoundedCornerShape(16.dp)
+                        shape = RoundedCornerShape(16.dp),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Check,
@@ -532,15 +538,15 @@ private fun CheckInSection(
                         )
                     }
 
-                    // NO button
+                    // NO button - subtle, not punishing
                     OutlinedButton(
                         onClick = { onCheckIn(false) },
                         modifier = Modifier
                             .weight(1f)
-                            .height(56.dp),
+                            .height(58.dp),
                         enabled = !isLoading,
                         colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = MaterialTheme.colorScheme.error
+                            contentColor = OinkWarning
                         ),
                         shape = RoundedCornerShape(16.dp)
                     ) {
@@ -589,6 +595,7 @@ private fun CheckInSection(
 
 /**
  * Preview showing what balance would be for each choice.
+ * Uses brand colors: teal for gains, amber for losses.
  */
 @Composable
 private fun PreviewSection(
@@ -599,7 +606,7 @@ private fun PreviewSection(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceEvenly
     ) {
-        // Exercise preview
+        // Exercise preview - teal to match YES button
         Column(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -610,7 +617,7 @@ private fun PreviewSection(
                     imageVector = Icons.AutoMirrored.Filled.TrendingUp,
                     contentDescription = null,
                     modifier = Modifier.size(16.dp),
-                    tint = SuccessLight
+                    tint = OinkTeal
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
@@ -622,8 +629,8 @@ private fun PreviewSection(
             Text(
                 text = Formatters.formatCurrency(exercisePreview),
                 style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = SuccessLight
+                fontWeight = FontWeight.Bold,
+                color = OinkTeal
             )
         }
 
@@ -635,7 +642,7 @@ private fun PreviewSection(
                 .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
         )
 
-        // Miss preview
+        // Miss preview - amber (not harsh red)
         Column(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -646,7 +653,7 @@ private fun PreviewSection(
                     imageVector = Icons.AutoMirrored.Filled.TrendingDown,
                     contentDescription = null,
                     modifier = Modifier.size(16.dp),
-                    tint = MaterialTheme.colorScheme.error
+                    tint = OinkWarning
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
@@ -658,8 +665,8 @@ private fun PreviewSection(
             Text(
                 text = Formatters.formatCurrency(missPreview),
                 style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.error
+                fontWeight = FontWeight.Bold,
+                color = OinkWarning
             )
         }
     }
@@ -667,22 +674,23 @@ private fun PreviewSection(
 
 /**
  * Status display for when user has already checked in.
+ * Teal for exercise, subtle gray for rest day.
  */
 @Composable
 private fun CheckInStatus(didExercise: Boolean) {
     val backgroundColor by animateColorAsState(
         targetValue = if (didExercise) {
-            SuccessContainerLight
+            OinkTealContainer
         } else {
-            MaterialTheme.colorScheme.errorContainer
+            MaterialTheme.colorScheme.surfaceVariant
         },
         label = "status_bg_color"
     )
 
     val contentColor = if (didExercise) {
-        SuccessLight
+        OinkTeal
     } else {
-        MaterialTheme.colorScheme.error
+        MaterialTheme.colorScheme.onSurfaceVariant
     }
 
     Surface(
@@ -714,13 +722,13 @@ private fun CheckInStatus(didExercise: Boolean) {
 
             Column {
                 Text(
-                    text = if (didExercise) "Great job!" else "Maybe tomorrow",
+                    text = if (didExercise) "Crushed it! 💪" else "Rest day",
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
+                    fontWeight = FontWeight.Bold,
                     color = contentColor
                 )
                 Text(
-                    text = if (didExercise) "You exercised today 💪" else "Rest day recorded",
+                    text = if (didExercise) "You exercised today" else "Tomorrow's another chance",
                     style = MaterialTheme.typography.bodyMedium,
                     color = contentColor.copy(alpha = 0.8f)
                 )

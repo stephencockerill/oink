@@ -240,14 +240,15 @@ private fun getUrgencyLevel(hour: Int, isLogged: Boolean): UrgencyLevel = when {
 
 /**
  * Get streak display emoji(s) based on tier.
+ * More emojis = more motivation = more gains 💪
  */
 private fun getStreakEmoji(tier: StreakTier): String = when (tier) {
     StreakTier.NONE -> ""
-    StreakTier.SPARK -> "🔥"
-    StreakTier.FIRE -> "🔥🔥"
-    StreakTier.BLAZE -> "🔥🔥🔥"
+    StreakTier.SPARK -> "✨"
+    StreakTier.FIRE -> "🔥"
+    StreakTier.BLAZE -> "🔥🔥"
     StreakTier.INFERNO -> "💥🔥💥"
-    StreakTier.LEGENDARY -> "👑🔥👑"
+    StreakTier.LEGENDARY -> "👑✨"
 }
 
 /**
@@ -274,22 +275,24 @@ private fun getBackgroundColorRes(urgency: UrgencyLevel): Int = when (urgency) {
 
 /**
  * Get urgency indicator for unlogged state.
+ * Friendly nudges, not scary warnings.
  */
 private fun getUrgencyIndicator(urgency: UrgencyLevel): String = when (urgency) {
     UrgencyLevel.CALM -> ""
-    UrgencyLevel.NUDGE -> "⏰"
-    UrgencyLevel.WARN -> "⚠️"
-    UrgencyLevel.CRITICAL -> "🚨"
+    UrgencyLevel.NUDGE -> ""          // CTA is enough
+    UrgencyLevel.WARN -> "⏰"
+    UrgencyLevel.CRITICAL -> ""       // Emoji in CTA
 }
 
 /**
  * Get call-to-action text based on urgency.
+ * Encouraging but increasingly urgent as the day goes on.
  */
 private fun getCtaText(urgency: UrgencyLevel): String = when (urgency) {
-    UrgencyLevel.CALM -> "Tap to log"
-    UrgencyLevel.NUDGE -> "Log your workout"
-    UrgencyLevel.WARN -> "Don't forget!"
-    UrgencyLevel.CRITICAL -> "LOG NOW!"
+    UrgencyLevel.CALM -> "🐷 Log your workout"
+    UrgencyLevel.NUDGE -> "Time to sweat!"
+    UrgencyLevel.WARN -> "Don't break the streak!"
+    UrgencyLevel.CRITICAL -> "⚡ LOG NOW!"
 }
 
 /**
@@ -321,7 +324,7 @@ private fun WidgetContent(data: WidgetData) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Left side: Balance
+            // Left side: Balance - BIG AND BEAUTIFUL
             Column(
                 horizontalAlignment = Alignment.Start
             ) {
@@ -329,15 +332,15 @@ private fun WidgetContent(data: WidgetData) {
                     text = "🐷 Oink",
                     style = TextStyle(
                         color = ColorProvider(R.color.widget_text_secondary),
-                        fontSize = 10.sp,
+                        fontSize = 11.sp,
                         fontWeight = FontWeight.Medium
                     )
                 )
                 Text(
                     text = formatCurrency(data.balance),
                     style = TextStyle(
-                        color = ColorProvider(R.color.widget_text_primary),
-                        fontSize = 26.sp,
+                        color = ColorProvider(R.color.widget_accent),  // Coral pink!
+                        fontSize = 28.sp,
                         fontWeight = FontWeight.Bold
                     )
                 )
@@ -392,7 +395,7 @@ private fun WidgetContent(data: WidgetData) {
                     }
                 }
 
-                // Today's status with urgency
+                // Today's status with urgency - fun and encouraging!
                 Row(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -400,23 +403,23 @@ private fun WidgetContent(data: WidgetData) {
                     if (urgencyIndicator.isNotEmpty()) {
                         Text(
                             text = urgencyIndicator,
-                            style = TextStyle(fontSize = 11.sp)
+                            style = TextStyle(fontSize = 12.sp)
                         )
                         Spacer(modifier = GlanceModifier.width(4.dp))
                     }
                     Text(
                         text = when {
-                            data.exercisedToday == true -> "✓ Logged"
-                            data.exercisedToday == false -> "✗ Rest day"
+                            data.exercisedToday == true -> "💪 Crushed it!"
+                            data.exercisedToday == false -> "😴 Rest day"
                             else -> getCtaText(urgencyLevel)
                         },
                         style = TextStyle(
                             color = ColorProvider(
                                 when {
                                     data.exercisedToday == true -> R.color.widget_success
-                                    data.exercisedToday == false -> R.color.widget_error
+                                    data.exercisedToday == false -> R.color.widget_text_secondary
                                     urgencyLevel == UrgencyLevel.CRITICAL -> R.color.widget_error
-                                    urgencyLevel == UrgencyLevel.WARN -> R.color.widget_accent
+                                    urgencyLevel == UrgencyLevel.WARN -> R.color.widget_error
                                     else -> R.color.widget_text_secondary
                                 }
                             ),

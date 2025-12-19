@@ -64,16 +64,22 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.oink.app.data.CashOut
 import com.oink.app.data.CheckIn
-import com.oink.app.ui.theme.MoneyGreen
-import com.oink.app.ui.theme.SuccessContainerLight
-import com.oink.app.ui.theme.SuccessLight
+import com.oink.app.ui.theme.OinkPink
+import com.oink.app.ui.theme.OinkPinkDark
+import com.oink.app.ui.theme.OinkTeal
+import com.oink.app.ui.theme.OinkTealContainer
+import com.oink.app.ui.theme.OinkWarning
 import com.oink.app.viewmodel.MainViewModel
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -227,11 +233,35 @@ fun CalendarScreen(
             }
         }
     ) { paddingValues ->
+        // Swipe threshold in pixels
+        val swipeThreshold = 100f
+        var totalDragAmount by remember { mutableStateOf(0f) }
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
                 .padding(horizontal = 16.dp)
+                .pointerInput(Unit) {
+                    detectHorizontalDragGestures(
+                        onDragStart = { totalDragAmount = 0f },
+                        onDragEnd = {
+                            // Swipe left = next month, swipe right = previous month
+                            when {
+                                totalDragAmount < -swipeThreshold && currentYearMonth < YearMonth.now() -> {
+                                    currentYearMonth = currentYearMonth.plusMonths(1)
+                                }
+                                totalDragAmount > swipeThreshold -> {
+                                    currentYearMonth = currentYearMonth.minusMonths(1)
+                                }
+                            }
+                            totalDragAmount = 0f
+                        },
+                        onHorizontalDrag = { _, dragAmount ->
+                            totalDragAmount += dragAmount
+                        }
+                    )
+                }
         ) {
             // Streak banner at top
             if (streak > 0) {
@@ -334,37 +364,44 @@ fun CalendarScreen(
 private fun StreakBanner(streak: Int) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer
-        )
+        shape = RoundedCornerShape(20.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
-        Row(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
+                .background(
+                    brush = Brush.horizontalGradient(
+                        colors = listOf(OinkPink.copy(alpha = 0.15f), OinkPink.copy(alpha = 0.25f))
+                    )
+                )
+                .padding(16.dp)
         ) {
-            Icon(
-                imageVector = Icons.Default.LocalFireDepartment,
-                contentDescription = null,
-                modifier = Modifier.size(32.dp),
-                tint = MaterialTheme.colorScheme.primary
-            )
-            Spacer(modifier = Modifier.width(12.dp))
-            Text(
-                text = "$streak day${if (streak > 1) "s" else ""} streak!",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
-            )
-            if (streak >= 7) {
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(text = "🔥", fontSize = 24.sp)
-            }
-            if (streak >= 30) {
-                Text(text = "🔥", fontSize = 24.sp)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.LocalFireDepartment,
+                    contentDescription = null,
+                    modifier = Modifier.size(32.dp),
+                    tint = OinkPink
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    text = "$streak day${if (streak > 1) "s" else ""} streak!",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = OinkPink
+                )
+                if (streak >= 7) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(text = "🔥", fontSize = 24.sp)
+                }
+                if (streak >= 30) {
+                    Text(text = "🔥", fontSize = 24.sp)
+                }
             }
         }
     }
@@ -561,7 +598,7 @@ private fun CalendarDay(
     val backgroundColor = when {
         isFuture -> Color.Transparent
         isSelected -> MaterialTheme.colorScheme.primaryContainer
-        checkIn?.didExercise == true -> SuccessContainerLight
+        checkIn?.didExercise == true -> OinkTealContainer
         checkIn?.didExercise == false -> MaterialTheme.colorScheme.errorContainer
         else -> Color.Transparent
     }
@@ -569,8 +606,8 @@ private fun CalendarDay(
     val textColor = when {
         isFuture -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
         isSelected -> MaterialTheme.colorScheme.onPrimaryContainer
-        checkIn?.didExercise == true -> SuccessLight
-        checkIn?.didExercise == false -> MaterialTheme.colorScheme.error
+        checkIn?.didExercise == true -> OinkTeal
+        checkIn?.didExercise == false -> OinkWarning
         else -> MaterialTheme.colorScheme.onSurface
     }
 
@@ -670,8 +707,8 @@ private fun CalendarLegend() {
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
             LegendItem(
-                color = SuccessContainerLight,
-                iconColor = SuccessLight,
+                color = OinkTealContainer,
+                iconColor = OinkTeal,
                 icon = Icons.Default.Check,
                 label = "Exercised"
             )
@@ -800,7 +837,7 @@ private fun LogDayDialog(
                 onClick = { onLog(true) },
                 enabled = !isLoading,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = SuccessLight
+                    containerColor = OinkTeal
                 )
             ) {
                 Icon(
@@ -894,7 +931,7 @@ private fun BulkActionBar(
                     enabled = !isLoading,
                     modifier = Modifier.weight(1f),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = SuccessLight
+                        containerColor = OinkTeal
                     )
                 ) {
                     Icon(

@@ -45,6 +45,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -52,10 +53,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.oink.app.data.CashOut
 import com.oink.app.data.CheckIn
-import com.oink.app.ui.theme.MoneyGreen
-import com.oink.app.ui.theme.MoneyGreenDark
-import com.oink.app.ui.theme.SuccessContainerLight
-import com.oink.app.ui.theme.SuccessLight
+import com.oink.app.ui.theme.OinkPink
+import com.oink.app.ui.theme.OinkPinkDark
+import com.oink.app.ui.theme.OinkTeal
+import com.oink.app.ui.theme.OinkTealContainer
+import com.oink.app.ui.theme.OinkWarning
 import com.oink.app.utils.Formatters
 import com.oink.app.viewmodel.MainViewModel
 
@@ -194,45 +196,52 @@ private fun StatsCard(
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer
-        )
+        shape = RoundedCornerShape(20.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
-        Row(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(20.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
-            // Exercise days
-            StatItem(
-                value = stats.exerciseDays.toString(),
-                label = "Exercise\nDays",
-                color = SuccessLight
-            )
-
-            // Missed days
-            StatItem(
-                value = stats.missedDays.toString(),
-                label = "Missed\nDays",
-                color = MaterialTheme.colorScheme.error
-            )
-
-            // Success rate
-            StatItem(
-                value = "${stats.exercisePercentage}%",
-                label = "Success\nRate",
-                color = MaterialTheme.colorScheme.primary
-            )
-
-            // Rewards count (only show if there are rewards)
-            if (stats.rewardsCount > 0) {
-                StatItem(
-                    value = stats.rewardsCount.toString(),
-                    label = "Rewards\n🎁",
-                    color = MoneyGreen
+                .background(
+                    brush = Brush.horizontalGradient(
+                        colors = listOf(OinkPink.copy(alpha = 0.15f), OinkPink.copy(alpha = 0.25f))
+                    )
                 )
+                .padding(20.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                // Exercise days
+                StatItem(
+                    value = stats.exerciseDays.toString(),
+                    label = "Exercise\nDays",
+                    color = OinkTeal
+                )
+
+                // Missed days
+                StatItem(
+                    value = stats.missedDays.toString(),
+                    label = "Missed\nDays",
+                    color = OinkWarning
+                )
+
+                // Success rate
+                StatItem(
+                    value = "${stats.exercisePercentage}%",
+                    label = "Success\nRate",
+                    color = OinkPink
+                )
+
+                // Rewards count (only show if there are rewards)
+                if (stats.rewardsCount > 0) {
+                    StatItem(
+                        value = stats.rewardsCount.toString(),
+                        label = "Rewards\n🎁",
+                        color = OinkTeal
+                    )
+                }
             }
         }
     }
@@ -367,7 +376,7 @@ private fun CheckInItem(checkIn: CheckIn) {
                     .clip(CircleShape)
                     .background(
                         if (checkIn.didExercise) {
-                            SuccessContainerLight
+                            OinkTealContainer
                         } else {
                             MaterialTheme.colorScheme.errorContainer
                         }
@@ -379,9 +388,9 @@ private fun CheckInItem(checkIn: CheckIn) {
                     contentDescription = if (checkIn.didExercise) "Exercised" else "Missed",
                     modifier = Modifier.size(24.dp),
                     tint = if (checkIn.didExercise) {
-                        SuccessLight
+                        OinkTeal
                     } else {
-                        MaterialTheme.colorScheme.error
+                        OinkWarning
                     }
                 )
             }
@@ -431,9 +440,9 @@ private fun CheckInItem(checkIn: CheckIn) {
 private fun CashOutHistoryItem(cashOut: CashOut) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MoneyGreen.copy(alpha = 0.1f)
+            containerColor = OinkPink.copy(alpha = 0.1f)
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
@@ -448,7 +457,7 @@ private fun CashOutHistoryItem(cashOut: CashOut) {
                 modifier = Modifier
                     .size(44.dp)
                     .clip(CircleShape)
-                    .background(MoneyGreen.copy(alpha = 0.2f)),
+                    .background(OinkPink.copy(alpha = 0.2f)),
                 contentAlignment = Alignment.Center
             ) {
                 Text(text = cashOut.emoji, fontSize = 24.sp)
@@ -468,7 +477,7 @@ private fun CashOutHistoryItem(cashOut: CashOut) {
                 Text(
                     text = "🎁 Reward claimed!",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MoneyGreen
+                    color = OinkPink
                 )
                 Text(
                     text = Formatters.formatDateFromMillis(cashOut.cashedOutAt),
@@ -485,7 +494,7 @@ private fun CashOutHistoryItem(cashOut: CashOut) {
                     text = "-${Formatters.formatCurrency(cashOut.amount)}",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = MoneyGreen
+                    color = OinkPink
                 )
                 Text(
                     text = "${cashOut.workoutsToEarn} workouts",
