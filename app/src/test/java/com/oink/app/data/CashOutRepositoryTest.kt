@@ -18,6 +18,8 @@ import java.time.LocalDate
  * - Updating cash-outs (edit amount, name, emoji)
  * - Deleting cash-outs (money returns to balance)
  *
+ * All money values are in cents (Long), e.g. $50.00 is 5000.
+ *
  * Uses fakes instead of mocks (per Android guidelines).
  */
 class CashOutRepositoryTest {
@@ -44,27 +46,27 @@ class CashOutRepositoryTest {
     @Test
     fun `cashOut with sufficient balance should succeed`() = runTest {
         // Setup: User has $50 in check-in balance
-        setupBalance(50.0)
+        setupBalance(5000)
 
         // Act
-        val result = repository.cashOut("New Darts", 25.0, "🎯")
+        val result = repository.cashOut("New Darts", 2500, "🎯")
 
         // Assert
         assertNotNull(result)
         assertEquals("New Darts", result!!.name)
-        assertEquals(25.0, result.amount, 0.001)
+        assertEquals(2500L, result.amount)
         assertEquals("🎯", result.emoji)
-        assertEquals(50.0, result.balanceBefore, 0.001)
-        assertEquals(25.0, result.balanceAfter, 0.001)
+        assertEquals(5000L, result.balanceBefore)
+        assertEquals(2500L, result.balanceAfter)
     }
 
     @Test
     fun `cashOut with insufficient balance should return null`() = runTest {
         // Setup: User has $20
-        setupBalance(20.0)
+        setupBalance(2000)
 
         // Act: Try to cash out $50
-        val result = repository.cashOut("Expensive Thing", 50.0, "💸")
+        val result = repository.cashOut("Expensive Thing", 5000, "💸")
 
         // Assert
         assertNull(result)
@@ -72,29 +74,29 @@ class CashOutRepositoryTest {
 
     @Test
     fun `cashOut with zero amount should return null`() = runTest {
-        setupBalance(50.0)
-        val result = repository.cashOut("Nothing", 0.0, "🎁")
+        setupBalance(5000)
+        val result = repository.cashOut("Nothing", 0, "🎁")
         assertNull(result)
     }
 
     @Test
     fun `cashOut with negative amount should return null`() = runTest {
-        setupBalance(50.0)
-        val result = repository.cashOut("Negative", -10.0, "🎁")
+        setupBalance(5000)
+        val result = repository.cashOut("Negative", -1000, "🎁")
         assertNull(result)
     }
 
     @Test
     fun `multiple cashOuts should accumulate totalCashedOut`() = runTest {
         // Setup: User has $100
-        setupBalance(100.0)
+        setupBalance(10000)
 
         // Act: Cash out twice
-        repository.cashOut("First", 30.0, "1️⃣")
-        repository.cashOut("Second", 20.0, "2️⃣")
+        repository.cashOut("First", 3000, "1️⃣")
+        repository.cashOut("Second", 2000, "2️⃣")
 
         // Assert
-        assertEquals(50.0, repository.getTotalCashedOut(), 0.001)
+        assertEquals(5000L, repository.getTotalCashedOut())
         assertEquals(2, repository.getRewardCount())
     }
 
@@ -104,8 +106,8 @@ class CashOutRepositoryTest {
 
     @Test
     fun `updateCashOut should update name and emoji`() = runTest {
-        setupBalance(50.0)
-        val original = repository.cashOut("Old Name", 20.0, "🎁")!!
+        setupBalance(5000)
+        val original = repository.cashOut("Old Name", 2000, "🎁")!!
 
         // Act: Update name and emoji
         val updated = original.copy(name = "New Name", emoji = "🎯")
@@ -121,31 +123,31 @@ class CashOutRepositoryTest {
     @Test
     fun `updateCashOut decreasing amount should succeed`() = runTest {
         // Setup: $50 balance, cash out $30 (leaves $20 actual balance)
-        setupBalance(50.0)
-        val original = repository.cashOut("Reward", 30.0, "🎁")!!
+        setupBalance(5000)
+        val original = repository.cashOut("Reward", 3000, "🎁")!!
 
         // Act: Reduce cash-out to $10 (should add $20 back to balance)
-        val updated = original.copy(amount = 10.0)
+        val updated = original.copy(amount = 1000)
         val success = repository.updateCashOut(updated)
 
         // Assert
         assertTrue(success)
-        assertEquals(10.0, repository.getTotalCashedOut(), 0.001)
+        assertEquals(1000L, repository.getTotalCashedOut())
     }
 
     @Test
     fun `updateCashOut increasing amount within balance should succeed`() = runTest {
         // Setup: $100 balance, cash out $20 (leaves $80 actual balance)
-        setupBalance(100.0)
-        val original = repository.cashOut("Reward", 20.0, "🎁")!!
+        setupBalance(10000)
+        val original = repository.cashOut("Reward", 2000, "🎁")!!
 
         // Act: Increase cash-out to $50 (uses $30 more of balance)
-        val updated = original.copy(amount = 50.0)
+        val updated = original.copy(amount = 5000)
         val success = repository.updateCashOut(updated)
 
         // Assert
         assertTrue(success)
-        assertEquals(50.0, repository.getTotalCashedOut(), 0.001)
+        assertEquals(5000L, repository.getTotalCashedOut())
     }
 
     @Test
@@ -153,10 +155,10 @@ class CashOutRepositoryTest {
         val fakeCashOut = CashOut(
             id = 999L,
             name = "Fake",
-            amount = 10.0,
+            amount = 1000,
             emoji = "🎁",
-            balanceBefore = 100.0,
-            balanceAfter = 90.0
+            balanceBefore = 10000,
+            balanceAfter = 9000
         )
 
         val success = repository.updateCashOut(fakeCashOut)
@@ -170,8 +172,8 @@ class CashOutRepositoryTest {
 
     @Test
     fun `deleteCashOut should remove the record`() = runTest {
-        setupBalance(50.0)
-        val cashOut = repository.cashOut("To Delete", 20.0, "🗑️")!!
+        setupBalance(5000)
+        val cashOut = repository.cashOut("To Delete", 2000, "🗑️")!!
 
         // Act
         val success = repository.deleteCashOut(cashOut)
@@ -185,23 +187,23 @@ class CashOutRepositoryTest {
     @Test
     fun `deleteCashOut should return money to balance`() = runTest {
         // Setup: $100 balance, cash out $30 (leaves $70)
-        setupBalance(100.0)
-        val cashOut = repository.cashOut("Deleted Reward", 30.0, "🎁")!!
+        setupBalance(10000)
+        val cashOut = repository.cashOut("Deleted Reward", 3000, "🎁")!!
 
         // Verify balance is reduced
-        assertEquals(30.0, repository.getTotalCashedOut(), 0.001)
+        assertEquals(3000L, repository.getTotalCashedOut())
 
         // Act: Delete the cash-out
         repository.deleteCashOut(cashOut)
 
         // Assert: Total cashed out is now 0 (money "returned")
-        assertEquals(0.0, repository.getTotalCashedOut(), 0.001)
+        assertEquals(0L, repository.getTotalCashedOut())
     }
 
     @Test
     fun `deleteCashOutById should work`() = runTest {
-        setupBalance(50.0)
-        val cashOut = repository.cashOut("To Delete", 20.0, "🗑️")!!
+        setupBalance(5000)
+        val cashOut = repository.cashOut("To Delete", 2000, "🗑️")!!
 
         val success = repository.deleteCashOutById(cashOut.id)
 
@@ -217,9 +219,9 @@ class CashOutRepositoryTest {
 
     @Test
     fun `delete one of multiple cashOuts should only remove that one`() = runTest {
-        setupBalance(100.0)
-        val first = repository.cashOut("First", 20.0, "1️⃣")!!
-        val second = repository.cashOut("Second", 30.0, "2️⃣")!!
+        setupBalance(10000)
+        val first = repository.cashOut("First", 2000, "1️⃣")!!
+        val second = repository.cashOut("Second", 3000, "2️⃣")!!
 
         // Delete first one
         repository.deleteCashOut(first)
@@ -228,7 +230,7 @@ class CashOutRepositoryTest {
         assertEquals(1, repository.getRewardCount())
         assertNull(repository.getCashOutById(first.id))
         assertNotNull(repository.getCashOutById(second.id))
-        assertEquals(30.0, repository.getTotalCashedOut(), 0.001)
+        assertEquals(3000L, repository.getTotalCashedOut())
     }
 
     // =====================================================================
@@ -238,12 +240,12 @@ class CashOutRepositoryTest {
     @Test
     fun `getTotalWorkoutsRewarded should sum workouts from all cashOuts`() = runTest {
         // Setup: $5 per workout reward
-        fakePreferencesRepository.setExerciseReward(5.0)
-        setupBalance(100.0)
+        fakePreferencesRepository.setExerciseReward(500)
+        setupBalance(10000)
 
         // Cash out $25 (5 workouts worth) and $15 (3 workouts worth)
-        repository.cashOut("First", 25.0, "🎁")
-        repository.cashOut("Second", 15.0, "🎁")
+        repository.cashOut("First", 2500, "🎁")
+        repository.cashOut("Second", 1500, "🎁")
 
         // Assert
         assertEquals(8, repository.getTotalWorkoutsRewarded())
@@ -254,10 +256,10 @@ class CashOutRepositoryTest {
     // =====================================================================
 
     /**
-     * Set up a check-in balance for testing.
+     * Set up a check-in balance for testing, in cents.
      * Creates a single check-in with the specified balance.
      */
-    private suspend fun setupBalance(balance: Double) {
+    private suspend fun setupBalance(balance: Long) {
         // We need to set up check-ins to establish the balance
         // A simple way: create a check-in with the desired balanceAfter
         val checkIn = CheckIn(
@@ -269,4 +271,3 @@ class CashOutRepositoryTest {
         fakeCheckInDao.setCheckIns(listOf(checkIn))
     }
 }
-

@@ -12,13 +12,13 @@ data class UserPreferences(
     val reminderMinute: Int = 0,
     val availableFreezes: Int = 0, // Streak freezes the user has
     val frozenDates: Set<LocalDate> = emptySet(), // Days that were frozen
-    val exerciseReward: Double = 5.0 // How much you earn per workout (default $5)
+    val exerciseReward: Long = 500L // How much you earn per workout, in cents (default $5.00)
 ) {
     /**
      * Freeze cost is always 2x the exercise reward.
      * If you earn $5 per workout, a freeze costs $10 (2 workouts worth).
      */
-    val freezeCost: Double get() = exerciseReward * 2
+    val freezeCost: Long get() = exerciseReward * 2
 }
 
 /**
@@ -38,10 +38,10 @@ interface PreferencesRepository : CashOutPreferencesProvider {
 
     companion object {
         const val MAX_FREEZES = 2
-        const val DEFAULT_EXERCISE_REWARD = 5.0
+        const val DEFAULT_EXERCISE_REWARD = 500L // cents ($5.00)
 
-        // Common reward amount options for the settings UI
-        val REWARD_OPTIONS = listOf(1.0, 2.0, 5.0, 10.0, 20.0)
+        // Common reward amount options for the settings UI, in cents
+        val REWARD_OPTIONS = listOf(100L, 200L, 500L, 1000L, 2000L)
     }
 
     /**
@@ -51,10 +51,10 @@ interface PreferencesRepository : CashOutPreferencesProvider {
     val userPreferences: Flow<UserPreferences>
 
     /**
-     * Flow of total freeze spending.
+     * Flow of total freeze spending, in cents.
      * Use this for reactive UI updates.
      */
-    val totalFreezeSpending: Flow<Double>
+    val totalFreezeSpending: Flow<Long>
 
     /**
      * Get current available freezes count.
@@ -104,13 +104,13 @@ interface PreferencesRepository : CashOutPreferencesProvider {
     suspend fun updateReminderSettings(enabled: Boolean, hour: Int, minute: Int)
 
     /**
-     * Set the exercise reward amount.
+     * Set the exercise reward amount, in cents.
      * This affects how much you earn per workout.
      */
-    suspend fun setExerciseReward(amount: Double)
+    suspend fun setExerciseReward(amount: Long)
 
     /**
-     * Get the freeze cost (2x exercise reward).
+     * Get the freeze cost (2x exercise reward), in cents.
      */
-    suspend fun getFreezeCost(): Double
+    suspend fun getFreezeCost(): Long
 }

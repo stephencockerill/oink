@@ -40,11 +40,14 @@ data class CheckIn(
     val didExercise: Boolean,
 
     /**
-     * The user's balance AFTER this check-in was recorded.
+     * The user's balance AFTER this check-in was recorded, in cents.
      * This allows us to reconstruct the balance history without
      * having to recalculate from the beginning every time.
+     *
+     * Money is stored as Long minor units (cents) so it never lives in
+     * binary floating point, e.g. $5.00 is 500.
      */
-    val balanceAfter: Double
+    val balanceAfter: Long
 )
 
 /**

@@ -224,7 +224,7 @@ fun HomeScreen(
  * white text for maximum contrast and readability.
  */
 @Composable
-private fun BalanceCard(balance: Double) {
+private fun BalanceCard(balance: Long) {
     val scale by animateFloatAsState(
         targetValue = 1f,
         animationSpec = spring(
@@ -354,8 +354,8 @@ private fun StreakAndFreezeDisplay(streak: Int, availableFreezes: Int) {
 private fun FreezePromptCard(
     missedDate: LocalDate,
     availableFreezes: Int,
-    balance: Double,
-    freezeCost: Double,
+    balance: Long,
+    freezeCost: Long,
     onUseFreeze: () -> Unit,
     onDismiss: () -> Unit,
     onNavigateToSettings: () -> Unit
@@ -455,7 +455,7 @@ private fun FreezePromptCard(
                         shape = RoundedCornerShape(12.dp),
                         enabled = false
                     ) {
-                        Text("Need \$${freezeCost.toInt()}")
+                        Text("Need ${Formatters.formatCurrency(freezeCost)}")
                     }
                 }
             }
@@ -469,8 +469,8 @@ private fun FreezePromptCard(
 @Composable
 private fun CheckInSection(
     todayCheckIn: com.oink.app.data.CheckIn?,
-    exercisePreview: Double,
-    missPreview: Double,
+    exercisePreview: Long,
+    missPreview: Long,
     isLoading: Boolean,
     onCheckIn: (Boolean) -> Unit
 ) {
@@ -599,8 +599,8 @@ private fun CheckInSection(
  */
 @Composable
 private fun PreviewSection(
-    exercisePreview: Double,
-    missPreview: Double
+    exercisePreview: Long,
+    missPreview: Long
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),

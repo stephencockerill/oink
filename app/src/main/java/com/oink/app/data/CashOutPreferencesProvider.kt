@@ -10,7 +10,9 @@ package com.oink.app.data
  * In tests: FakePreferencesRepository implements this
  */
 interface CashOutPreferencesProvider : ExerciseRewardProvider {
-    suspend fun getTotalFreezeSpending(): Double
-    suspend fun addFreezeSpending(amount: Double)
+    /** Total amount spent on freezes, in cents. */
+    suspend fun getTotalFreezeSpending(): Long
+    /** Add to the total freeze spending, in cents. */
+    suspend fun addFreezeSpending(amount: Long)
 }
 

@@ -33,11 +33,11 @@ class FakeCashOutDao : CashOutDao {
         return cashOuts.value
     }
 
-    override suspend fun getTotalCashedOut(): Double {
+    override suspend fun getTotalCashedOut(): Long {
         return cashOuts.value.sumOf { it.amount }
     }
 
-    override fun getTotalCashedOutFlow(): Flow<Double> {
+    override fun getTotalCashedOutFlow(): Flow<Long> {
         return cashOuts.map { list -> list.sumOf { it.amount } }
     }
 

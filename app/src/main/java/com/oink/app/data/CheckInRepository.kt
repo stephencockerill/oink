@@ -3,7 +3,6 @@ package com.oink.app.data
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import java.time.LocalDate
-import kotlin.math.roundToLong
 
 /**
  * Repository for managing check-in data.
@@ -26,14 +25,14 @@ class CheckInRepository(
 ) {
 
     companion object {
-        const val DEFAULT_EXERCISE_REWARD = 5.00
-        const val STARTING_BALANCE = 0.00
+        const val DEFAULT_EXERCISE_REWARD = 500L // cents ($5.00)
+        const val STARTING_BALANCE = 0L
     }
 
     /**
-     * Get the current exercise reward from preferences.
+     * Get the current exercise reward from preferences, in cents.
      */
-    suspend fun getExerciseReward(): Double {
+    suspend fun getExerciseReward(): Long {
         return exerciseRewardProvider.getExerciseReward()
     }
 
@@ -51,7 +50,7 @@ class CheckInRepository(
      * Flow of the current balance.
      * Derived from the latest check-in's balanceAfter field.
      */
-    val currentBalance: Flow<Double> = latestCheckIn.map { checkIn ->
+    val currentBalance: Flow<Long> = latestCheckIn.map { checkIn ->
         checkIn?.balanceAfter ?: STARTING_BALANCE
     }
 
@@ -195,7 +194,7 @@ class CheckInRepository(
      *
      * Uses a targeted DAO query instead of loading all check-ins.
      */
-    private suspend fun getPreviousBalance(date: LocalDate): Double {
+    private suspend fun getPreviousBalance(date: LocalDate): Long {
         val previousCheckIn = checkInDao.getCheckInBefore(date.toEpochDay())
         return previousCheckIn?.balanceAfter ?: STARTING_BALANCE
     }
@@ -203,18 +202,21 @@ class CheckInRepository(
     /**
      * Calculate the new balance based on the rules:
      * - Exercise: + exercise reward (configurable, default $5.00)
-     * - Miss: balance / 2 (rounded to 2 decimal places)
+     * - Miss: balance / 2 (rounded to the nearest cent)
+     *
+     * All values are cents. Halving uses round-half-up on the whole-cent
+     * result; since balances are never negative, `(balance + 1) / 2` gives
+     * the correctly rounded half.
      */
     private fun calculateNewBalance(
-        previousBalance: Double,
+        previousBalance: Long,
         didExercise: Boolean,
-        exerciseReward: Double
-    ): Double {
+        exerciseReward: Long
+    ): Long {
         return if (didExercise) {
             previousBalance + exerciseReward
         } else {
-            // Round to 2 decimal places
-            (previousBalance / 2.0 * 100).roundToLong() / 100.0
+            (previousBalance + 1) / 2
         }
     }
 
@@ -244,6 +246,7 @@ class CheckInRepository(
             .filter { it.date > afterDate }
             .forEach { checkIn ->
                 val newBalance = calculateNewBalance(currentBalance, checkIn.didExercise, exerciseReward)
+                // Integer comparison - no float-equality fuzziness.
                 if (newBalance != checkIn.balanceAfter) {
                     checkInDao.update(checkIn.copy(balanceAfter = newBalance))
                 }
@@ -357,7 +360,7 @@ class CheckInRepository(
     /**
      * Get what the balance would be if user exercises today.
      */
-    suspend fun previewExerciseBalance(): Double {
+    suspend fun previewExerciseBalance(): Long {
         val exerciseReward = getExerciseReward()
         val current = checkInDao.getLatestCheckIn()?.balanceAfter ?: STARTING_BALANCE
         return calculateNewBalance(current, didExercise = true, exerciseReward)
@@ -366,7 +369,7 @@ class CheckInRepository(
     /**
      * Get what the balance would be if user misses today.
      */
-    suspend fun previewMissBalance(): Double {
+    suspend fun previewMissBalance(): Long {
         val exerciseReward = getExerciseReward()
         val current = checkInDao.getLatestCheckIn()?.balanceAfter ?: STARTING_BALANCE
         return calculateNewBalance(current, didExercise = false, exerciseReward)
@@ -377,7 +380,7 @@ class CheckInRepository(
      * Useful for operations that need to know the current balance
      * at a specific point in time.
      */
-    suspend fun getCurrentBalanceOnce(): Double {
+    suspend fun getCurrentBalanceOnce(): Long {
         return checkInDao.getLatestCheckIn()?.balanceAfter ?: STARTING_BALANCE
     }
 

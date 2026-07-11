@@ -50,16 +50,16 @@ interface CashOutDao {
     suspend fun getAllCashOuts(): List<CashOut>
 
     /**
-     * Get total amount cashed out all-time.
+     * Get total amount cashed out all-time, in cents.
      */
-    @Query("SELECT COALESCE(SUM(amount), 0.0) FROM cash_outs")
-    suspend fun getTotalCashedOut(): Double
+    @Query("SELECT COALESCE(SUM(amount), 0) FROM cash_outs")
+    suspend fun getTotalCashedOut(): Long
 
     /**
-     * Get total amount cashed out as a Flow.
+     * Get total amount cashed out as a Flow, in cents.
      */
-    @Query("SELECT COALESCE(SUM(amount), 0.0) FROM cash_outs")
-    fun getTotalCashedOutFlow(): Flow<Double>
+    @Query("SELECT COALESCE(SUM(amount), 0) FROM cash_outs")
+    fun getTotalCashedOutFlow(): Flow<Long>
 
     /**
      * Get count of cash-outs.
