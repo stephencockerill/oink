@@ -104,10 +104,10 @@ class SettingsViewModel(
     }
 
     /**
-     * Set the exercise reward amount.
+     * Set the exercise reward amount, in cents.
      * This affects how much you earn per workout.
      */
-    fun setExerciseReward(amount: Double) {
+    fun setExerciseReward(amount: Long) {
         viewModelScope.launch {
             preferencesRepository.setExerciseReward(amount)
         }

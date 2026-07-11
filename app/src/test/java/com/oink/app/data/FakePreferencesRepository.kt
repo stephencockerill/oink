@@ -17,10 +17,10 @@ import java.time.LocalDate
  * and provides all the same methods.
  */
 class FakePreferencesRepository(
-    initialExerciseReward: Double = PreferencesRepository.DEFAULT_EXERCISE_REWARD,
+    initialExerciseReward: Long = PreferencesRepository.DEFAULT_EXERCISE_REWARD,
     initialFreezes: Int = 0,
     initialFrozenDates: Set<LocalDate> = emptySet(),
-    initialFreezeSpending: Double = 0.0
+    initialFreezeSpending: Long = 0L
 ) : CashOutPreferencesProvider {
 
     // Internal state
@@ -35,7 +35,7 @@ class FakePreferencesRepository(
     /**
      * Flow of total freeze spending.
      */
-    val totalFreezeSpending: Flow<Double> = _totalFreezeSpending
+    val totalFreezeSpending: Flow<Long> = _totalFreezeSpending
 
     /**
      * Flow of user preferences (mirrors real implementation).
@@ -55,15 +55,15 @@ class FakePreferencesRepository(
     // Exercise Reward
     // ============================================================
 
-    override suspend fun getExerciseReward(): Double {
+    override suspend fun getExerciseReward(): Long {
         return _exerciseReward.value
     }
 
-    suspend fun setExerciseReward(amount: Double) {
-        _exerciseReward.value = amount.coerceAtLeast(0.01)
+    suspend fun setExerciseReward(amount: Long) {
+        _exerciseReward.value = amount.coerceAtLeast(1L)
     }
 
-    suspend fun getFreezeCost(): Double {
+    suspend fun getFreezeCost(): Long {
         return getExerciseReward() * 2
     }
 
@@ -109,11 +109,11 @@ class FakePreferencesRepository(
     // Freeze Spending Tracking
     // ============================================================
 
-    override suspend fun getTotalFreezeSpending(): Double {
+    override suspend fun getTotalFreezeSpending(): Long {
         return _totalFreezeSpending.value
     }
 
-    override suspend fun addFreezeSpending(amount: Double) {
+    override suspend fun addFreezeSpending(amount: Long) {
         _totalFreezeSpending.update { it + amount }
     }
 
@@ -144,10 +144,10 @@ class FakePreferencesRepository(
      * Reset all state to defaults. Useful between tests.
      */
     fun reset(
-        exerciseReward: Double = PreferencesRepository.DEFAULT_EXERCISE_REWARD,
+        exerciseReward: Long = PreferencesRepository.DEFAULT_EXERCISE_REWARD,
         freezes: Int = 0,
         frozenDates: Set<LocalDate> = emptySet(),
-        freezeSpending: Double = 0.0
+        freezeSpending: Long = 0L
     ) {
         _exerciseReward.value = exerciseReward
         _availableFreezes.value = freezes

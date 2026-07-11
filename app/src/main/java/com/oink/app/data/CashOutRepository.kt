@@ -36,7 +36,7 @@ class CashOutRepository(
     /**
      * Flow of total amount cashed out all-time.
      */
-    val totalCashedOut: Flow<Double> = cashOutDao.getTotalCashedOutFlow()
+    val totalCashedOut: Flow<Long> = cashOutDao.getTotalCashedOutFlow()
 
     /**
      * Cash out from the piggy bank! 🎉
@@ -56,7 +56,7 @@ class CashOutRepository(
      */
     suspend fun cashOut(
         name: String,
-        amount: Double,
+        amount: Long,
         emoji: String = "🎁"
     ): CashOut? {
         // Get ACTUAL current balance (after existing deductions)
@@ -97,7 +97,7 @@ class CashOutRepository(
      * Get the ACTUAL current balance after all deductions.
      * Uses BalanceCalculator for the actual calculation.
      */
-    private suspend fun getCurrentBalance(): Double {
+    private suspend fun getCurrentBalance(): Long {
         return BalanceCalculator.calculateActualBalance(
             checkInBalance = checkInRepository.getCurrentBalanceOnce(),
             totalCashedOut = cashOutDao.getTotalCashedOut(),
@@ -108,7 +108,7 @@ class CashOutRepository(
     /**
      * Get total amount cashed out all-time.
      */
-    suspend fun getTotalCashedOut(): Double {
+    suspend fun getTotalCashedOut(): Long {
         return cashOutDao.getTotalCashedOut()
     }
 

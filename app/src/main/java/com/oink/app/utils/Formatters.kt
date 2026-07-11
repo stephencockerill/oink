@@ -1,5 +1,7 @@
 package com.oink.app.utils
 
+import java.math.BigDecimal
+import java.math.RoundingMode
 import java.text.NumberFormat
 import java.time.Instant
 import java.time.LocalDate
@@ -23,11 +25,29 @@ object Formatters {
     private val dayOfWeekFormatter = DateTimeFormatter.ofPattern("EEEE")
 
     /**
-     * Format a balance as currency.
-     * e.g., 42.5 -> "$42.50"
+     * Format a balance (in cents) as currency.
+     * e.g., 4250 -> "$42.50"
      */
-    fun formatCurrency(amount: Double): String {
-        return currencyFormatter.format(amount)
+    fun formatCurrency(cents: Long): String {
+        return currencyFormatter.format(BigDecimal(cents).movePointLeft(2))
+    }
+
+    /**
+     * Parse a user-entered dollar string into cents.
+     * e.g., "42.5" -> 4250, "12.34" -> 1234
+     * Returns null if the text isn't a valid number.
+     */
+    fun parseDollarsToCents(text: String): Long? {
+        val value = text.trim().toBigDecimalOrNull() ?: return null
+        return value.movePointRight(2).setScale(0, RoundingMode.HALF_UP).toLong()
+    }
+
+    /**
+     * Format cents as a plain dollar string for editing in a text field.
+     * e.g., 2000 -> "20.00"
+     */
+    fun centsToInput(cents: Long): String {
+        return BigDecimal(cents).movePointLeft(2).toPlainString()
     }
 
     /**

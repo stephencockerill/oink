@@ -18,6 +18,8 @@ import java.time.LocalDate
  * - Streak calculations
  * - Check-in recording and updating
  *
+ * All money values are in cents (Long), e.g. $5.00 is 500.
+ *
  * Uses fakes instead of mocks (per Android guidelines).
  */
 class CheckInRepositoryTest {
@@ -26,14 +28,14 @@ class CheckInRepositoryTest {
     private lateinit var repository: CheckInRepository
 
     // Simple fake for exercise reward - using SAM interface
-    private var exerciseReward = 5.0
+    private var exerciseReward = 500L
     private val fakeRewardProvider = ExerciseRewardProvider { exerciseReward }
 
     @Before
     fun setup() {
         fakeDao = FakeCheckInDao()
         repository = CheckInRepository(fakeDao, fakeRewardProvider)
-        exerciseReward = 5.0 // Reset to default
+        exerciseReward = 500L // Reset to default ($5.00)
     }
 
     // =====================================================================
@@ -43,7 +45,7 @@ class CheckInRepositoryTest {
     @Test
     fun `new user starts with zero balance`() = runTest {
         val balance = repository.currentBalance.first()
-        assertEquals(0.0, balance, 0.001)
+        assertEquals(0L, balance)
     }
 
     @Test
@@ -52,7 +54,7 @@ class CheckInRepositoryTest {
         repository.recordCheckIn(today, didExercise = true)
 
         val balance = repository.currentBalance.first()
-        assertEquals(5.0, balance, 0.001)
+        assertEquals(500L, balance)
     }
 
     @Test
@@ -61,7 +63,7 @@ class CheckInRepositoryTest {
         repository.recordCheckIn(today, didExercise = false)
 
         val balance = repository.currentBalance.first()
-        assertEquals(0.0, balance, 0.001) // 0 / 2 = 0
+        assertEquals(0L, balance) // 0 / 2 = 0
     }
 
     @Test
@@ -75,7 +77,7 @@ class CheckInRepositoryTest {
         repository.recordCheckIn(day3, didExercise = true) // $15
 
         val balance = repository.currentBalance.first()
-        assertEquals(15.0, balance, 0.001)
+        assertEquals(1500L, balance)
     }
 
     @Test
@@ -87,7 +89,7 @@ class CheckInRepositoryTest {
         repository.recordCheckIn(day2, didExercise = false) // $2.50
 
         val balance = repository.currentBalance.first()
-        assertEquals(2.5, balance, 0.001)
+        assertEquals(250L, balance)
     }
 
     @Test
@@ -101,18 +103,18 @@ class CheckInRepositoryTest {
         repository.recordCheckIn(day3, didExercise = true)  // $7.50
 
         val balance = repository.currentBalance.first()
-        assertEquals(7.5, balance, 0.001)
+        assertEquals(750L, balance)
     }
 
     @Test
     fun `custom exercise reward is used`() = runTest {
-        exerciseReward = 10.0
+        exerciseReward = 1000L
         val today = LocalDate.now()
 
         repository.recordCheckIn(today, didExercise = true)
 
         val balance = repository.currentBalance.first()
-        assertEquals(10.0, balance, 0.001)
+        assertEquals(1000L, balance)
     }
 
     // =====================================================================
@@ -131,7 +133,7 @@ class CheckInRepositoryTest {
         repository.recordCheckIn(day2, didExercise = false) // $5 / 2 = $2.50
 
         val balance = repository.currentBalance.first()
-        assertEquals(2.5, balance, 0.001)
+        assertEquals(250L, balance)
     }
 
     @Test
@@ -146,7 +148,7 @@ class CheckInRepositoryTest {
         repository.recordCheckIn(day2, didExercise = true) // $5 + $5 = $10
 
         val balance = repository.currentBalance.first()
-        assertEquals(10.0, balance, 0.001)
+        assertEquals(1000L, balance)
     }
 
     @Test
@@ -165,7 +167,7 @@ class CheckInRepositoryTest {
         // day3: 5 + 5 = $10
 
         val balance = repository.currentBalance.first()
-        assertEquals(10.0, balance, 0.001)
+        assertEquals(1000L, balance)
     }
 
     // =====================================================================
@@ -264,7 +266,7 @@ class CheckInRepositoryTest {
         repository.recordCheckIn(LocalDate.now().minusDays(1), didExercise = true) // $5
 
         val preview = repository.previewExerciseBalance()
-        assertEquals(10.0, preview, 0.001) // $5 + $5
+        assertEquals(1000L, preview) // $5 + $5
     }
 
     @Test
@@ -272,7 +274,7 @@ class CheckInRepositoryTest {
         repository.recordCheckIn(LocalDate.now().minusDays(1), didExercise = true) // $5
 
         val preview = repository.previewMissBalance()
-        assertEquals(2.5, preview, 0.001) // $5 / 2
+        assertEquals(250L, preview) // $5 / 2
     }
 
     // =====================================================================
@@ -292,15 +294,15 @@ class CheckInRepositoryTest {
     }
 
     @Test
-    fun `balance rounding handles precision correctly`() = runTest {
+    fun `balance halving rounds to the nearest cent`() = runTest {
         // Start with some odd balance through calculations
-        repository.recordCheckIn(LocalDate.now().minusDays(3), didExercise = true)  // $5
-        repository.recordCheckIn(LocalDate.now().minusDays(2), didExercise = false) // $2.50
-        repository.recordCheckIn(LocalDate.now().minusDays(1), didExercise = false) // $1.25
-        repository.recordCheckIn(LocalDate.now(), didExercise = false) // $0.625 → rounds to $0.63
+        repository.recordCheckIn(LocalDate.now().minusDays(3), didExercise = true)  // 500
+        repository.recordCheckIn(LocalDate.now().minusDays(2), didExercise = false) // 250
+        repository.recordCheckIn(LocalDate.now().minusDays(1), didExercise = false) // 125
+        repository.recordCheckIn(LocalDate.now(), didExercise = false) // 125 / 2 = 62.5 → 63
 
         val balance = repository.currentBalance.first()
-        assertEquals(0.63, balance, 0.001) // 0.625 rounds UP to 0.63 (standard rounding)
+        assertEquals(63L, balance) // 62.5 cents rounds UP to 63 (round half up)
     }
 
     @Test
@@ -344,7 +346,7 @@ class CheckInRepositoryTest {
         repository.bulkRecordCheckIns(emptySet(), didExercise = true)
 
         val balanceAfter = repository.currentBalance.first()
-        assertEquals(initialBalance, balanceAfter, 0.001)
+        assertEquals(initialBalance, balanceAfter)
     }
 
     @Test
@@ -360,7 +362,7 @@ class CheckInRepositoryTest {
 
         // Should have 3 check-ins, all exercised, balance = $15
         val balance = repository.currentBalance.first()
-        assertEquals(15.0, balance, 0.001)
+        assertEquals(1500L, balance)
         assertEquals(3, repository.getTotalWorkoutCount())
     }
 
@@ -378,7 +380,7 @@ class CheckInRepositoryTest {
 
         // $5 -> $2.50 -> $1.25
         val balance = repository.currentBalance.first()
-        assertEquals(1.25, balance, 0.001)
+        assertEquals(125L, balance)
     }
 
     @Test
@@ -396,7 +398,7 @@ class CheckInRepositoryTest {
 
         // Now should be $10
         val balance = repository.currentBalance.first()
-        assertEquals(10.0, balance, 0.001)
+        assertEquals(1000L, balance)
     }
 
     @Test
@@ -410,14 +412,14 @@ class CheckInRepositoryTest {
         repository.recordCheckIn(today.minusDays(2), didExercise = false)
         repository.recordCheckIn(today.minusDays(1), didExercise = true)
 
-        assertEquals(7.5, repository.currentBalance.first(), 0.001)
+        assertEquals(750L, repository.currentBalance.first())
 
         // Bulk update day 2 to exercised
         repository.bulkRecordCheckIns(setOf(today.minusDays(2)), didExercise = true)
 
         // Now: $5 -> $10 -> $15
         val balance = repository.currentBalance.first()
-        assertEquals(15.0, balance, 0.001)
+        assertEquals(1500L, balance)
     }
 
     @Test
@@ -434,7 +436,7 @@ class CheckInRepositoryTest {
 
         // Both should now be exercise: $5 + $5 = $10
         val balance = repository.currentBalance.first()
-        assertEquals(10.0, balance, 0.001)
+        assertEquals(1000L, balance)
 
         // Both should be marked as exercised
         val checkIn1 = repository.getCheckInForDate(existingDate)
@@ -459,7 +461,7 @@ class CheckInRepositoryTest {
         // Day -2: $2.50 (was $10, now halved from $5)
         // Day -1: $7.50 (recalculated: $2.50 + $5)
         val balance = repository.currentBalance.first()
-        assertEquals(7.5, balance, 0.001)
+        assertEquals(750L, balance)
 
         // Verify day -3 is still exercised
         val checkIn = repository.getCheckInForDate(today.minusDays(3))
@@ -473,7 +475,7 @@ class CheckInRepositoryTest {
         repository.bulkRecordCheckIns(setOf(date), didExercise = true)
 
         val balance = repository.currentBalance.first()
-        assertEquals(5.0, balance, 0.001)
+        assertEquals(500L, balance)
 
         val checkIn = repository.getCheckInForDate(date)
         assertNotNull(checkIn)
@@ -482,7 +484,7 @@ class CheckInRepositoryTest {
 
     @Test
     fun `bulkRecordCheckIns respects custom exercise reward`() = runTest {
-        exerciseReward = 10.0 // Custom reward
+        exerciseReward = 1000L // Custom reward ($10.00)
 
         val dates = setOf(
             LocalDate.now().minusDays(2),
@@ -493,7 +495,6 @@ class CheckInRepositoryTest {
 
         // $10 + $10 = $20
         val balance = repository.currentBalance.first()
-        assertEquals(20.0, balance, 0.001)
+        assertEquals(2000L, balance)
     }
 }
-

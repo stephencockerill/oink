@@ -13,13 +13,17 @@ import androidx.sqlite.db.SupportSQLiteDatabase
  *
  * Version history:
  * - v1: Initial release with CheckIn and CashOut entities
+ * - v2: Money columns changed from REAL (Double) to INTEGER (Long cents):
+ *       CheckIn.balanceAfter, CashOut.amount/balanceBefore/balanceAfter/exerciseRewardAtTime.
+ *       No data-preserving migration is provided; the conversion is folded into the
+ *       multi-habit schema rewrite, and dev builds rely on the destructive fallback below.
  *
  * IMPORTANT: When bumping the version, add a migration!
  * Never use fallbackToDestructiveMigration() in production—it wipes user data.
  */
 @Database(
     entities = [CheckIn::class, CashOut::class],
-    version = 1,
+    version = 2,
     exportSchema = false // Enable and configure room.schemaLocation when you need migration testing
 )
 @TypeConverters(Converters::class)

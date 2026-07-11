@@ -108,7 +108,7 @@ class OinkWidget : GlanceAppWidget() {
         val streak = repository.calculateStreak()
 
         // Calculate ACTUAL balance using centralized BalanceCalculator
-        val checkInBalance = latestCheckIn?.balanceAfter ?: 0.0
+        val checkInBalance = latestCheckIn?.balanceAfter ?: 0L
         val totalCashedOut = database.cashOutDao().getTotalCashedOut()
         val totalFreezeSpending = preferencesRepository.getTotalFreezeSpending()
         val actualBalance = BalanceCalculator.calculateActualBalance(
@@ -186,7 +186,7 @@ class OinkWidget : GlanceAppWidget() {
  * Data class for widget display.
  */
 data class WidgetData(
-    val balance: Double,
+    val balance: Long,
     val streak: Int,
     val checkedInToday: Boolean,
     val exercisedToday: Boolean?,
@@ -443,8 +443,8 @@ private fun WidgetContent(data: WidgetData) {
 /**
  * Format currency for display.
  */
-private fun formatCurrency(amount: Double): String {
-    return "$${String.format("%.2f", amount)}"
+private fun formatCurrency(cents: Long): String {
+    return "$${String.format("%.2f", cents / 100.0)}"
 }
 
 /**

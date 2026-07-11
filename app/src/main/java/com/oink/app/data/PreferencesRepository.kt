@@ -4,9 +4,9 @@ import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
-import androidx.datastore.preferences.core.doublePreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
@@ -31,13 +31,13 @@ data class UserPreferences(
     val reminderMinute: Int = 0,
     val availableFreezes: Int = 0, // Streak freezes the user has
     val frozenDates: Set<LocalDate> = emptySet(), // Days that were frozen
-    val exerciseReward: Double = 5.0 // How much you earn per workout (default $5)
+    val exerciseReward: Long = 500L // How much you earn per workout, in cents (default $5.00)
 ) {
     /**
      * Freeze cost is always 2x the exercise reward.
      * If you earn $5 per workout, a freeze costs $10 (2 workouts worth).
      */
-    val freezeCost: Double get() = exerciseReward * 2
+    val freezeCost: Long get() = exerciseReward * 2
 }
 
 /**
@@ -53,10 +53,10 @@ class PreferencesRepository(private val context: Context) : CashOutPreferencesPr
 
     companion object {
         const val MAX_FREEZES = 2
-        const val DEFAULT_EXERCISE_REWARD = 5.0
+        const val DEFAULT_EXERCISE_REWARD = 500L // cents ($5.00)
 
-        // Common reward amount options for the settings UI
-        val REWARD_OPTIONS = listOf(1.0, 2.0, 5.0, 10.0, 20.0)
+        // Common reward amount options for the settings UI, in cents
+        val REWARD_OPTIONS = listOf(100L, 200L, 500L, 1000L, 2000L)
     }
 
     private object Keys {
@@ -65,8 +65,8 @@ class PreferencesRepository(private val context: Context) : CashOutPreferencesPr
         val REMINDER_MINUTE = intPreferencesKey("reminder_minute")
         val AVAILABLE_FREEZES = intPreferencesKey("available_freezes")
         val FROZEN_DATES = stringSetPreferencesKey("frozen_dates") // Store as epoch day strings
-        val EXERCISE_REWARD = doublePreferencesKey("exercise_reward")
-        val TOTAL_FREEZE_SPENDING = doublePreferencesKey("total_freeze_spending")
+        val EXERCISE_REWARD = longPreferencesKey("exercise_reward")
+        val TOTAL_FREEZE_SPENDING = longPreferencesKey("total_freeze_spending")
     }
 
     /**
@@ -200,24 +200,24 @@ class PreferencesRepository(private val context: Context) : CashOutPreferencesPr
      * Get the current exercise reward amount.
      * Implements ExerciseRewardProvider interface.
      */
-    override suspend fun getExerciseReward(): Double {
+    override suspend fun getExerciseReward(): Long {
         return context.dataStore.data.first()[Keys.EXERCISE_REWARD] ?: DEFAULT_EXERCISE_REWARD
     }
 
     /**
-     * Set the exercise reward amount.
+     * Set the exercise reward amount, in cents.
      * This affects how much you earn per workout.
      */
-    suspend fun setExerciseReward(amount: Double) {
+    suspend fun setExerciseReward(amount: Long) {
         context.dataStore.edit { prefs ->
-            prefs[Keys.EXERCISE_REWARD] = amount.coerceAtLeast(0.01) // Minimum 1 cent
+            prefs[Keys.EXERCISE_REWARD] = amount.coerceAtLeast(1L) // Minimum 1 cent
         }
     }
 
     /**
-     * Get the freeze cost (2x exercise reward).
+     * Get the freeze cost (2x exercise reward), in cents.
      */
-    suspend fun getFreezeCost(): Double {
+    suspend fun getFreezeCost(): Long {
         return getExerciseReward() * 2
     }
 
@@ -236,24 +236,24 @@ class PreferencesRepository(private val context: Context) : CashOutPreferencesPr
      * Flow of total freeze spending.
      * Use this for reactive UI updates.
      */
-    val totalFreezeSpending: Flow<Double> = context.dataStore.data.map { prefs ->
-        prefs[Keys.TOTAL_FREEZE_SPENDING] ?: 0.0
+    val totalFreezeSpending: Flow<Long> = context.dataStore.data.map { prefs ->
+        prefs[Keys.TOTAL_FREEZE_SPENDING] ?: 0L
     }
 
     /**
-     * Get total amount spent on freezes (one-time query).
+     * Get total amount spent on freezes (one-time query), in cents.
      */
-    override suspend fun getTotalFreezeSpending(): Double {
-        return context.dataStore.data.first()[Keys.TOTAL_FREEZE_SPENDING] ?: 0.0
+    override suspend fun getTotalFreezeSpending(): Long {
+        return context.dataStore.data.first()[Keys.TOTAL_FREEZE_SPENDING] ?: 0L
     }
 
     /**
-     * Add to the total freeze spending.
+     * Add to the total freeze spending, in cents.
      * Called when a freeze is USED (not when it's acquired).
      */
-    override suspend fun addFreezeSpending(amount: Double) {
+    override suspend fun addFreezeSpending(amount: Long) {
         context.dataStore.edit { prefs ->
-            val current = prefs[Keys.TOTAL_FREEZE_SPENDING] ?: 0.0
+            val current = prefs[Keys.TOTAL_FREEZE_SPENDING] ?: 0L
             prefs[Keys.TOTAL_FREEZE_SPENDING] = current + amount
         }
     }

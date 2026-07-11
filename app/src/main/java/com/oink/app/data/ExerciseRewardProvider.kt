@@ -11,6 +11,7 @@ package com.oink.app.data
  * In tests: A simple fake implements this
  */
 fun interface ExerciseRewardProvider {
-    suspend fun getExerciseReward(): Double
+    /** The exercise reward amount, in cents. */
+    suspend fun getExerciseReward(): Long
 }
 

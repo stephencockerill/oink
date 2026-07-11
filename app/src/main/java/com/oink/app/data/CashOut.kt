@@ -24,9 +24,9 @@ data class CashOut(
     val name: String,
 
     /**
-     * How much you're cashing out.
+     * How much you're cashing out, in cents.
      */
-    val amount: Double,
+    val amount: Long,
 
     /**
      * Emoji to represent your reward.
@@ -40,23 +40,23 @@ data class CashOut(
     val cashedOutAt: Long = System.currentTimeMillis(),
 
     /**
-     * Balance before cashing out.
+     * Balance before cashing out, in cents.
      * Useful for showing "look how much you had saved!"
      */
-    val balanceBefore: Double,
+    val balanceBefore: Long,
 
     /**
-     * Balance after cashing out.
+     * Balance after cashing out, in cents.
      */
-    val balanceAfter: Double,
+    val balanceAfter: Long,
 
     /**
-     * The exercise reward amount at the time of this cash-out.
+     * The exercise reward amount at the time of this cash-out, in cents.
      * We store this because the user can change their reward setting,
      * but we want to accurately show "X workouts earned this" based on
      * what the reward was when they actually earned the money.
      */
-    val exerciseRewardAtTime: Double = 5.0
+    val exerciseRewardAtTime: Long = 500L
 ) {
     /**
      * Calculate how many workouts it took to earn this reward.

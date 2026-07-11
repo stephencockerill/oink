@@ -11,6 +11,7 @@ import com.oink.app.data.CheckIn
 import com.oink.app.data.CheckInRepository
 import com.oink.app.data.PreferencesRepository
 import com.oink.app.utils.BalanceCalculator
+import com.oink.app.utils.Formatters
 import com.oink.app.widget.OinkWidget
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -51,7 +52,7 @@ class MainViewModel(
      * Uses BalanceCalculator for the actual calculation - see that class
      * for the formula and rationale.
      */
-    val currentBalance: StateFlow<Double> = combine(
+    val currentBalance: StateFlow<Long> = combine(
         repository.currentBalance,
         cashOutRepository.totalCashedOut,
         preferencesRepository.totalFreezeSpending
@@ -60,7 +61,7 @@ class MainViewModel(
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
-        initialValue = 0.0
+        initialValue = 0L
     )
 
     /**
@@ -103,14 +104,14 @@ class MainViewModel(
     /**
      * Preview of what balance would be if user exercises.
      */
-    private val _exercisePreview = MutableStateFlow(0.0)
-    val exercisePreview: StateFlow<Double> = _exercisePreview.asStateFlow()
+    private val _exercisePreview = MutableStateFlow(0L)
+    val exercisePreview: StateFlow<Long> = _exercisePreview.asStateFlow()
 
     /**
      * Preview of what balance would be if user misses.
      */
-    private val _missPreview = MutableStateFlow(0.0)
-    val missPreview: StateFlow<Double> = _missPreview.asStateFlow()
+    private val _missPreview = MutableStateFlow(0L)
+    val missPreview: StateFlow<Long> = _missPreview.asStateFlow()
 
     /**
      * Loading state for UI feedback.
@@ -147,13 +148,13 @@ class MainViewModel(
      * Current exercise reward amount.
      */
     private val _exerciseReward = MutableStateFlow(PreferencesRepository.DEFAULT_EXERCISE_REWARD)
-    val exerciseReward: StateFlow<Double> = _exerciseReward.asStateFlow()
+    val exerciseReward: StateFlow<Long> = _exerciseReward.asStateFlow()
 
     /**
-     * Freeze cost (2x exercise reward).
+     * Freeze cost (2x exercise reward), in cents.
      */
     private val _freezeCost = MutableStateFlow(PreferencesRepository.DEFAULT_EXERCISE_REWARD * 2)
-    val freezeCost: StateFlow<Double> = _freezeCost.asStateFlow()
+    val freezeCost: StateFlow<Long> = _freezeCost.asStateFlow()
 
     init {
         refreshData()
@@ -187,8 +188,8 @@ class MainViewModel(
                 val rawExercisePreview = repository.previewExerciseBalance()
                 val rawMissPreview = repository.previewMissBalance()
 
-                _exercisePreview.value = (rawExercisePreview - totalDeductions).coerceAtLeast(0.0)
-                _missPreview.value = (rawMissPreview - totalDeductions).coerceAtLeast(0.0)
+                _exercisePreview.value = (rawExercisePreview - totalDeductions).coerceAtLeast(0L)
+                _missPreview.value = (rawMissPreview - totalDeductions).coerceAtLeast(0L)
 
                 // Check for missed days that could be frozen
                 _missedDayForFreeze.value = repository.findMissedDayForFreeze(_frozenDates.value)
@@ -238,7 +239,7 @@ class MainViewModel(
         val balance = currentBalance.value
         val cost = _freezeCost.value
         if (balance < cost) {
-            _error.value = "Not enough balance! Need \$${cost.toInt()} to use a freeze"
+            _error.value = "Not enough balance! Need ${Formatters.formatCurrency(cost)} to use a freeze"
             return
         }
         if (_availableFreezes.value <= 0) {

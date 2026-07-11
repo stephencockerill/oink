@@ -91,7 +91,7 @@ class MainViewModelTest {
     @Test
     fun `initial balance should be zero`() = runTest {
         advanceUntilIdle()
-        assertEquals(0.0, viewModel.currentBalance.value, 0.001)
+        assertEquals(0L, viewModel.currentBalance.value)
     }
 
     @Test
@@ -121,13 +121,13 @@ class MainViewModelTest {
     @Test
     fun `initial exerciseReward should be default`() = runTest {
         advanceUntilIdle()
-        assertEquals(PreferencesRepository.DEFAULT_EXERCISE_REWARD, viewModel.exerciseReward.value, 0.001)
+        assertEquals(PreferencesRepository.DEFAULT_EXERCISE_REWARD, viewModel.exerciseReward.value)
     }
 
     @Test
     fun `initial freezeCost should be 2x default reward`() = runTest {
         advanceUntilIdle()
-        assertEquals(PreferencesRepository.DEFAULT_EXERCISE_REWARD * 2, viewModel.freezeCost.value, 0.001)
+        assertEquals(PreferencesRepository.DEFAULT_EXERCISE_REWARD * 2, viewModel.freezeCost.value)
     }
 
     @Test
@@ -198,7 +198,7 @@ class MainViewModelTest {
         advanceUntilIdle()
 
         // Should not throw and should have default state
-        assertEquals(0.0, vm.currentBalance.value, 0.001)
+        assertEquals(0L, vm.currentBalance.value)
     }
 
 }
