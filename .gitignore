@@ -85,3 +85,6 @@ lint/tmp/
 ehthumbs.db
 Thumbs.db
 
+
+# Lavish review artifacts (regenerated locally, not source of truth)
+.lavish/
