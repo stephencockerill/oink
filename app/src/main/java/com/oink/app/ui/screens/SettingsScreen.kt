@@ -55,7 +55,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.oink.app.data.PreferencesRepository
 import com.oink.app.utils.Formatters
 import com.oink.app.viewmodel.SettingsViewModel
@@ -75,8 +74,8 @@ import java.time.format.DateTimeFormatter
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
-    onNavigateBack: () -> Unit,
-    settingsViewModel: SettingsViewModel = viewModel()
+    settingsViewModel: SettingsViewModel,
+    onNavigateBack: () -> Unit
 ) {
     val userPreferences by settingsViewModel.userPreferences.collectAsStateWithLifecycle()
     val context = LocalContext.current

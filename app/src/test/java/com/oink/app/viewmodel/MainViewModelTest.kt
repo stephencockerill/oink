@@ -7,6 +7,7 @@ import com.oink.app.data.CashOutRepository
 import com.oink.app.data.CheckInRepository
 import com.oink.app.data.FakeCashOutDao
 import com.oink.app.data.FakeCheckInDao
+import com.oink.app.data.FakePreferencesRepository
 import com.oink.app.data.PreferencesRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -54,7 +55,7 @@ class MainViewModelTest {
     private lateinit var application: Application
     private lateinit var fakeCheckInDao: FakeCheckInDao
     private lateinit var fakeCashOutDao: FakeCashOutDao
-    private lateinit var preferencesRepository: PreferencesRepository
+    private lateinit var preferencesRepository: FakePreferencesRepository
     private lateinit var checkInRepository: CheckInRepository
     private lateinit var cashOutRepository: CashOutRepository
     private lateinit var viewModel: MainViewModel
@@ -66,7 +67,7 @@ class MainViewModelTest {
         application = ApplicationProvider.getApplicationContext()
         fakeCheckInDao = FakeCheckInDao()
         fakeCashOutDao = FakeCashOutDao()
-        preferencesRepository = PreferencesRepository(application)
+        preferencesRepository = FakePreferencesRepository()
         checkInRepository = CheckInRepository(fakeCheckInDao, preferencesRepository)
         cashOutRepository = CashOutRepository(fakeCashOutDao, checkInRepository, preferencesRepository)
 
