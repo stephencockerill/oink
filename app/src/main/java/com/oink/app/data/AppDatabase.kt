@@ -5,8 +5,6 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
-import androidx.room.migration.Migration
-import androidx.sqlite.db.SupportSQLiteDatabase
 
 /**
  * Room database for Oink.
@@ -15,12 +13,12 @@ import androidx.sqlite.db.SupportSQLiteDatabase
  * - v1: Initial release with CheckIn and CashOut entities
  *
  * IMPORTANT: When bumping the version, add a migration!
- * Never use fallbackToDestructiveMigration() in production—it wipes user data.
+ * Never use fallbackToDestructiveMigration() in production - it wipes user data.
  */
 @Database(
     entities = [CheckIn::class, CashOut::class],
     version = 1,
-    exportSchema = false // Enable and configure room.schemaLocation when you need migration testing
+    exportSchema = true
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
@@ -46,11 +44,6 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "oink_database"
                 )
-                    // TODO: REMOVE THIS before first production release!
-                    // This is only here for development convenience. Once you have
-                    // real users with real data, you MUST add proper migrations
-                    // and remove this line, or you'll wipe their data on updates.
-                    .fallbackToDestructiveMigration()
                     // Add migrations here as the schema evolves:
                     // .addMigrations(MIGRATION_1_2, MIGRATION_2_3, etc.)
                     .build()
