@@ -11,6 +11,7 @@ import com.oink.app.ui.screens.RewardsScreen
 import com.oink.app.ui.screens.SettingsScreen
 import com.oink.app.viewmodel.MainViewModel
 import com.oink.app.viewmodel.RewardsViewModel
+import com.oink.app.viewmodel.SettingsViewModel
 
 /**
  * Navigation destinations for the app.
@@ -33,7 +34,8 @@ sealed class Screen(val route: String) {
 fun OinkNavHost(
     navController: NavHostController,
     mainViewModel: MainViewModel,
-    rewardsViewModel: RewardsViewModel
+    rewardsViewModel: RewardsViewModel,
+    settingsViewModel: SettingsViewModel
 ) {
     NavHost(
         navController = navController,
@@ -77,6 +79,7 @@ fun OinkNavHost(
 
         composable(Screen.Settings.route) {
             SettingsScreen(
+                settingsViewModel = settingsViewModel,
                 onNavigateBack = {
                     navController.popBackStack()
                 }

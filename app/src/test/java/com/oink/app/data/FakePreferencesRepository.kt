@@ -7,21 +7,19 @@ import kotlinx.coroutines.flow.update
 import java.time.LocalDate
 
 /**
- * Fake implementation of PreferencesRepository for testing.
+ * Fake implementation of [PreferencesRepository] for testing.
  *
- * This replaces the real PreferencesRepository which depends on Android's DataStore.
- * Uses in-memory storage that behaves identically to the real implementation.
- *
- * Note: This doesn't extend PreferencesRepository because that class requires
- * Context. Instead, it implements the same interface (ExerciseRewardProvider)
- * and provides all the same methods.
+ * This replaces [DataStorePreferencesRepository], which depends on Android's
+ * DataStore. Uses in-memory storage that behaves identically to the real
+ * implementation, so it can be injected into repositories and ViewModels
+ * without any Android Context or on-disk state.
  */
 class FakePreferencesRepository(
     initialExerciseReward: Double = PreferencesRepository.DEFAULT_EXERCISE_REWARD,
     initialFreezes: Int = 0,
     initialFrozenDates: Set<LocalDate> = emptySet(),
     initialFreezeSpending: Double = 0.0
-) : CashOutPreferencesProvider {
+) : PreferencesRepository {
 
     // Internal state
     private val _exerciseReward = MutableStateFlow(initialExerciseReward)
@@ -35,12 +33,12 @@ class FakePreferencesRepository(
     /**
      * Flow of total freeze spending.
      */
-    val totalFreezeSpending: Flow<Double> = _totalFreezeSpending
+    override val totalFreezeSpending: Flow<Double> = _totalFreezeSpending
 
     /**
      * Flow of user preferences (mirrors real implementation).
      */
-    val userPreferences: Flow<UserPreferences> = _exerciseReward.map { reward ->
+    override val userPreferences: Flow<UserPreferences> = _exerciseReward.map { reward ->
         UserPreferences(
             remindersEnabled = _remindersEnabled.value,
             reminderHour = _reminderHour.value,
@@ -59,11 +57,11 @@ class FakePreferencesRepository(
         return _exerciseReward.value
     }
 
-    suspend fun setExerciseReward(amount: Double) {
+    override suspend fun setExerciseReward(amount: Double) {
         _exerciseReward.value = amount.coerceAtLeast(0.01)
     }
 
-    suspend fun getFreezeCost(): Double {
+    override suspend fun getFreezeCost(): Double {
         return getExerciseReward() * 2
     }
 
@@ -71,15 +69,15 @@ class FakePreferencesRepository(
     // Freezes
     // ============================================================
 
-    suspend fun getAvailableFreezes(): Int {
+    override suspend fun getAvailableFreezes(): Int {
         return _availableFreezes.value
     }
 
-    suspend fun setAvailableFreezes(count: Int) {
+    override suspend fun setAvailableFreezes(count: Int) {
         _availableFreezes.value = count.coerceIn(0, PreferencesRepository.MAX_FREEZES)
     }
 
-    suspend fun purchaseFreeze(): Boolean {
+    override suspend fun purchaseFreeze(): Boolean {
         val current = _availableFreezes.value
         if (current >= PreferencesRepository.MAX_FREEZES) {
             return false
@@ -88,7 +86,7 @@ class FakePreferencesRepository(
         return true
     }
 
-    suspend fun useFreeze(date: LocalDate): Boolean {
+    override suspend fun useFreeze(date: LocalDate): Boolean {
         if (_availableFreezes.value <= 0) {
             return false
         }
@@ -97,11 +95,11 @@ class FakePreferencesRepository(
         return true
     }
 
-    suspend fun getFrozenDates(): Set<LocalDate> {
+    override suspend fun getFrozenDates(): Set<LocalDate> {
         return _frozenDates.value
     }
 
-    suspend fun isDateFrozen(date: LocalDate): Boolean {
+    override suspend fun isDateFrozen(date: LocalDate): Boolean {
         return _frozenDates.value.contains(date)
     }
 
@@ -121,16 +119,16 @@ class FakePreferencesRepository(
     // Reminders
     // ============================================================
 
-    suspend fun setRemindersEnabled(enabled: Boolean) {
+    override suspend fun setRemindersEnabled(enabled: Boolean) {
         _remindersEnabled.value = enabled
     }
 
-    suspend fun setReminderTime(hour: Int, minute: Int) {
+    override suspend fun setReminderTime(hour: Int, minute: Int) {
         _reminderHour.value = hour
         _reminderMinute.value = minute
     }
 
-    suspend fun updateReminderSettings(enabled: Boolean, hour: Int, minute: Int) {
+    override suspend fun updateReminderSettings(enabled: Boolean, hour: Int, minute: Int) {
         _remindersEnabled.value = enabled
         _reminderHour.value = hour
         _reminderMinute.value = minute
