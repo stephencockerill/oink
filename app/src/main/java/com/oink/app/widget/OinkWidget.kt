@@ -48,7 +48,6 @@ import com.oink.app.utils.BalanceCalculator
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
-import java.time.LocalDate
 import java.time.LocalTime
 
 /**
@@ -109,7 +108,7 @@ class OinkWidget : GlanceAppWidget() {
         )
 
         val latestCheckIn = database.checkInDao().getLatestCheckIn()
-        val todayCheckIn = database.checkInDao().getCheckInForDate(LocalDate.now().toEpochDay())
+        val todayCheckIn = database.checkInDao().getCheckInForDate(repository.today().toEpochDay())
         val streak = repository.calculateStreak()
 
         // Calculate ACTUAL balance using centralized BalanceCalculator
