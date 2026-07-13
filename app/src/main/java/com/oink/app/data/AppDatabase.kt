@@ -16,13 +16,16 @@ import androidx.sqlite.db.SupportSQLiteDatabase
  * - v2: Money columns changed from REAL (Double dollars) to INTEGER (Long cents):
  *       CheckIn.balanceAfter, CashOut.amount/balanceBefore/balanceAfter/exerciseRewardAtTime.
  *       [MIGRATION_1_2] converts existing rows by rounding dollars to whole cents.
+ * - v3: CheckIn gains exerciseRewardAtTime so historical balances replay with the
+ *       reward in force on each day, not today's setting. [MIGRATION_2_3] adds the
+ *       column defaulting existing rows to the $5.00 default.
  *
  * IMPORTANT: When bumping the version, add a migration!
  * Never use fallbackToDestructiveMigration() in production - it wipes user data.
  */
 @Database(
     entities = [CheckIn::class, CashOut::class],
-    version = 2,
+    version = 3,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -49,7 +52,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "oink_database"
                 )
-                    .addMigrations(MIGRATION_1_2)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                     .build()
                 INSTANCE = instance
                 instance
@@ -107,6 +110,22 @@ abstract class AppDatabase : RoomDatabase() {
                 )
                 db.execSQL("DROP TABLE `cash_outs`")
                 db.execSQL("ALTER TABLE `cash_outs_new` RENAME TO `cash_outs`")
+            }
+        }
+
+        /**
+         * v2 -> v3: add check_ins.exerciseRewardAtTime.
+         *
+         * A plain additive column, so a single ALTER TABLE suffices. Existing
+         * rows predate per-day reward tracking; they default to the $5.00
+         * (500 cent) default, which is the only reward the app ever used before
+         * this column existed.
+         */
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE `check_ins` ADD COLUMN `exerciseRewardAtTime` INTEGER NOT NULL DEFAULT 500"
+                )
             }
         }
     }

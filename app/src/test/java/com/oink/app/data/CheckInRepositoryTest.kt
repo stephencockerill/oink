@@ -271,6 +271,67 @@ class CheckInRepositoryTest {
     }
 
     // =====================================================================
+    // Reward-at-time tests (issue #10)
+    //
+    // Each check-in records the reward in force on its own day. Recomputing
+    // historical balances must replay each day with its stored reward, never
+    // whatever the reward is set to today.
+    // =====================================================================
+
+    @Test
+    fun `check-in records the reward in force at the time`() = runTest {
+        exerciseReward = 700L
+        val date = LocalDate.now().minusDays(1)
+
+        repository.recordCheckIn(date, didExercise = true)
+
+        val checkIn = repository.getCheckInForDate(date)
+        assertEquals(700L, checkIn!!.exerciseRewardAtTime)
+    }
+
+    @Test
+    fun `recompute uses each day's stored reward, not today's`() = runTest {
+        val day1 = LocalDate.now().minusDays(2)
+        val day2 = LocalDate.now().minusDays(1)
+        val day3 = LocalDate.now()
+
+        // Record three exercise days while the reward is $5.00.
+        repository.recordCheckIn(day1, didExercise = true) // $5
+        repository.recordCheckIn(day2, didExercise = true) // $10
+        repository.recordCheckIn(day3, didExercise = true) // $15
+
+        // User later bumps the reward to $10.00.
+        exerciseReward = 1000L
+
+        // Editing the earliest day triggers a full recompute of day2 and day3.
+        // Those days were earned at $5.00 and must NOT be re-valued at $10.00.
+        repository.recordCheckIn(day1, didExercise = false) // $0
+
+        // day1 miss: 0. day2: 0 + 5 = $5. day3: 5 + 5 = $10 (both at the OLD rate).
+        val balance = repository.currentBalance.first()
+        assertEquals(1000L, balance)
+    }
+
+    @Test
+    fun `toggling a past day keeps its original reward`() = runTest {
+        val day1 = LocalDate.now().minusDays(1)
+        val day2 = LocalDate.now()
+
+        exerciseReward = 500L
+        repository.recordCheckIn(day1, didExercise = true)  // $5 at $5.00 rate
+        repository.recordCheckIn(day2, didExercise = false) // $2.50
+
+        // Reward changes, then the user flips day2 from miss to exercise.
+        exerciseReward = 2000L
+        repository.recordCheckIn(day2, didExercise = true)
+
+        // day2 must use its own recorded $5.00 reward: $5 + $5 = $10, not $25.
+        val balance = repository.currentBalance.first()
+        assertEquals(1000L, balance)
+        assertEquals(500L, repository.getCheckInForDate(day2)!!.exerciseRewardAtTime)
+    }
+
+    // =====================================================================
     // Streak calculation tests
     // =====================================================================
 
