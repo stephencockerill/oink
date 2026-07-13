@@ -9,12 +9,14 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.oink.app.AppContainer
 import com.oink.app.data.HabitRepository
+import com.oink.app.ui.screens.AddHabitScreen
 import com.oink.app.ui.screens.CalendarScreen
 import com.oink.app.ui.screens.HabitDetailScreen
 import com.oink.app.ui.screens.HabitListScreen
 import com.oink.app.ui.screens.HistoryScreen
 import com.oink.app.ui.screens.RewardsScreen
 import com.oink.app.ui.screens.SettingsScreen
+import com.oink.app.viewmodel.AddHabitViewModel
 import com.oink.app.viewmodel.HabitListViewModel
 import com.oink.app.viewmodel.MainViewModel
 import com.oink.app.viewmodel.RewardsViewModel
@@ -32,6 +34,7 @@ import com.oink.app.viewmodel.SettingsViewModel
 sealed class Screen(val route: String) {
     data object Home : Screen("home")
     data object Rewards : Screen("rewards")
+    data object AddHabit : Screen("add_habit")
 
     data object HabitDetail : Screen("habit/{$HABIT_ID_ARG}") {
         fun route(habitId: Long) = "habit/$habitId"
@@ -91,9 +94,19 @@ fun OinkNavHost(
                 onNavigateToRewards = {
                     navController.navigate(Screen.Rewards.route)
                 },
-                // Add-habit is out of scope (#37); no add screen exists yet, so
-                // this is a deliberate no-op rather than a dead-end navigation.
-                onAddHabit = { /* TODO(#37): add-habit flow */ }
+                onAddHabit = {
+                    navController.navigate(Screen.AddHabit.route)
+                }
+            )
+        }
+
+        composable(Screen.AddHabit.route) {
+            val addHabitViewModel: AddHabitViewModel =
+                viewModel(factory = AddHabitViewModel.provideFactory(container))
+            AddHabitScreen(
+                viewModel = addHabitViewModel,
+                onNavigateBack = { navController.popBackStack() },
+                onSaved = { navController.popBackStack() }
             )
         }
 
