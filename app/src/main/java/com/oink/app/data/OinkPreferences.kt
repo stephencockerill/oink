@@ -6,7 +6,6 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
-import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 
 /**
@@ -29,12 +28,7 @@ internal object OinkPreferenceKeys {
     val REMINDERS_ENABLED = booleanPreferencesKey("reminders_enabled")
     val REMINDER_HOUR = intPreferencesKey("reminder_hour")
     val REMINDER_MINUTE = intPreferencesKey("reminder_minute")
-    val AVAILABLE_FREEZES = intPreferencesKey("available_freezes")
-
-    /** Frozen dates stored as epoch-day strings. */
-    val FROZEN_DATES = stringSetPreferencesKey("frozen_dates")
     val EXERCISE_REWARD = longPreferencesKey("exercise_reward")
-    val TOTAL_FREEZE_SPENDING = longPreferencesKey("total_freeze_spending")
 
     /**
      * Run-once guard for the one-time copy of per-habit preferences onto the

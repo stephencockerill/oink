@@ -45,6 +45,9 @@ import com.oink.app.data.AppDatabase
 import com.oink.app.data.CheckInRepository
 import com.oink.app.data.DataStorePreferencesRepository
 import com.oink.app.data.DefaultDeductionProvider
+import com.oink.app.data.FreezeRepository
+import com.oink.app.data.HabitCashOutPreferencesProvider
+import com.oink.app.data.HabitRepository
 import com.oink.app.utils.BalanceCalculator
 import com.oink.app.utils.Formatters
 import kotlinx.coroutines.Dispatchers
@@ -102,10 +105,12 @@ class OinkWidget : GlanceAppWidget() {
     private suspend fun getWidgetData(context: Context): WidgetData {
         val database = AppDatabase.getDatabase(context)
         val preferencesRepository = DataStorePreferencesRepository(context)
+        val freezeRepository = FreezeRepository(database.habitDao(), database.frozenDayDao())
+        val cashOutPreferencesProvider = HabitCashOutPreferencesProvider(freezeRepository, preferencesRepository)
         val repository = CheckInRepository(
             database.checkInDao(),
             preferencesRepository,
-            DefaultDeductionProvider(database.cashOutDao(), preferencesRepository)
+            DefaultDeductionProvider(database.cashOutDao(), cashOutPreferencesProvider)
         )
 
         val latestCheckIn = database.checkInDao().getLatestCheckIn()
@@ -115,7 +120,7 @@ class OinkWidget : GlanceAppWidget() {
         // Calculate ACTUAL balance using centralized BalanceCalculator
         val checkInBalance = latestCheckIn?.balanceAfter ?: 0L
         val totalCashedOut = database.cashOutDao().getTotalCashedOut()
-        val totalFreezeSpending = preferencesRepository.getTotalFreezeSpending()
+        val totalFreezeSpending = freezeRepository.getTotalFreezeSpending(HabitRepository.DEFAULT_HABIT_ID)
         val actualBalance = BalanceCalculator.calculateActualBalance(
             checkInBalance = checkInBalance,
             totalCashedOut = totalCashedOut,

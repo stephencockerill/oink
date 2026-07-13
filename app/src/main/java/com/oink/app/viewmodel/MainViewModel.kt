@@ -9,6 +9,8 @@ import com.oink.app.data.CashOut
 import com.oink.app.data.CashOutRepository
 import com.oink.app.data.CheckIn
 import com.oink.app.data.CheckInRepository
+import com.oink.app.data.FreezeRepository
+import com.oink.app.data.HabitRepository
 import com.oink.app.data.PreferencesRepository
 import com.oink.app.utils.BalanceCalculator
 import com.oink.app.utils.Formatters
@@ -45,8 +47,15 @@ class MainViewModel(
     application: Application,
     private val repository: CheckInRepository,
     private val preferencesRepository: PreferencesRepository,
-    private val cashOutRepository: CashOutRepository
+    private val cashOutRepository: CashOutRepository,
+    private val freezeRepository: FreezeRepository
 ) : AndroidViewModel(application) {
+
+    /**
+     * The habit this screen operates on. The app is single-habit for now, so
+     * every freeze read/write targets the seeded default habit.
+     */
+    private val habitId: Long = HabitRepository.DEFAULT_HABIT_ID
 
     /**
      * Current balance as a StateFlow.
@@ -57,7 +66,7 @@ class MainViewModel(
     val currentBalance: StateFlow<Long> = combine(
         repository.currentBalance,
         cashOutRepository.totalCashedOut,
-        preferencesRepository.totalFreezeSpending
+        freezeRepository.totalFreezeSpending(habitId)
     ) { checkInBalance, cashedOut, freezeSpending ->
         BalanceCalculator.calculateActualBalance(checkInBalance, cashedOut, freezeSpending)
     }.stateIn(
@@ -124,7 +133,7 @@ class MainViewModel(
      * Freeze cost (2x exercise reward), in cents.
      */
     val freezeCost: StateFlow<Long> = preferencesRepository.userPreferences
-        .map { it.freezeCost }
+        .map { it.exerciseReward * 2 }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
@@ -132,10 +141,9 @@ class MainViewModel(
         )
 
     /**
-     * Available streak freezes.
+     * Available streak freezes for this habit.
      */
-    val availableFreezes: StateFlow<Int> = preferencesRepository.userPreferences
-        .map { it.availableFreezes }
+    val availableFreezes: StateFlow<Int> = freezeRepository.availableFreezes(habitId)
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
@@ -143,10 +151,9 @@ class MainViewModel(
         )
 
     /**
-     * Current frozen dates.
+     * Current frozen dates for this habit.
      */
-    val frozenDates: StateFlow<Set<LocalDate>> = preferencesRepository.userPreferences
-        .map { it.frozenDates }
+    val frozenDates: StateFlow<Set<LocalDate>> = freezeRepository.frozenDates(habitId)
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
@@ -187,7 +194,7 @@ class MainViewModel(
         repository.currentBalance,
         exerciseReward,
         cashOutRepository.totalCashedOut,
-        preferencesRepository.totalFreezeSpending
+        freezeRepository.totalFreezeSpending(habitId)
     ) { rawBalance, reward, cashedOut, freezeSpending ->
         val deductions = cashedOut + freezeSpending
         val rawPreview = repository.previewExerciseBalance(rawBalance, reward, deductions)
@@ -204,7 +211,7 @@ class MainViewModel(
     val missPreview: StateFlow<Long> = combine(
         repository.currentBalance,
         cashOutRepository.totalCashedOut,
-        preferencesRepository.totalFreezeSpending
+        freezeRepository.totalFreezeSpending(habitId)
     ) { rawBalance, cashedOut, freezeSpending ->
         val deductions = cashedOut + freezeSpending
         val rawPreview = repository.previewMissBalance(rawBalance, deductions)
@@ -251,8 +258,8 @@ class MainViewModel(
 
         viewModelScope.launch {
             try {
-                // availableFreezes updates reactively via the preferences flow.
-                preferencesRepository.purchaseFreeze()
+                // availableFreezes updates reactively via the habit flow.
+                freezeRepository.purchaseFreeze(habitId)
             } catch (e: Exception) {
                 _error.value = "Failed to get freeze: ${e.message}"
             }
@@ -289,10 +296,10 @@ class MainViewModel(
                 // check-in flows, so streak/balance/missedDayForFreeze update
                 // reactively - no manual refresh needed.
                 kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
-                    // Use the freeze (decrements available count, adds to frozen dates)
-                    if (preferencesRepository.useFreeze(date)) {
+                    // Use the freeze (decrements available count, records the frozen day)
+                    if (freezeRepository.useFreeze(habitId, date)) {
                         // Track freeze spending separately (NOT deducting from check-in!)
-                        preferencesRepository.addFreezeSpending(cost)
+                        freezeRepository.addFreezeSpending(habitId, cost)
                         // Update widget immediately
                         updateWidget()
                     }
@@ -420,12 +427,13 @@ class MainViewModel(
         private val application: Application,
         private val repository: CheckInRepository,
         private val preferencesRepository: PreferencesRepository,
-        private val cashOutRepository: CashOutRepository
+        private val cashOutRepository: CashOutRepository,
+        private val freezeRepository: FreezeRepository
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(MainViewModel::class.java)) {
-                return MainViewModel(application, repository, preferencesRepository, cashOutRepository) as T
+                return MainViewModel(application, repository, preferencesRepository, cashOutRepository, freezeRepository) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
         }

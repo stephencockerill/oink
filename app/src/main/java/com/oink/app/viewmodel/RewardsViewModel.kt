@@ -8,7 +8,8 @@ import androidx.lifecycle.viewModelScope
 import com.oink.app.data.CashOut
 import com.oink.app.data.CashOutRepository
 import com.oink.app.data.CheckInRepository
-import com.oink.app.data.PreferencesRepository
+import com.oink.app.data.FreezeRepository
+import com.oink.app.data.HabitRepository
 import com.oink.app.utils.BalanceCalculator
 import com.oink.app.widget.OinkWidget
 import kotlinx.coroutines.NonCancellable
@@ -38,8 +39,14 @@ class RewardsViewModel(
     application: Application,
     private val cashOutRepository: CashOutRepository,
     private val checkInRepository: CheckInRepository,
-    private val preferencesRepository: PreferencesRepository
+    private val freezeRepository: FreezeRepository
 ) : AndroidViewModel(application) {
+
+    /**
+     * The habit this screen operates on. The app is single-habit for now, so
+     * freeze spending is read from the seeded default habit.
+     */
+    private val habitId: Long = HabitRepository.DEFAULT_HABIT_ID
 
     /**
      * Current ACTUAL balance (after all deductions).
@@ -48,7 +55,7 @@ class RewardsViewModel(
     val currentBalance: StateFlow<Long> = combine(
         checkInRepository.currentBalance,
         cashOutRepository.totalCashedOut,
-        preferencesRepository.totalFreezeSpending
+        freezeRepository.totalFreezeSpending(habitId)
     ) { checkInBalance, cashedOut, freezeSpending ->
         BalanceCalculator.calculateActualBalance(checkInBalance, cashedOut, freezeSpending)
     }.stateIn(
@@ -343,12 +350,12 @@ class RewardsViewModel(
         private val application: Application,
         private val cashOutRepository: CashOutRepository,
         private val checkInRepository: CheckInRepository,
-        private val preferencesRepository: PreferencesRepository
+        private val freezeRepository: FreezeRepository
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(RewardsViewModel::class.java)) {
-                return RewardsViewModel(application, cashOutRepository, checkInRepository, preferencesRepository) as T
+                return RewardsViewModel(application, cashOutRepository, checkInRepository, freezeRepository) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
         }

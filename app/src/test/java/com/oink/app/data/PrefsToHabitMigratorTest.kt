@@ -81,9 +81,9 @@ class PrefsToHabitMigratorTest {
     private suspend fun seedLegacyPreferences() {
         dataStore.edit { prefs ->
             prefs[OinkPreferenceKeys.EXERCISE_REWARD] = 1000L
-            prefs[OinkPreferenceKeys.AVAILABLE_FREEZES] = 2
-            prefs[OinkPreferenceKeys.TOTAL_FREEZE_SPENDING] = 1500L
-            prefs[OinkPreferenceKeys.FROZEN_DATES] = setOf(
+            prefs[PrefsToHabitMigrator.LEGACY_AVAILABLE_FREEZES] = 2
+            prefs[PrefsToHabitMigrator.LEGACY_TOTAL_FREEZE_SPENDING] = 1500L
+            prefs[PrefsToHabitMigrator.LEGACY_FROZEN_DATES] = setOf(
                 dayA.toEpochDay().toString(),
                 dayB.toEpochDay().toString()
             )
@@ -121,9 +121,9 @@ class PrefsToHabitMigratorTest {
         // habit - proving the guard, not merely the absolute-write idempotency.
         dataStore.edit { prefs ->
             prefs[OinkPreferenceKeys.EXERCISE_REWARD] = 9999L
-            prefs[OinkPreferenceKeys.AVAILABLE_FREEZES] = 0
-            prefs[OinkPreferenceKeys.TOTAL_FREEZE_SPENDING] = 8888L
-            prefs[OinkPreferenceKeys.FROZEN_DATES] = setOf(
+            prefs[PrefsToHabitMigrator.LEGACY_AVAILABLE_FREEZES] = 0
+            prefs[PrefsToHabitMigrator.LEGACY_TOTAL_FREEZE_SPENDING] = 8888L
+            prefs[PrefsToHabitMigrator.LEGACY_FROZEN_DATES] = setOf(
                 LocalDate.of(2025, 2, 2).toEpochDay().toString()
             )
         }
