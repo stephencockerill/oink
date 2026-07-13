@@ -102,7 +102,8 @@ class CheckInRepository(
         val checkIn = CheckIn(
             date = date,
             didExercise = didExercise,
-            balanceAfter = newBalance
+            balanceAfter = newBalance,
+            exerciseRewardAtTime = exerciseReward
         )
 
         val id = checkInDao.insert(checkIn)
@@ -125,11 +126,11 @@ class CheckInRepository(
             return existing
         }
 
-        // Find the balance BEFORE this check-in
-        val exerciseReward = getExerciseReward()
+        // Find the balance BEFORE this check-in. Reuse the reward stored on the
+        // check-in so editing a past day never rewrites it with today's rate.
         val previousBalance = getPreviousBalance(existing.date)
         val deductions = deductionProvider.getDeductionsAsOf(existing.date)
-        val newBalance = calculateNewBalance(previousBalance, didExercise, exerciseReward, deductions)
+        val newBalance = calculateNewBalance(previousBalance, didExercise, existing.exerciseRewardAtTime, deductions)
 
         val updated = existing.copy(
             didExercise = didExercise,
@@ -168,11 +169,14 @@ class CheckInRepository(
             val existing = checkInDao.getCheckInForDate(date.toEpochDay())
             val previousBalance = getPreviousBalance(date)
             val deductions = deductionProvider.getDeductionsAsOf(date)
-            val newBalance = calculateNewBalance(previousBalance, didExercise, exerciseReward, deductions)
 
             if (existing != null) {
-                // Update existing
+                // Update existing, keeping its recorded reward so a past day
+                // isn't rewritten with today's rate.
                 if (existing.didExercise != didExercise) {
+                    val newBalance = calculateNewBalance(
+                        previousBalance, didExercise, existing.exerciseRewardAtTime, deductions
+                    )
                     checkInDao.update(
                         existing.copy(
                             didExercise = didExercise,
@@ -182,11 +186,13 @@ class CheckInRepository(
                 }
             } else {
                 // Create new
+                val newBalance = calculateNewBalance(previousBalance, didExercise, exerciseReward, deductions)
                 checkInDao.insert(
                     CheckIn(
                         date = date,
                         didExercise = didExercise,
-                        balanceAfter = newBalance
+                        balanceAfter = newBalance,
+                        exerciseRewardAtTime = exerciseReward
                     )
                 )
             }
@@ -247,12 +253,15 @@ class CheckInRepository(
      * This is necessary when updating a past check-in because
      * each check-in's balance depends on the previous one.
      *
+     * Each check-in is replayed with the reward that applied on its own day
+     * (`exerciseRewardAtTime`), never today's setting, so history stays stable
+     * when the user changes their reward.
+     *
      * Yeah, this could be O(n) expensive, but in practice nobody's
      * gonna have thousands of check-ins. If they do, they're a
      * fucking legend and deserve the slight delay.
      */
     private suspend fun recalculateBalancesAfter(afterDate: LocalDate) {
-        val exerciseReward = getExerciseReward()
         val allCheckIns = checkInDao.getAllCheckInsAsc()
         var currentBalance = getPreviousBalance(afterDate.plusDays(1))
 
@@ -267,7 +276,9 @@ class CheckInRepository(
             .filter { it.date > afterDate }
             .forEach { checkIn ->
                 val deductions = deductionProvider.getDeductionsAsOf(checkIn.date)
-                val newBalance = calculateNewBalance(currentBalance, checkIn.didExercise, exerciseReward, deductions)
+                val newBalance = calculateNewBalance(
+                    currentBalance, checkIn.didExercise, checkIn.exerciseRewardAtTime, deductions
+                )
                 // Integer comparison - no float-equality fuzziness.
                 if (newBalance != checkIn.balanceAfter) {
                     checkInDao.update(checkIn.copy(balanceAfter = newBalance))
