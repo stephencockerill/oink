@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.arch.core.executor.testing.InstantTaskExecutorRule
 import androidx.test.core.app.ApplicationProvider
 import com.oink.app.data.CashOutRepository
+import com.oink.app.data.DefaultDeductionProvider
 import com.oink.app.data.CheckInRepository
 import com.oink.app.data.FakeCashOutDao
 import com.oink.app.data.FakeCheckInDao
@@ -68,7 +69,11 @@ class MainViewModelTest {
         fakeCheckInDao = FakeCheckInDao()
         fakeCashOutDao = FakeCashOutDao()
         preferencesRepository = FakePreferencesRepository()
-        checkInRepository = CheckInRepository(fakeCheckInDao, preferencesRepository)
+        checkInRepository = CheckInRepository(
+            fakeCheckInDao,
+            preferencesRepository,
+            DefaultDeductionProvider(fakeCashOutDao, preferencesRepository)
+        )
         cashOutRepository = CashOutRepository(fakeCashOutDao, checkInRepository, preferencesRepository)
 
         viewModel = MainViewModel(

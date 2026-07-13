@@ -35,7 +35,11 @@ class CashOutRepositoryTest {
         fakeCashOutDao = FakeCashOutDao()
         fakeCheckInDao = FakeCheckInDao()
         fakePreferencesRepository = FakePreferencesRepository()
-        checkInRepository = CheckInRepository(fakeCheckInDao, fakePreferencesRepository)
+        checkInRepository = CheckInRepository(
+            fakeCheckInDao,
+            fakePreferencesRepository,
+            DefaultDeductionProvider(fakeCashOutDao, fakePreferencesRepository)
+        )
         repository = CashOutRepository(fakeCashOutDao, checkInRepository, fakePreferencesRepository)
     }
 

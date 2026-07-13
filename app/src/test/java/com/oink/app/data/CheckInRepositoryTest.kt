@@ -1,5 +1,6 @@
 package com.oink.app.data
 
+import com.oink.app.utils.BalanceCalculator
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -31,11 +32,17 @@ class CheckInRepositoryTest {
     private var exerciseReward = 500L
     private val fakeRewardProvider = ExerciseRewardProvider { exerciseReward }
 
+    // Total deductions (cash-outs + freeze) in cents the fake reports for every
+    // date. Zero by default, so a miss reduces to raw / 2 for the majority of tests.
+    private var deductions = 0L
+    private val fakeDeductionProvider = DeductionProvider { deductions }
+
     @Before
     fun setup() {
         fakeDao = FakeCheckInDao()
-        repository = CheckInRepository(fakeDao, fakeRewardProvider)
+        repository = CheckInRepository(fakeDao, fakeRewardProvider, fakeDeductionProvider)
         exerciseReward = 500L // Reset to default ($5.00)
+        deductions = 0L // Reset to default
     }
 
     // =====================================================================
@@ -115,6 +122,89 @@ class CheckInRepositoryTest {
 
         val balance = repository.currentBalance.first()
         assertEquals(1000L, balance)
+    }
+
+    // =====================================================================
+    // Miss halves SPENDABLE, not raw (issue #6)
+    //
+    // Spendable = raw check-in balance - deductions (cash-outs + freeze).
+    // A miss must halve what the user can actually spend, regardless of how
+    // much has been cashed out. These assert the invariant end-to-end by
+    // running the result through the real BalanceCalculator.
+    // =====================================================================
+
+    @Test
+    fun `miss halves spendable balance after a cash-out`() = runTest {
+        // The issue's exact example: raw $100, cashed out $10 -> spendable $90.
+        exerciseReward = 10000L
+        repository.recordCheckIn(LocalDate.now().minusDays(1), didExercise = true) // raw $100
+
+        deductions = 1000L // simulate a $10 cash-out already recorded
+        repository.recordCheckIn(LocalDate.now(), didExercise = false) // miss
+
+        val raw = repository.getCurrentBalanceOnce()
+        val spendable = BalanceCalculator.calculateActualBalance(
+            checkInBalance = raw,
+            totalCashedOut = deductions,
+            totalFreezeSpending = 0L
+        )
+
+        // Spendable must be exactly half of the pre-miss $90 - NOT $40, which is
+        // what halving raw ($100 -> $50, then - $10) would have produced.
+        assertEquals(4500L, spendable) // $45.00
+        assertEquals(5500L, raw) // raw' = (10000 + 1000) / 2
+    }
+
+    @Test
+    fun `miss halves raw when nothing has been cashed out`() = runTest {
+        // Regression guard: with zero deductions, spendable == raw and a miss
+        // is the classic raw / 2.
+        exerciseReward = 10000L
+        repository.recordCheckIn(LocalDate.now().minusDays(1), didExercise = true) // raw $100
+
+        deductions = 0L
+        repository.recordCheckIn(LocalDate.now(), didExercise = false) // miss
+
+        val raw = repository.getCurrentBalanceOnce()
+        assertEquals(5000L, raw) // $50.00
+    }
+
+    @Test
+    fun `preview miss reflects halved spendable after a cash-out`() = runTest {
+        exerciseReward = 10000L
+        repository.recordCheckIn(LocalDate.now().minusDays(1), didExercise = true) // raw $100
+
+        deductions = 1000L // $10 cashed out
+        val rawPreview = repository.previewMissBalance()
+        // MainViewModel subtracts current deductions from the raw preview.
+        val spendablePreview = (rawPreview - deductions).coerceAtLeast(0L)
+
+        assertEquals(4500L, spendablePreview) // $45.00
+    }
+
+    @Test
+    fun `recalculating a past miss uses deductions in force`() = runTest {
+        // Two exercise days then a miss, with money cashed out throughout.
+        exerciseReward = 10000L
+        val day1 = LocalDate.now().minusDays(2)
+        val day2 = LocalDate.now().minusDays(1)
+        val day3 = LocalDate.now()
+
+        repository.recordCheckIn(day1, didExercise = true) // raw $100
+        repository.recordCheckIn(day2, didExercise = true) // raw $200
+
+        deductions = 2000L // $20 cashed out; spendable now $180
+        repository.recordCheckIn(day3, didExercise = false) // miss -> spendable $90
+
+        // Retroactively flip day2 to a miss; day3's balance must recalculate.
+        repository.recordCheckIn(day2, didExercise = false)
+
+        // day2 miss: (10000 + 2000) / 2 = 6000
+        // day3 miss: (6000 + 2000) / 2 = 4000
+        val raw = repository.getCurrentBalanceOnce()
+        val spendable = BalanceCalculator.calculateActualBalance(raw, deductions, 0L)
+        assertEquals(4000L, raw) // $40.00
+        assertEquals(2000L, spendable) // $20.00
     }
 
     // =====================================================================

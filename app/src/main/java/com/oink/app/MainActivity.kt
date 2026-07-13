@@ -13,6 +13,7 @@ import androidx.navigation.compose.rememberNavController
 import com.oink.app.data.CashOutRepository
 import com.oink.app.data.CheckInRepository
 import com.oink.app.data.DataStorePreferencesRepository
+import com.oink.app.data.DefaultDeductionProvider
 import com.oink.app.ui.navigation.OinkNavHost
 import com.oink.app.ui.theme.OinkTheme
 import com.oink.app.viewmodel.MainViewModel
@@ -38,7 +39,11 @@ class MainActivity : ComponentActivity() {
         // This is manual DI - if the app grows, consider Hilt
         val database = (application as OinkApplication).database
         val preferencesRepository = DataStorePreferencesRepository(applicationContext)
-        val checkInRepository = CheckInRepository(database.checkInDao(), preferencesRepository)
+        val checkInRepository = CheckInRepository(
+            database.checkInDao(),
+            preferencesRepository,
+            DefaultDeductionProvider(database.cashOutDao(), preferencesRepository)
+        )
         val cashOutRepository = CashOutRepository(database.cashOutDao(), checkInRepository, preferencesRepository)
 
         setContent {
