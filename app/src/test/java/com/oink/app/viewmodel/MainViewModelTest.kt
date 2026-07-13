@@ -2,6 +2,7 @@ package com.oink.app.viewmodel
 
 import android.app.Application
 import androidx.arch.core.executor.testing.InstantTaskExecutorRule
+import androidx.lifecycle.SavedStateHandle
 import androidx.test.core.app.ApplicationProvider
 import com.oink.app.data.CashOutRepository
 import com.oink.app.data.DefaultDeductionProvider
@@ -82,7 +83,10 @@ class MainViewModelTest {
         fakeCashOutDao = FakeCashOutDao()
         fakeCashOutAllocationDao = FakeCashOutAllocationDao()
         fakeHabitDao = FakeHabitDao().apply {
-            seed(Habit(id = HabitRepository.DEFAULT_HABIT_ID, name = "Workout"))
+            seed(
+                Habit(id = HABIT_A, name = "Workout"),
+                Habit(id = HABIT_B, name = "Meditate")
+            )
         }
         fakeFrozenDayDao = FakeFrozenDayDao()
         habitRepository = HabitRepository(fakeHabitDao)
@@ -101,14 +105,21 @@ class MainViewModelTest {
             FakeTransactionRunner()
         )
 
-        viewModel = MainViewModel(
-            application = application,
-            repository = checkInRepository,
-            habitRepository = habitRepository,
-            cashOutRepository = cashOutRepository,
-            freezeRepository = freezeRepository
-        )
+        viewModel = viewModelFor(HABIT_A)
     }
+
+    /**
+     * Build a MainViewModel scoped to [habitId], mirroring how the nav host
+     * populates the SavedStateHandle from the `habit/{habitId}` route argument.
+     */
+    private fun viewModelFor(habitId: Long): MainViewModel = MainViewModel(
+        application = application,
+        repository = checkInRepository,
+        habitRepository = habitRepository,
+        cashOutRepository = cashOutRepository,
+        freezeRepository = freezeRepository,
+        savedStateHandle = SavedStateHandle(mapOf(MainViewModel.HABIT_ID_KEY to habitId))
+    )
 
     @After
     fun tearDown() {
@@ -260,24 +271,61 @@ class MainViewModelTest {
     }
 
     // ============================================================
+    // Per-habit Scoping Tests
+    // The detail screen is per-habit: the habit id comes from the
+    // SavedStateHandle (the route arg), and one habit's actions must never
+    // touch another's balance or streak.
+    // ============================================================
+
+    @Test
+    fun `habitId comes from SavedStateHandle and scopes balance to that habit`() = runTest {
+        val vmA = viewModelFor(HABIT_A)
+        backgroundScope.launch { vmA.currentBalance.collect {} }
+        advanceUntilIdle()
+
+        vmA.recordTodayCheckIn(didExercise = true)
+        advanceUntilIdle()
+
+        // Habit A earned one reward; its spendable balance reflects only itself.
+        assertEquals(PreferencesRepository.DEFAULT_EXERCISE_REWARD, vmA.currentBalance.value)
+    }
+
+    @Test
+    fun `check-in on habit A does not change habit B balance or streak`() = runTest {
+        val vmA = viewModelFor(HABIT_A)
+        val vmB = viewModelFor(HABIT_B)
+        backgroundScope.launch { vmA.currentBalance.collect {} }
+        backgroundScope.launch { vmA.streak.collect {} }
+        backgroundScope.launch { vmB.currentBalance.collect {} }
+        backgroundScope.launch { vmB.streak.collect {} }
+        advanceUntilIdle()
+
+        vmA.recordTodayCheckIn(didExercise = true)
+        advanceUntilIdle()
+
+        // Habit A moved...
+        assertEquals(PreferencesRepository.DEFAULT_EXERCISE_REWARD, vmA.currentBalance.value)
+        assertEquals(1, vmA.streak.value)
+        // ...habit B did not.
+        assertEquals(0L, vmB.currentBalance.value)
+        assertEquals(0, vmB.streak.value)
+    }
+
+    // ============================================================
     // Factory Tests
     // ============================================================
 
     @Test
-    fun `factory creates MainViewModel successfully`() = runTest {
-        val factory = MainViewModel.Factory(
-            application = application,
-            repository = checkInRepository,
-            habitRepository = habitRepository,
-            cashOutRepository = cashOutRepository,
-            freezeRepository = freezeRepository
-        )
-
-        val vm = factory.create(MainViewModel::class.java)
+    fun `viewModel builds from a SavedStateHandle with default state`() = runTest {
+        val vm = viewModelFor(HABIT_A)
         advanceUntilIdle()
 
         // Should not throw and should have default state
         assertEquals(0L, vm.currentBalance.value)
     }
 
+    private companion object {
+        const val HABIT_A = HabitRepository.DEFAULT_HABIT_ID
+        const val HABIT_B = 2L
+    }
 }

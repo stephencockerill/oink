@@ -2,9 +2,14 @@ package com.oink.app.viewmodel
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
+import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
+import com.oink.app.AppContainer
 import com.oink.app.data.FreezeRepository
 import com.oink.app.data.HabitRepository
 import com.oink.app.data.PreferencesRepository
@@ -35,14 +40,18 @@ class SettingsViewModel(
     application: Application,
     private val preferencesRepository: PreferencesRepository,
     private val habitRepository: HabitRepository,
-    private val freezeRepository: FreezeRepository
+    private val freezeRepository: FreezeRepository,
+    savedStateHandle: SavedStateHandle
 ) : AndroidViewModel(application) {
 
     /**
-     * The habit this screen operates on. The app is single-habit for now, so
-     * the reward and every freeze read/write target the seeded default habit.
+     * The habit this screen operates on, taken from the `habit/{habitId}/settings`
+     * route argument via [SavedStateHandle]. Reward and freeze reads/writes target
+     * this habit, since both are per-habit. Falls back to the seeded default habit
+     * if the argument is absent.
      */
-    private val habitId: Long = HabitRepository.DEFAULT_HABIT_ID
+    private val habitId: Long =
+        savedStateHandle.get<Long>(MainViewModel.HABIT_ID_KEY) ?: HabitRepository.DEFAULT_HABIT_ID
 
     /**
      * User preferences as a StateFlow.
@@ -152,27 +161,27 @@ class SettingsViewModel(
         }
     }
 
-    /**
-     * Factory for creating SettingsViewModel with dependencies.
-     *
-     * Mirrors the pattern used by [MainViewModel] and [RewardsViewModel]:
-     * the system needs to know how to recreate the ViewModel across
-     * configuration changes, and this tells it how while allowing the
-     * [PreferencesRepository] to be supplied (a fake in tests).
-     */
-    class Factory(
-        private val application: Application,
-        private val preferencesRepository: PreferencesRepository,
-        private val habitRepository: HabitRepository,
-        private val freezeRepository: FreezeRepository
-    ) : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            if (modelClass.isAssignableFrom(SettingsViewModel::class.java)) {
-                return SettingsViewModel(application, preferencesRepository, habitRepository, freezeRepository) as T
+    companion object {
+        /**
+         * Factory that builds the ViewModel from [CreationExtras], mirroring
+         * [MainViewModel.provideFactory]: the [AppContainer] is closed over
+         * explicitly, the [Application] comes from [APPLICATION_KEY], and the
+         * per-habit [SavedStateHandle] (carrying the route's `{habitId}`) comes
+         * from [createSavedStateHandle].
+         */
+        fun provideFactory(container: AppContainer): ViewModelProvider.Factory =
+            viewModelFactory {
+                initializer {
+                    val application = this[APPLICATION_KEY] as Application
+                    SettingsViewModel(
+                        application = application,
+                        preferencesRepository = container.preferencesRepository,
+                        habitRepository = container.habitRepository,
+                        freezeRepository = container.freezeRepository,
+                        savedStateHandle = createSavedStateHandle()
+                    )
+                }
             }
-            throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
-        }
     }
 }
 

@@ -28,17 +28,16 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AcUnit
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.CardGiftcard
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.automirrored.filled.TrendingDown
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -70,13 +69,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.oink.app.data.PreferencesRepository
 import com.oink.app.ui.theme.OinkPink
 import com.oink.app.ui.theme.OinkPinkDark
 import com.oink.app.ui.theme.OinkTeal
 import com.oink.app.ui.theme.OinkTealContainer
-import com.oink.app.ui.theme.OinkSuccess
-import com.oink.app.ui.theme.OinkSuccessContainer
 import com.oink.app.ui.theme.OinkWarning
 import com.oink.app.utils.Formatters
 import com.oink.app.viewmodel.MainViewModel
@@ -84,20 +80,25 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
 /**
- * Home screen - the main screen of the app.
+ * Habit detail screen - the per-habit view.
  *
- * This is where users see their balance, streak, and can check in
- * for the day. It's designed to be visually motivating and easy to use.
+ * Reached by tapping a card on the home list. Shows this habit's balance,
+ * streak, and check-in controls. The whole screen is driven by a [MainViewModel]
+ * scoped to the route's `{habitId}`, so every balance, streak, and freeze action
+ * targets exactly this habit and never leaks into another.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(
+fun HabitDetailScreen(
     viewModel: MainViewModel,
+    onNavigateBack: () -> Unit,
     onNavigateToHistory: () -> Unit,
     onNavigateToCalendar: () -> Unit,
     onNavigateToSettings: () -> Unit,
     onNavigateToRewards: () -> Unit
 ) {
+    val habitName by viewModel.habitName.collectAsStateWithLifecycle()
+    val habitEmoji by viewModel.habitEmoji.collectAsStateWithLifecycle()
     val balance by viewModel.currentBalance.collectAsStateWithLifecycle()
     val todayCheckIn by viewModel.todayCheckIn.collectAsStateWithLifecycle()
     val streak by viewModel.streak.collectAsStateWithLifecycle()
@@ -119,15 +120,26 @@ fun HomeScreen(
         }
     }
 
+    // Title falls back to the brand mark until the habit row loads.
+    val title = if (habitName.isBlank()) "🐷 Oink" else "$habitEmoji $habitName".trim()
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
                     Text(
-                        "🐷 Oink",
+                        title,
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold
                     )
+                },
+                navigationIcon = {
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back"
+                        )
+                    }
                 },
                 actions = {
                     IconButton(onClick = onNavigateToRewards) {
@@ -731,4 +743,3 @@ private fun CheckInStatus(didExercise: Boolean) {
         }
     }
 }
-

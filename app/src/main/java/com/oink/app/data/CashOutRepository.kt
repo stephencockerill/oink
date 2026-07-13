@@ -66,7 +66,7 @@ class CashOutRepository(
         if (public.isEmpty()) {
             flowOf(0L)
         } else {
-            combine(public.map { habit -> spendableFlow(habit.id) }) { shares -> shares.sum() }
+            combine(public.map { habit -> spendable(habit.id) }) { shares -> shares.sum() }
         }
     }
 
@@ -82,8 +82,12 @@ class CashOutRepository(
      * Observe a single habit's spendable balance:
      * raw check-in balance - its cash-out allocations - its freeze spending,
      * floored at zero.
+     *
+     * This is the per-habit share that [pot] sums over public habits. The habit
+     * detail screen shows this for its own habit, while the home list shows the
+     * pot as the shared total.
      */
-    private fun spendableFlow(habitId: Long): Flow<Long> = combine(
+    fun spendable(habitId: Long): Flow<Long> = combine(
         checkInRepository.currentBalance(habitId),
         allocatedForHabit(habitId),
         freezeRepository.totalFreezeSpending(habitId)

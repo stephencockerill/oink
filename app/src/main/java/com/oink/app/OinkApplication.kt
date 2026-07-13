@@ -17,12 +17,10 @@ import kotlinx.coroutines.launch
 class OinkApplication : Application() {
 
     /**
-     * Lazy initialization of the Room database.
-     * The database instance is created only when first accessed.
+     * The application-wide dependency graph. Built lazily on first access and
+     * shared by every ViewModel factory. See [AppContainer].
      */
-    val database: AppDatabase by lazy {
-        AppDatabase.getDatabase(this)
-    }
+    val container: AppContainer by lazy { AppContainer(this) }
 
     /**
      * Application-lifetime scope for startup work that must outlive any single
@@ -46,6 +44,7 @@ class OinkApplication : Application() {
      * attempt on every launch: [PrefsToHabitMigrator] no-ops once it has run.
      */
     private fun migratePreferencesToHabit() {
+        val database = AppDatabase.getDatabase(this)
         val migrator = PrefsToHabitMigrator(
             dataStore = applicationContext.dataStore,
             habitDao = database.habitDao(),
