@@ -79,6 +79,31 @@ class AppDatabaseMigrationTest {
         }
     }
 
+    /**
+     * v2 -> v3: check_ins gains exerciseRewardAtTime.
+     *
+     * Seeds a v2 check-in, runs [AppDatabase.MIGRATION_2_3], validates the v3
+     * schema, and asserts the existing row backfills to the 500 cent default.
+     */
+    @Test
+    @Throws(IOException::class)
+    fun migrate2To3_addsExerciseRewardAtTimeDefaulting500() {
+        helper.createDatabase(TEST_DB, 2).apply {
+            execSQL(
+                "INSERT INTO check_ins (id, date, didExercise, balanceAfter) " +
+                    "VALUES (1, 20000, 1, 1234)"
+            )
+            close()
+        }
+
+        val db = helper.runMigrationsAndValidate(TEST_DB, 3, true, AppDatabase.MIGRATION_2_3)
+
+        db.query("SELECT exerciseRewardAtTime FROM check_ins WHERE id = 1").use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals(500L, cursor.getLong(0))
+        }
+    }
+
     companion object {
         private const val TEST_DB = "migration-test"
     }
