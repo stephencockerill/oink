@@ -339,16 +339,28 @@ class CheckInRepository(
      *
      * @param frozenDates Set of dates that are "frozen" and don't break the streak
      */
-    suspend fun calculateStreak(frozenDates: Set<LocalDate> = emptySet()): Int {
-        val allCheckIns = checkInDao.getAllCheckInsAsc()
-        if (allCheckIns.isEmpty() && frozenDates.isEmpty()) return 0
+    suspend fun calculateStreak(frozenDates: Set<LocalDate> = emptySet()): Int =
+        calculateStreak(checkInDao.getAllCheckInsAsc(), frozenDates)
+
+    /**
+     * Pure streak calculation over an already-loaded list of check-ins.
+     *
+     * This overload does no I/O, so callers holding a reactive Flow of
+     * check-ins (see MainViewModel) can recompute the streak on every
+     * emission without a redundant DAO read.
+     *
+     * @param checkIns All check-ins (order irrelevant; keyed by date internally)
+     * @param frozenDates Set of dates that are "frozen" and don't break the streak
+     */
+    fun calculateStreak(checkIns: List<CheckIn>, frozenDates: Set<LocalDate> = emptySet()): Int {
+        if (checkIns.isEmpty() && frozenDates.isEmpty()) return 0
 
         var streak = 0
         val today = today()
         var currentDate = today
 
         // Work backwards from today
-        val checkInMap = allCheckIns.associateBy { it.date }
+        val checkInMap = checkIns.associateBy { it.date }
 
         while (true) {
             val checkIn = checkInMap[currentDate]
@@ -400,12 +412,22 @@ class CheckInRepository(
      *
      * @param frozenDates Dates already frozen (to exclude)
      */
-    suspend fun findMissedDayForFreeze(frozenDates: Set<LocalDate> = emptySet()): LocalDate? {
-        val allCheckIns = checkInDao.getAllCheckInsAsc()
+    suspend fun findMissedDayForFreeze(frozenDates: Set<LocalDate> = emptySet()): LocalDate? =
+        findMissedDayForFreeze(checkInDao.getAllCheckInsAsc(), frozenDates)
+
+    /**
+     * Pure freeze-candidate search over an already-loaded list of check-ins.
+     *
+     * Does no I/O so reactive callers can recompute on every check-in emission.
+     *
+     * @param checkIns All check-ins (order irrelevant; keyed by date internally)
+     * @param frozenDates Dates to skip over (already frozen, or dismissed by the user)
+     */
+    fun findMissedDayForFreeze(checkIns: List<CheckIn>, frozenDates: Set<LocalDate> = emptySet()): LocalDate? {
         val today = today()
         var currentDate = today.minusDays(1) // Start from yesterday
 
-        val checkInMap = allCheckIns.associateBy { it.date }
+        val checkInMap = checkIns.associateBy { it.date }
 
         // Look back up to 7 days for a missed day
         repeat(7) {
@@ -434,14 +456,27 @@ class CheckInRepository(
     }
 
     /**
-     * Get what the balance would be if user exercises today.
+     * Get what the raw balance would be if user exercises today.
      */
     suspend fun previewExerciseBalance(): Long {
         val exerciseReward = getExerciseReward()
         val current = checkInDao.getLatestCheckIn()?.balanceAfter ?: STARTING_BALANCE
         val deductions = deductionProvider.getDeductionsAsOf(today())
-        return calculateNewBalance(current, didExercise = true, exerciseReward, deductions)
+        return previewExerciseBalance(current, exerciseReward, deductions)
     }
+
+    /**
+     * Pure exercise-preview calculation over already-loaded inputs.
+     *
+     * Does no I/O so reactive callers (see MainViewModel) can recompute on
+     * every balance/reward/deduction emission.
+     *
+     * @param rawBalance Current raw check-in balance
+     * @param exerciseReward Per-workout reward in cents
+     * @param deductions Total cash-outs + freeze spending in force today
+     */
+    fun previewExerciseBalance(rawBalance: Long, exerciseReward: Long, deductions: Long): Long =
+        calculateNewBalance(rawBalance, didExercise = true, exerciseReward, deductions)
 
     /**
      * Get what the raw balance would be if user misses today.
@@ -452,11 +487,22 @@ class CheckInRepository(
      * spendable balance once deductions are subtracted.
      */
     suspend fun previewMissBalance(): Long {
-        val exerciseReward = getExerciseReward()
         val current = checkInDao.getLatestCheckIn()?.balanceAfter ?: STARTING_BALANCE
         val deductions = deductionProvider.getDeductionsAsOf(today())
-        return calculateNewBalance(current, didExercise = false, exerciseReward, deductions)
+        return previewMissBalance(current, deductions)
     }
+
+    /**
+     * Pure miss-preview calculation over already-loaded inputs.
+     *
+     * Does no I/O so reactive callers (see MainViewModel) can recompute on
+     * every balance/deduction emission. A miss ignores the exercise reward.
+     *
+     * @param rawBalance Current raw check-in balance
+     * @param deductions Total cash-outs + freeze spending in force today
+     */
+    fun previewMissBalance(rawBalance: Long, deductions: Long): Long =
+        calculateNewBalance(rawBalance, didExercise = false, exerciseReward = 0L, deductions)
 
     /**
      * Get current balance (one-time query, not a Flow).

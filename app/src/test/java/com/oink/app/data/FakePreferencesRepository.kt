@@ -2,7 +2,7 @@ package com.oink.app.data
 
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import java.time.LocalDate
 
@@ -37,14 +37,24 @@ class FakePreferencesRepository(
 
     /**
      * Flow of user preferences (mirrors real implementation).
+     *
+     * Combines every backing flow so it re-emits on any preference change,
+     * matching the DataStore-backed implementation. A map over a single flow
+     * would silently miss freeze/frozen-date updates.
      */
-    override val userPreferences: Flow<UserPreferences> = _exerciseReward.map { reward ->
+    override val userPreferences: Flow<UserPreferences> = combine(
+        _exerciseReward,
+        _availableFreezes,
+        _frozenDates,
+        _remindersEnabled,
+        combine(_reminderHour, _reminderMinute) { hour, minute -> hour to minute }
+    ) { reward, freezes, frozen, remindersEnabled, (hour, minute) ->
         UserPreferences(
-            remindersEnabled = _remindersEnabled.value,
-            reminderHour = _reminderHour.value,
-            reminderMinute = _reminderMinute.value,
-            availableFreezes = _availableFreezes.value,
-            frozenDates = _frozenDates.value,
+            remindersEnabled = remindersEnabled,
+            reminderHour = hour,
+            reminderMinute = minute,
+            availableFreezes = freezes,
+            frozenDates = frozen,
             exerciseReward = reward
         )
     }

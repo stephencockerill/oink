@@ -119,11 +119,6 @@ fun HomeScreen(
         }
     }
 
-    // Refresh data when screen becomes visible
-    LaunchedEffect(Unit) {
-        viewModel.refreshData()
-    }
-
     Scaffold(
         topBar = {
             TopAppBar(
