@@ -5,6 +5,8 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.oink.app.data.FreezeRepository
+import com.oink.app.data.HabitRepository
 import com.oink.app.data.PreferencesRepository
 import com.oink.app.data.UserPreferences
 import com.oink.app.notifications.NotificationHelper
@@ -30,8 +32,15 @@ import kotlinx.coroutines.launch
  */
 class SettingsViewModel(
     application: Application,
-    private val preferencesRepository: PreferencesRepository
+    private val preferencesRepository: PreferencesRepository,
+    private val freezeRepository: FreezeRepository
 ) : AndroidViewModel(application) {
+
+    /**
+     * The habit this screen operates on. The app is single-habit for now, so
+     * every freeze read/write targets the seeded default habit.
+     */
+    private val habitId: Long = HabitRepository.DEFAULT_HABIT_ID
 
     /**
      * User preferences as a StateFlow.
@@ -41,6 +50,16 @@ class SettingsViewModel(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = UserPreferences()
+        )
+
+    /**
+     * Streak freezes banked for this habit.
+     */
+    val availableFreezes: StateFlow<Int> = freezeRepository.availableFreezes(habitId)
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = 0
         )
 
     /**
@@ -97,13 +116,12 @@ class SettingsViewModel(
      * Results are observed through the [userPreferences] StateFlow.
      */
     fun acquireFreeze() {
-        val current = userPreferences.value.availableFreezes
-        if (current >= PreferencesRepository.MAX_FREEZES) {
+        if (availableFreezes.value >= PreferencesRepository.MAX_FREEZES) {
             return
         }
 
         viewModelScope.launch {
-            preferencesRepository.purchaseFreeze()
+            freezeRepository.purchaseFreeze(habitId)
         }
     }
 
@@ -127,12 +145,13 @@ class SettingsViewModel(
      */
     class Factory(
         private val application: Application,
-        private val preferencesRepository: PreferencesRepository
+        private val preferencesRepository: PreferencesRepository,
+        private val freezeRepository: FreezeRepository
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(SettingsViewModel::class.java)) {
-                return SettingsViewModel(application, preferencesRepository) as T
+                return SettingsViewModel(application, preferencesRepository, freezeRepository) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
         }

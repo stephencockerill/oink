@@ -27,6 +27,7 @@ class CashOutRepositoryTest {
     private lateinit var fakeCashOutDao: FakeCashOutDao
     private lateinit var fakeCheckInDao: FakeCheckInDao
     private lateinit var fakePreferencesRepository: FakePreferencesRepository
+    private lateinit var fakeCashOutPreferences: FakeCashOutPreferencesProvider
     private lateinit var checkInRepository: CheckInRepository
     private lateinit var repository: CashOutRepository
 
@@ -35,12 +36,13 @@ class CashOutRepositoryTest {
         fakeCashOutDao = FakeCashOutDao()
         fakeCheckInDao = FakeCheckInDao()
         fakePreferencesRepository = FakePreferencesRepository()
+        fakeCashOutPreferences = FakeCashOutPreferencesProvider()
         checkInRepository = CheckInRepository(
             fakeCheckInDao,
             fakePreferencesRepository,
-            DefaultDeductionProvider(fakeCashOutDao, fakePreferencesRepository)
+            DefaultDeductionProvider(fakeCashOutDao, fakeCashOutPreferences)
         )
-        repository = CashOutRepository(fakeCashOutDao, checkInRepository, fakePreferencesRepository)
+        repository = CashOutRepository(fakeCashOutDao, checkInRepository, fakeCashOutPreferences)
     }
 
     // =====================================================================

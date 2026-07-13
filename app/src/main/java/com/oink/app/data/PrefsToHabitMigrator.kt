@@ -3,6 +3,9 @@ package com.oink.app.data
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import java.time.LocalDate
 
 /**
@@ -49,9 +52,9 @@ class PrefsToHabitMigrator(
 
             val reward = prefs[OinkPreferenceKeys.EXERCISE_REWARD]
                 ?: PreferencesRepository.DEFAULT_EXERCISE_REWARD
-            val availableFreezes = prefs[OinkPreferenceKeys.AVAILABLE_FREEZES] ?: 0
-            val totalFreezeSpending = prefs[OinkPreferenceKeys.TOTAL_FREEZE_SPENDING] ?: 0L
-            val frozenEpochDays = prefs[OinkPreferenceKeys.FROZEN_DATES] ?: emptySet()
+            val availableFreezes = prefs[LEGACY_AVAILABLE_FREEZES] ?: 0
+            val totalFreezeSpending = prefs[LEGACY_TOTAL_FREEZE_SPENDING] ?: 0L
+            val frozenEpochDays = prefs[LEGACY_FROZEN_DATES] ?: emptySet()
 
             // A fresh install at v4 has no seeded habit: MIGRATION_3_4 seeds
             // id = 1 only on upgrade. The update then touches zero rows and there
@@ -79,5 +82,20 @@ class PrefsToHabitMigrator(
 
             prefs[OinkPreferenceKeys.PREFS_MIGRATED_TO_HABIT_V1] = true
         }
+    }
+
+    companion object {
+        /**
+         * DataStore keys for the freeze state that predates per-habit storage.
+         * This migrator is their only remaining reader - it drains them onto the
+         * habit row - so they are defined here rather than in [OinkPreferenceKeys].
+         * The names must match the strings the legacy app wrote.
+         *
+         * Internal so the migrator's test can seed legacy values without
+         * duplicating the key names.
+         */
+        internal val LEGACY_AVAILABLE_FREEZES = intPreferencesKey("available_freezes")
+        internal val LEGACY_FROZEN_DATES = stringSetPreferencesKey("frozen_dates")
+        internal val LEGACY_TOTAL_FREEZE_SPENDING = longPreferencesKey("total_freeze_spending")
     }
 }

@@ -78,6 +78,7 @@ fun SettingsScreen(
     onNavigateBack: () -> Unit
 ) {
     val userPreferences by settingsViewModel.userPreferences.collectAsStateWithLifecycle()
+    val availableFreezes by settingsViewModel.availableFreezes.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     var showTimePicker by remember { mutableStateOf(false) }
@@ -270,7 +271,7 @@ fun SettingsScreen(
                                     fontWeight = FontWeight.Medium
                                 )
                                 Text(
-                                    text = "${userPreferences.availableFreezes} / ${PreferencesRepository.MAX_FREEZES}",
+                                    text = "$availableFreezes / ${PreferencesRepository.MAX_FREEZES}",
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.primary,
                                     fontWeight = FontWeight.Bold
@@ -279,7 +280,7 @@ fun SettingsScreen(
                         }
 
                         // Add freeze button
-                        if (userPreferences.availableFreezes < PreferencesRepository.MAX_FREEZES) {
+                        if (availableFreezes < PreferencesRepository.MAX_FREEZES) {
                             androidx.compose.material3.FilledTonalButton(
                                 onClick = { settingsViewModel.acquireFreeze() }
                             ) {
