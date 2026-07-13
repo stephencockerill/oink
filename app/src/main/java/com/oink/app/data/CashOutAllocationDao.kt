@@ -52,6 +52,15 @@ interface CashOutAllocationDao {
     suspend fun getAll(): List<CashOutAllocation>
 
     /**
+     * Observe every allocation across all cash-outs and habits.
+     *
+     * Drives the history visibility gate ([CashOutRepository.visibleCashOuts]),
+     * which joins allocations against each habit's live privacy flag.
+     */
+    @Query("SELECT * FROM cash_out_allocations")
+    fun getAllFlow(): Flow<List<CashOutAllocation>>
+
+    /**
      * Observe every allocation attributed to a habit.
      */
     @Query("SELECT * FROM cash_out_allocations WHERE habitId = :habitId")

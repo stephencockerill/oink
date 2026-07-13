@@ -42,12 +42,13 @@ import com.oink.app.BuildConfig
 import com.oink.app.MainActivity
 import com.oink.app.R
 import com.oink.app.data.AppDatabase
+import com.oink.app.data.CashOutRepository
 import com.oink.app.data.CheckInRepository
 import com.oink.app.data.DefaultDeductionProvider
 import com.oink.app.data.FreezeRepository
 import com.oink.app.data.HabitRepository
 import com.oink.app.data.HabitRewardProvider
-import com.oink.app.utils.BalanceCalculator
+import com.oink.app.data.RoomTransactionRunner
 import com.oink.app.utils.Formatters
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -105,7 +106,8 @@ class OinkWidget : GlanceAppWidget() {
         val database = AppDatabase.getDatabase(context)
         val habitId = HabitRepository.DEFAULT_HABIT_ID
         val freezeRepository = FreezeRepository(database.habitDao(), database.frozenDayDao())
-        val repository = CheckInRepository(
+        val habitRepository = HabitRepository(database.habitDao())
+        val checkInRepository = CheckInRepository(
             database.checkInDao(),
             HabitRewardProvider(database.habitDao()),
             DefaultDeductionProvider(
@@ -114,22 +116,26 @@ class OinkWidget : GlanceAppWidget() {
                 freezeRepository
             )
         )
-
-        val latestCheckIn = database.checkInDao().getLatestCheckIn(habitId)
-        val todayCheckIn = database.checkInDao().getCheckInForDate(habitId, repository.today().toEpochDay())
-        val streak = repository.calculateStreak(habitId)
-
-        // Calculate ACTUAL balance using centralized BalanceCalculator
-        val checkInBalance = latestCheckIn?.balanceAfter ?: 0L
-        val totalCashedOut = database.cashOutDao().getTotalCashedOut()
-        val totalFreezeSpending = freezeRepository.getTotalFreezeSpending(habitId)
-        val actualBalance = BalanceCalculator.calculateActualBalance(
-            checkInBalance = checkInBalance,
-            totalCashedOut = totalCashedOut,
-            totalFreezeSpending = totalFreezeSpending
+        val cashOutRepository = CashOutRepository(
+            database.cashOutDao(),
+            database.cashOutAllocationDao(),
+            checkInRepository,
+            habitRepository,
+            freezeRepository,
+            RoomTransactionRunner(database)
         )
 
-        logd { "getWidgetData: checkInBalance=$checkInBalance, cashedOut=$totalCashedOut, freezeSpending=$totalFreezeSpending, actual=$actualBalance" }
+        val todayCheckIn = database.checkInDao().getCheckInForDate(habitId, checkInRepository.today().toEpochDay())
+        val streak = checkInRepository.calculateStreak(habitId)
+
+        // The widget lives outside the PIN gate, so it always shows the locked
+        // public pot: the sum of every public habit's spendable balance. This
+        // never leaks a private or mixed claim, and stays correct for a mixed
+        // claim because each public habit's spendable already nets off the public
+        // portion it funded.
+        val actualBalance = cashOutRepository.potOnce(includePrivate = false)
+
+        logd { "getWidgetData: publicPot=$actualBalance, streak=$streak" }
 
         return WidgetData(
             balance = actualBalance,

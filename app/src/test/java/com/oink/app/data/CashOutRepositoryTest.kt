@@ -1,5 +1,6 @@
 package com.oink.app.data
 
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -442,6 +443,119 @@ class CashOutRepositoryTest {
         assertEquals(5000L, fakeCashOutAllocationDao.getTotalForHabit(1L))
         assertEquals(1000L, fakeCashOutAllocationDao.getTotalForHabit(2L))
         assertEquals(6000L, repository.getCashOutById(original.id)?.amount)
+    }
+
+    // =====================================================================
+    // Unlock-gated Pot Scope Tests (MH-9)
+    // =====================================================================
+
+    @Test
+    fun `pot spans public only when locked and adds private when unlocked`() = runTest {
+        seedHabits(
+            HabitSeed(id = 1, sortOrder = 0, isPrivate = false),
+            HabitSeed(id = 2, sortOrder = 1, isPrivate = true)
+        )
+        seedRawBalances(1L to 2000L, 2L to 5000L)
+
+        // Locked: public habit only. Unlocked: public + private.
+        assertEquals(2000L, repository.pot(includePrivate = false).first())
+        assertEquals(7000L, repository.pot(includePrivate = true).first())
+    }
+
+    @Test
+    fun `unlocked claim can draw from a private bank`() = runTest {
+        seedHabits(
+            HabitSeed(id = 1, sortOrder = 0, isPrivate = false),
+            HabitSeed(id = 2, sortOrder = 1, isPrivate = true)
+        )
+        seedRawBalances(1L to 2000L, 2L to 5000L)
+
+        // Locked pot is only 2000, so a 4000 claim is rejected while locked.
+        assertNull(repository.cashOut("Too much while locked", 4000, includePrivate = false))
+
+        // Unlocked, the pot is 7000; the claim drains the private habit first
+        // (highest spendable) for the whole 4000.
+        val result = repository.cashOut("Treat", 4000, includePrivate = true)!!
+        assertEquals(4000L, fakeCashOutAllocationDao.getTotalForHabit(2L))
+        assertEquals(0L, fakeCashOutAllocationDao.getTotalForHabit(1L))
+        assertEquals(7000L, result.balanceBefore)
+        assertEquals(3000L, result.balanceAfter)
+    }
+
+    // =====================================================================
+    // History Visibility Gate Tests (MH-9)
+    // =====================================================================
+
+    @Test
+    fun `a purely public cash-out is visible on the locked history`() = runTest {
+        seedHabits(HabitSeed(id = 1, sortOrder = 0, isPrivate = false))
+        seedRawBalances(1L to 3000L)
+
+        val claim = repository.cashOut("Public treat", 2000, includePrivate = false)!!
+
+        assertEquals(listOf(claim.id), repository.visibleCashOuts.first().map { it.id })
+        assertEquals(2000L, repository.visibleTotalCashedOut.first())
+    }
+
+    @Test
+    fun `a cash-out that touched a private habit is hidden from locked history`() = runTest {
+        seedHabits(
+            HabitSeed(id = 1, sortOrder = 0, isPrivate = false),
+            HabitSeed(id = 2, sortOrder = 1, isPrivate = true)
+        )
+        seedRawBalances(1L to 3000L, 2L to 3000L)
+
+        // Public-only claim: draws from habit 1 only, stays visible.
+        val publicClaim = repository.cashOut("Public", 2000, includePrivate = false)!!
+        // Unlocked claim of 4000: drains private habit 2 (3000) then habit 1 (1000),
+        // so it has an allocation to the private habit and must be hidden.
+        val mixedClaim = repository.cashOut("Mixed", 4000, includePrivate = true)!!
+
+        val visible = repository.visibleCashOuts.first()
+        assertEquals(listOf(publicClaim.id), visible.map { it.id })
+        assertFalse(visible.any { it.id == mixedClaim.id })
+        // Gated total counts only the public claim; the full total counts both.
+        assertEquals(2000L, repository.visibleTotalCashedOut.first())
+        assertEquals(6000L, repository.totalCashedOut.first())
+        // Both cash-outs still exist in the ungated view.
+        assertEquals(2, repository.allCashOuts.first().size)
+    }
+
+    @Test
+    fun `flipping a habit to private taints its past cash-outs live`() = runTest {
+        seedHabits(HabitSeed(id = 1, sortOrder = 0, isPrivate = false))
+        seedRawBalances(1L to 3000L)
+
+        val claim = repository.cashOut("Public today", 2000, includePrivate = false)!!
+        assertEquals(listOf(claim.id), repository.visibleCashOuts.first().map { it.id })
+
+        // The habit goes private; its existing cash-out must vanish from the
+        // locked history immediately (predicate on current isPrivate).
+        val habit = fakeHabitDao.getById(1L)!!
+        fakeHabitDao.update(habit.copy(isPrivate = true))
+
+        assertTrue(repository.visibleCashOuts.first().isEmpty())
+        assertEquals(0L, repository.visibleTotalCashedOut.first())
+    }
+
+    @Test
+    fun `gating hides history but per-habit debits stay true`() = runTest {
+        seedHabits(
+            HabitSeed(id = 1, sortOrder = 0, isPrivate = false),
+            HabitSeed(id = 2, sortOrder = 1, isPrivate = true)
+        )
+        seedRawBalances(1L to 3000L, 2L to 5000L)
+
+        // Unlocked claim drains the higher-balance private habit 2 first (5000),
+        // then public habit 1 for the remaining 1000.
+        repository.cashOut("Mixed", 6000, includePrivate = true)!!
+
+        // Hidden from the locked history and its total...
+        assertTrue(repository.visibleCashOuts.first().isEmpty())
+        assertEquals(0L, repository.visibleTotalCashedOut.first())
+        // ...yet the public habit's true debit and spendable are exact.
+        assertEquals(1000L, fakeCashOutAllocationDao.getTotalForHabit(1L))
+        assertEquals(2000L, spendableOf(1L))
     }
 
     // =====================================================================

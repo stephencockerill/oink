@@ -80,8 +80,13 @@ class HabitListViewModel(
     /**
      * The shared piggy bank total: the sum of every public habit's spendable
      * balance. See [CashOutRepository.pot].
+     *
+     * The home list only ever renders public habit cards, so this bank is always
+     * the public pot, keeping "overall bank = sum of the visible cards" true even
+     * while the private area is unlocked. The unlock-aware pot lives on the
+     * Rewards surface, where a claim can draw from private banks.
      */
-    val overallBank: StateFlow<Long> = cashOutRepository.pot
+    val overallBank: StateFlow<Long> = cashOutRepository.pot(includePrivate = false)
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),

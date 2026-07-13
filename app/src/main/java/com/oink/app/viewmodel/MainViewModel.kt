@@ -17,13 +17,16 @@ import com.oink.app.data.CheckInRepository
 import com.oink.app.data.FreezeRepository
 import com.oink.app.data.HabitRepository
 import com.oink.app.data.PreferencesRepository
+import com.oink.app.data.PrivateGate
 import com.oink.app.utils.Formatters
 import com.oink.app.widget.OinkWidget
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -47,12 +50,14 @@ import java.time.LocalDate
  * 3. It's got null safety built in
  * 4. It's the modern way, and LiveData is showing its age
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 class MainViewModel(
     application: Application,
     private val repository: CheckInRepository,
     private val habitRepository: HabitRepository,
     private val cashOutRepository: CashOutRepository,
     private val freezeRepository: FreezeRepository,
+    private val privateGate: PrivateGate,
     savedStateHandle: SavedStateHandle
 ) : AndroidViewModel(application) {
 
@@ -127,8 +132,15 @@ class MainViewModel(
 
     /**
      * All cash-outs for reward indicators on calendar/history.
+     *
+     * Follows the private-area unlock state: while locked this is the visible
+     * (gated) set, so a cash-out that drew from a private habit is hidden from
+     * the history timeline; while unlocked it is the full set.
      */
-    val allCashOuts: StateFlow<List<CashOut>> = cashOutRepository.allCashOuts
+    val allCashOuts: StateFlow<List<CashOut>> = privateGate.isUnlocked
+        .flatMapLatest { unlocked ->
+            if (unlocked) cashOutRepository.allCashOuts else cashOutRepository.visibleCashOuts
+        }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
@@ -474,6 +486,7 @@ class MainViewModel(
                         habitRepository = container.habitRepository,
                         cashOutRepository = container.cashOutRepository,
                         freezeRepository = container.freezeRepository,
+                        privateGate = container.privateGate,
                         savedStateHandle = createSavedStateHandle()
                     )
                 }
