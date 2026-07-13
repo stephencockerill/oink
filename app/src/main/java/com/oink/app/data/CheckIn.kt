@@ -4,7 +4,6 @@ import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import androidx.room.TypeConverter
-import androidx.room.TypeConverters
 import java.time.LocalDate
 
 /**
@@ -21,7 +20,6 @@ import java.time.LocalDate
     tableName = "check_ins",
     indices = [Index(value = ["date"], unique = true)]
 )
-@TypeConverters(Converters::class)
 data class CheckIn(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,

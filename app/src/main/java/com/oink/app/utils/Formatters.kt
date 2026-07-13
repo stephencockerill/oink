@@ -15,7 +15,7 @@ import java.util.Locale
  *
  * Why put these in a separate file? Because formatting logic
  * tends to be reused across multiple screens, and duplicating
- * it would be some amateur hour bullshit.
+ * it everywhere would be a maintenance headache.
  */
 object Formatters {
 
@@ -93,7 +93,7 @@ object Formatters {
     }
 
     /**
-     * Format streak with fire emoji because we're not fucking boring.
+     * Format streak with fire emoji for a bit of flair.
      */
     fun formatStreakWithEmoji(days: Int): String {
         return when {

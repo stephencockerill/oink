@@ -7,7 +7,7 @@ import java.time.ZoneId
  * Date utility functions.
  *
  * Why is this its own file? Because date handling is notoriously
- * tricky and having centralized helpers prevents timezone fuckups.
+ * tricky and having centralized helpers prevents timezone mistakes.
  */
 object DateUtils {
 

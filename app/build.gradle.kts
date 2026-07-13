@@ -40,6 +40,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     // Room's exported schema JSON lives in app/schemas. Bundling it as androidTest
