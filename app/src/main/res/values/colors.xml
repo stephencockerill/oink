@@ -33,7 +33,4 @@
 
     <!-- Primary brand color for widget preview and launcher -->
     <color name="widget_preview_background">#FFFF6B9D</color> <!-- Coral pink -->
-
-    <!-- Launcher icon background -->
-    <color name="ic_launcher_background">#FFFF6B9D</color>    <!-- Coral pink -->
 </resources>
