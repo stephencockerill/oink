@@ -6,10 +6,4 @@
 #   http://developer.android.com/guide/developing/tools/proguard.html
 
 # Keep Room entities
--keep class com.sweatequity.app.data.** { *; }
-
-# Keep data classes
--keepclassmembers class * {
-    @com.google.gson.annotations.SerializedName <fields>;
-}
-
+-keep class com.oink.app.data.** { *; }
