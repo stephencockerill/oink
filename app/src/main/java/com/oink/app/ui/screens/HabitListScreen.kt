@@ -23,6 +23,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.AcUnit
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CardGiftcard
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -65,6 +66,7 @@ fun HabitListScreen(
     viewModel: HabitListViewModel,
     onHabitClick: (Long) -> Unit,
     onNavigateToRewards: () -> Unit,
+    onPrivateClick: () -> Unit,
     onAddHabit: () -> Unit
 ) {
     val habitCards by viewModel.habitCards.collectAsStateWithLifecycle()
@@ -110,6 +112,10 @@ fun HabitListScreen(
                     overallBank = overallBank,
                     onClick = onNavigateToRewards
                 )
+            }
+
+            item(key = "private-tile", contentType = "private-tile") {
+                PrivateTile(onClick = onPrivateClick)
             }
 
             items(
@@ -189,6 +195,67 @@ private fun OverallBankCard(
                     color = Color.White.copy(alpha = 0.85f)
                 )
             }
+        }
+    }
+}
+
+/**
+ * The always-present entry point to the private area.
+ *
+ * Fixed in the list regardless of whether any private habits exist and
+ * regardless of the lock state, and rendered identically every time, so its
+ * presence leaks nothing about whether the user hides anything. Tapping it
+ * opens the PIN gate.
+ */
+@Composable
+private fun PrivateTile(onClick: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(OinkTeal.copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Lock,
+                    contentDescription = null,
+                    tint = OinkTeal,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            Text(
+                text = "Private",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f)
+            )
+
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+            )
         }
     }
 }

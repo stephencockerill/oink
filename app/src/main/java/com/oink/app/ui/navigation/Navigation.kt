@@ -14,11 +14,13 @@ import com.oink.app.ui.screens.CalendarScreen
 import com.oink.app.ui.screens.HabitDetailScreen
 import com.oink.app.ui.screens.HabitListScreen
 import com.oink.app.ui.screens.HistoryScreen
+import com.oink.app.ui.screens.PrivateScreen
 import com.oink.app.ui.screens.RewardsScreen
 import com.oink.app.ui.screens.SettingsScreen
 import com.oink.app.viewmodel.AddHabitViewModel
 import com.oink.app.viewmodel.HabitListViewModel
 import com.oink.app.viewmodel.MainViewModel
+import com.oink.app.viewmodel.PrivateViewModel
 import com.oink.app.viewmodel.RewardsViewModel
 import com.oink.app.viewmodel.SettingsViewModel
 
@@ -34,7 +36,16 @@ import com.oink.app.viewmodel.SettingsViewModel
 sealed class Screen(val route: String) {
     data object Home : Screen("home")
     data object Rewards : Screen("rewards")
-    data object AddHabit : Screen("add_habit")
+    data object Private : Screen("private")
+
+    /**
+     * Add-habit form. The optional `private` argument seeds the privacy toggle:
+     * the home FAB opens it public, the private area's FAB opens it private. An
+     * absent argument defaults to public, so the base path stays valid.
+     */
+    data object AddHabit : Screen("add_habit?${AddHabitViewModel.PRIVATE_ARG}={${AddHabitViewModel.PRIVATE_ARG}}") {
+        fun route(isPrivate: Boolean = false) = "add_habit?${AddHabitViewModel.PRIVATE_ARG}=$isPrivate"
+    }
 
     data object HabitDetail : Screen("habit/{$HABIT_ID_ARG}") {
         fun route(habitId: Long) = "habit/$habitId"
@@ -94,19 +105,45 @@ fun OinkNavHost(
                 onNavigateToRewards = {
                     navController.navigate(Screen.Rewards.route)
                 },
+                onPrivateClick = {
+                    navController.navigate(Screen.Private.route)
+                },
                 onAddHabit = {
-                    navController.navigate(Screen.AddHabit.route)
+                    navController.navigate(Screen.AddHabit.route(isPrivate = false))
                 }
             )
         }
 
-        composable(Screen.AddHabit.route) {
+        composable(
+            route = Screen.AddHabit.route,
+            arguments = listOf(
+                navArgument(AddHabitViewModel.PRIVATE_ARG) {
+                    type = NavType.BoolType
+                    defaultValue = false
+                }
+            )
+        ) {
             val addHabitViewModel: AddHabitViewModel =
                 viewModel(factory = AddHabitViewModel.provideFactory(container))
             AddHabitScreen(
                 viewModel = addHabitViewModel,
                 onNavigateBack = { navController.popBackStack() },
                 onSaved = { navController.popBackStack() }
+            )
+        }
+
+        composable(Screen.Private.route) {
+            val privateViewModel: PrivateViewModel =
+                viewModel(factory = PrivateViewModel.provideFactory(container))
+            PrivateScreen(
+                viewModel = privateViewModel,
+                onHabitClick = { habitId ->
+                    navController.navigate(Screen.HabitDetail.route(habitId))
+                },
+                onAddPrivateHabit = {
+                    navController.navigate(Screen.AddHabit.route(isPrivate = true))
+                },
+                onNavigateBack = { navController.popBackStack() }
             )
         }
 

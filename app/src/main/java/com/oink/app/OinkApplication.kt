@@ -1,6 +1,9 @@
 package com.oink.app
 
 import android.app.Application
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.ProcessLifecycleOwner
 import com.oink.app.data.AppDatabase
 import com.oink.app.data.PrefsToHabitMigrator
 import com.oink.app.data.dataStore
@@ -36,6 +39,23 @@ class OinkApplication : Application() {
         NotificationHelper.createNotificationChannel(this)
 
         migratePreferencesToHabit()
+        relockPrivateAreaWhenBackgrounded()
+    }
+
+    /**
+     * Re-lock the private area whenever the whole app goes to the background.
+     *
+     * [ProcessLifecycleOwner] reports the lifecycle of the app as a whole, so
+     * onStop fires once the last visible Activity stops - i.e. the app is
+     * backgrounded, not merely a config-change or Activity hop. Clearing the
+     * unlock there means returning to the app always re-presents the PIN gate.
+     */
+    private fun relockPrivateAreaWhenBackgrounded() {
+        ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
+            override fun onStop(owner: LifecycleOwner) {
+                container.privateGate.lock()
+            }
+        })
     }
 
     /**

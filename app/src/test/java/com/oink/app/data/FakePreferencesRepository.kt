@@ -2,6 +2,7 @@ package com.oink.app.data
 
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 
 /**
@@ -21,6 +22,9 @@ class FakePreferencesRepository : PreferencesRepository {
     private val _remindersEnabled = MutableStateFlow(false)
     private val _reminderHour = MutableStateFlow(20)
     private val _reminderMinute = MutableStateFlow(0)
+
+    private val _hasPin = MutableStateFlow(false)
+    private var hashedPin: PinHasher.HashedPin? = null
 
     /**
      * Flow of user preferences (mirrors real implementation).
@@ -60,6 +64,19 @@ class FakePreferencesRepository : PreferencesRepository {
     }
 
     // ============================================================
+    // Private-area PIN
+    // ============================================================
+
+    override val hasPin: Flow<Boolean> = _hasPin.asStateFlow()
+
+    override suspend fun getHashedPin(): PinHasher.HashedPin? = hashedPin
+
+    override suspend fun setPin(hashed: PinHasher.HashedPin) {
+        hashedPin = hashed
+        _hasPin.value = true
+    }
+
+    // ============================================================
     // Test Helpers
     // ============================================================
 
@@ -70,5 +87,7 @@ class FakePreferencesRepository : PreferencesRepository {
         _remindersEnabled.value = false
         _reminderHour.value = 20
         _reminderMinute.value = 0
+        hashedPin = null
+        _hasPin.value = false
     }
 }
