@@ -2,9 +2,12 @@ package com.oink.app.viewmodel
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
+import com.oink.app.AppContainer
 import com.oink.app.data.CashOut
 import com.oink.app.data.CashOutRepository
 import com.oink.app.data.CheckInRepository
@@ -337,22 +340,25 @@ class RewardsViewModel(
         }
     }
 
-    /**
-     * Factory for creating RewardsViewModel.
-     */
-    class Factory(
-        private val application: Application,
-        private val cashOutRepository: CashOutRepository,
-        private val checkInRepository: CheckInRepository,
-        private val freezeRepository: FreezeRepository
-    ) : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            if (modelClass.isAssignableFrom(RewardsViewModel::class.java)) {
-                return RewardsViewModel(application, cashOutRepository, checkInRepository, freezeRepository) as T
+    companion object {
+        /**
+         * Factory that builds the ViewModel from [CreationExtras]. Rewards are
+         * pot-level (a cash-out draws from every public habit), so this ViewModel
+         * takes no habit id: the [AppContainer] is closed over explicitly and the
+         * [Application] comes from [APPLICATION_KEY].
+         */
+        fun provideFactory(container: AppContainer): ViewModelProvider.Factory =
+            viewModelFactory {
+                initializer {
+                    val application = this[APPLICATION_KEY] as Application
+                    RewardsViewModel(
+                        application = application,
+                        cashOutRepository = container.cashOutRepository,
+                        checkInRepository = container.checkInRepository,
+                        freezeRepository = container.freezeRepository
+                    )
+                }
             }
-            throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
-        }
     }
 }
 

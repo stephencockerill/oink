@@ -2,9 +2,14 @@ package com.oink.app.viewmodel
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
+import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
+import com.oink.app.AppContainer
 import com.oink.app.data.CashOut
 import com.oink.app.data.CashOutRepository
 import com.oink.app.data.CheckIn
@@ -47,23 +52,52 @@ class MainViewModel(
     private val repository: CheckInRepository,
     private val habitRepository: HabitRepository,
     private val cashOutRepository: CashOutRepository,
-    private val freezeRepository: FreezeRepository
+    private val freezeRepository: FreezeRepository,
+    savedStateHandle: SavedStateHandle
 ) : AndroidViewModel(application) {
 
     /**
-     * The habit this screen operates on. The app is single-habit for now, so
-     * every check-in, streak, and freeze read/write targets the seeded default
-     * habit.
+     * The habit this detail screen operates on, taken from the `habit/{habitId}`
+     * route argument via [SavedStateHandle]. Every check-in, streak, balance, and
+     * freeze read/write targets this habit, so two habits never collide. Falls
+     * back to the seeded default habit if the argument is absent.
      */
-    private val habitId: Long = HabitRepository.DEFAULT_HABIT_ID
+    private val habitId: Long =
+        savedStateHandle.get<Long>(HABIT_ID_KEY) ?: HabitRepository.DEFAULT_HABIT_ID
 
     /**
-     * Current spendable balance as a StateFlow.
-     *
-     * This is the shared pot: the sum of every public habit's spendable balance.
-     * See [CashOutRepository.pot] for the derivation.
+     * This habit's display name, for the detail top bar. Empty until the habit
+     * row loads (or if it does not exist).
      */
-    val currentBalance: StateFlow<Long> = cashOutRepository.pot
+    val habitName: StateFlow<String> = habitRepository.habit(habitId)
+        .map { it?.name ?: "" }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = ""
+        )
+
+    /**
+     * This habit's emoji, for the detail top bar.
+     */
+    val habitEmoji: StateFlow<String> = habitRepository.habit(habitId)
+        .map { it?.emoji ?: "" }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = ""
+        )
+
+    /**
+     * This habit's spendable balance as a StateFlow.
+     *
+     * Detail is per-habit, so this is THIS habit's spendable balance
+     * (raw check-in balance - its cash-out allocations - its freeze spending),
+     * not the shared pot. The home list shows the pot as the overall bank. Using
+     * the per-habit balance here also makes the freeze-affordability check in
+     * [useFreeze] correct for this habit. See [CashOutRepository.spendable].
+     */
+    val currentBalance: StateFlow<Long> = cashOutRepository.spendable(habitId)
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
@@ -411,28 +445,39 @@ class MainViewModel(
         _error.value = null
     }
 
-    /**
-     * Factory for creating MainViewModel with dependencies.
-     *
-     * Why a factory? Because ViewModels shouldn't have dependencies
-     * passed through their constructor directly - they need to survive
-     * configuration changes, and the system needs to know how to
-     * recreate them. This factory tells it how.
-     */
-    class Factory(
-        private val application: Application,
-        private val repository: CheckInRepository,
-        private val habitRepository: HabitRepository,
-        private val cashOutRepository: CashOutRepository,
-        private val freezeRepository: FreezeRepository
-    ) : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            if (modelClass.isAssignableFrom(MainViewModel::class.java)) {
-                return MainViewModel(application, repository, habitRepository, cashOutRepository, freezeRepository) as T
+    companion object {
+        /**
+         * [SavedStateHandle] key for the habit id, matching the `{habitId}`
+         * argument on the `habit/...` navigation routes. The other per-habit
+         * ViewModels reuse this key so the whole detail flow scopes to one habit.
+         */
+        const val HABIT_ID_KEY = "habitId"
+
+        /**
+         * Factory that builds the ViewModel from [CreationExtras].
+         *
+         * The [AppContainer] (the repository graph) is closed over explicitly, so
+         * the graph is passed in rather than looked up through a hidden singleton.
+         * The [Application] context (required by [AndroidViewModel]) comes from
+         * [APPLICATION_KEY], and the per-habit [SavedStateHandle] - populated with
+         * the route's `{habitId}` argument - comes from [createSavedStateHandle].
+         * Scoping the `viewModel(factory = ...)` call to a `habit/{habitId}`
+         * back-stack entry therefore yields a ViewModel bound to that habit.
+         */
+        fun provideFactory(container: AppContainer): ViewModelProvider.Factory =
+            viewModelFactory {
+                initializer {
+                    val application = this[APPLICATION_KEY] as Application
+                    MainViewModel(
+                        application = application,
+                        repository = container.checkInRepository,
+                        habitRepository = container.habitRepository,
+                        cashOutRepository = container.cashOutRepository,
+                        freezeRepository = container.freezeRepository,
+                        savedStateHandle = createSavedStateHandle()
+                    )
+                }
             }
-            throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
-        }
     }
 }
 
