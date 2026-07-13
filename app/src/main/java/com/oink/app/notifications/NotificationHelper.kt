@@ -17,7 +17,7 @@ import com.oink.app.R
 /**
  * Helper class for managing notifications.
  *
- * Why a helper class? Because notification code is verbose as fuck
+ * Why a helper class? Because notification code is extremely verbose
  * and we don't want it cluttering up our other classes.
  *
  * Android notifications require:

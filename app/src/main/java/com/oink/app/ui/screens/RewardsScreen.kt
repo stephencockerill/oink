@@ -198,7 +198,10 @@ fun RewardsScreen(
                 }
 
                 // Reward History
-                items(cashOuts) { cashOut ->
+                items(
+                    items = cashOuts,
+                    key = { cashOut -> cashOut.id }
+                ) { cashOut ->
                     RewardHistoryItem(
                         cashOut = cashOut,
                         onClick = {

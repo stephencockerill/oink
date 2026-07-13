@@ -43,7 +43,7 @@ abstract class AppDatabase : RoomDatabase() {
          *
          * Why synchronized? Because we don't want multiple threads
          * creating multiple database instances. That would be a
-         * fucking disaster for data consistency.
+         * disaster for data consistency.
          */
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {

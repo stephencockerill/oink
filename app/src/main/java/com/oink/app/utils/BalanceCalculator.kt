@@ -35,7 +35,7 @@ object BalanceCalculator {
         totalCashedOut: Long,
         totalFreezeSpending: Long
     ): Long {
-        // Integer cents, so subtraction is exact - no floating point fuckery.
+        // Integer cents, so subtraction is exact - no floating point errors.
         return (checkInBalance - totalCashedOut - totalFreezeSpending).coerceAtLeast(0L)
     }
 

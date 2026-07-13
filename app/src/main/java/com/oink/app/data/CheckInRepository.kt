@@ -302,7 +302,7 @@ class CheckInRepository(
      *
      * Yeah, this could be O(n) expensive, but in practice nobody's
      * gonna have thousands of check-ins. If they do, they're a
-     * fucking legend and deserve the slight delay.
+     * legend and deserve the slight delay.
      */
     private suspend fun recalculateBalancesAfter(afterDate: LocalDate) {
         val allCheckIns = checkInDao.getAllCheckInsAsc()
