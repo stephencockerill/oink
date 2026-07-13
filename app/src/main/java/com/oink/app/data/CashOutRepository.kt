@@ -5,6 +5,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 
 /**
  * Repository for managing cash-out operations.
@@ -43,32 +44,87 @@ class CashOutRepository(
 ) {
 
     /**
-     * Flow of all cash-outs (most recent first).
+     * Flow of all cash-outs (most recent first), with no visibility gating.
+     *
+     * This is the unlocked view: it includes every cash-out regardless of which
+     * habits funded it. Locked surfaces read [visibleCashOuts] instead.
      */
     val allCashOuts: Flow<List<CashOut>> = cashOutDao.getAllCashOutsFlow()
 
     /**
-     * Flow of total amount cashed out all-time.
+     * Flow of total amount cashed out all-time (ungated, matches [allCashOuts]).
      */
     val totalCashedOut: Flow<Long> = cashOutDao.getTotalCashedOutFlow()
 
     /**
-     * Observe the shared pot: the sum of every public habit's spendable balance.
+     * The cash-outs safe to show on a locked (public) surface.
+     *
+     * A claim can draw from private habits while the private area is unlocked, so
+     * a cash-out with any allocation to a *currently* private habit is hidden -
+     * showing it would betray that private habits exist and how much they funded.
+     * The taint predicate is on the habit's live [Habit.isPrivate], so flipping a
+     * habit to private hides its past cash-outs immediately and flipping it back
+     * reveals them again.
+     *
+     * Per-habit balances are never gated: this only filters history. Combining
+     * over [HabitRepository.allHabits] means the visible set re-derives whenever
+     * a habit's privacy, or the set of allocations, changes.
+     */
+    val visibleCashOuts: Flow<List<CashOut>> = combine(
+        cashOutDao.getAllCashOutsFlow(),
+        cashOutAllocationDao.getAllFlow(),
+        habitRepository.allHabits
+    ) { cashOuts, allocations, habits ->
+        val privateHabitIds = habits.filter { it.isPrivate }.map { it.id }.toSet()
+        val taintedCashOutIds = allocations
+            .filter { it.habitId in privateHabitIds }
+            .map { it.cashOutId }
+            .toSet()
+        cashOuts.filter { it.id !in taintedCashOutIds }
+    }
+
+    /**
+     * Total cents cashed out across the [visibleCashOuts] only - the locked-view
+     * analogue of [totalCashedOut].
+     */
+    val visibleTotalCashedOut: Flow<Long> = visibleCashOuts.map { visible ->
+        visible.sumOf { it.amount }
+    }
+
+    /**
+     * Observe the shared pot: the sum of every in-scope habit's spendable
+     * balance.
+     *
+     * Scope tracks unlock state: when the private area is locked
+     * ([includePrivate] false) the pot spans public habits only; when unlocked
+     * ([includePrivate] true) it spans public and private habits, so a claim can
+     * draw from private banks. This is the same waterfall, just over a larger
+     * set.
      *
      * Rebuilds whenever the set of habits changes ([HabitRepository.allHabits]),
-     * then combines each public habit's spendable flow. Combining over an empty
-     * iterable never emits, so an empty public-habit set is short-circuited to a
-     * flow of 0.
+     * then combines each in-scope habit's spendable flow. Combining over an empty
+     * iterable never emits, so an empty in-scope set is short-circuited to a flow
+     * of 0.
      */
     @OptIn(ExperimentalCoroutinesApi::class)
-    val pot: Flow<Long> = habitRepository.allHabits.flatMapLatest { habits ->
-        val public = habits.filter { !it.isPrivate }
-        if (public.isEmpty()) {
+    fun pot(includePrivate: Boolean): Flow<Long> = habitRepository.allHabits.flatMapLatest { habits ->
+        val inScope = if (includePrivate) habits else habits.filter { !it.isPrivate }
+        if (inScope.isEmpty()) {
             flowOf(0L)
         } else {
-            combine(public.map { habit -> spendable(habit.id) }) { shares -> shares.sum() }
+            combine(inScope.map { habit -> spendable(habit.id) }) { shares -> shares.sum() }
         }
     }
+
+    /**
+     * One-shot read of the shared pot for non-Flow callers (the widget).
+     *
+     * The widget runs in the app process with no access to the unlock holder, so
+     * it always reads the locked public pot ([includePrivate] false): a private
+     * or mixed claim never changes the public spendable it displays.
+     */
+    suspend fun potOnce(includePrivate: Boolean): Long =
+        spendablesFor(resolveScope(emptySet(), includePrivate)).sumOf { it.spendable }
 
     /**
      * Observe the total cents a habit has funded across all cash-outs. This is
@@ -109,18 +165,22 @@ class CashOutRepository(
      * @param name What you're treating yourself to
      * @param amount How much to cash out, in cents
      * @param emoji Emoji to represent your reward
-     * @param scope The habits the pot is drawn from. Empty means all public
-     *   habits (the default); a non-empty set means exactly those habit ids that
-     *   exist.
+     * @param scope The habits the pot is drawn from. Empty defers to
+     *   [includePrivate]; a non-empty set means exactly those habit ids that
+     *   exist (and ignores [includePrivate]).
+     * @param includePrivate When [scope] is empty, whether private habits join
+     *   the pot. False (locked) draws from public habits only; true (unlocked)
+     *   draws from public and private habits.
      * @return The CashOut record, or null if the amount is not in `0 < amount <= pot`
      */
     suspend fun cashOut(
         name: String,
         amount: Long,
         emoji: String = "🎁",
-        scope: Set<Long> = emptySet()
+        scope: Set<Long> = emptySet(),
+        includePrivate: Boolean = false
     ): CashOut? {
-        val spendables = spendablesFor(resolveScope(scope))
+        val spendables = spendablesFor(resolveScope(scope, includePrivate))
         val pot = spendables.sumOf { it.spendable }
 
         // Can't cash out nothing, and can't cash out more than the pot holds.
@@ -216,9 +276,11 @@ class CashOutRepository(
         }
 
         // Amount changed: re-split at current balances over all public habits,
-        // treating this cash-out's own allocations as available again.
+        // treating this cash-out's own allocations as available again. The edit
+        // re-splits over the public pot only; unlock-scoped re-splitting of a
+        // private-funded cash-out is not yet wired (see MH-9 follow-up note).
         val spendables = spendablesFor(
-            resolveScope(emptySet()),
+            resolveScope(emptySet(), includePrivate = false),
             excludeCashOutId = cashOut.id
         )
         val potForEdit = spendables.sumOf { it.spendable }
@@ -282,13 +344,14 @@ class CashOutRepository(
     /**
      * Resolve the habits a claim is drawn from.
      *
-     * An empty scope means all public habits ([Habit.isPrivate] false). A
-     * non-empty scope means exactly those habit ids that exist; unknown ids are
-     * dropped.
+     * An empty scope defers to [includePrivate]: false yields public habits
+     * ([Habit.isPrivate] false), true yields every habit (public and private). A
+     * non-empty scope means exactly those habit ids that exist, ignoring
+     * [includePrivate]; unknown ids are dropped.
      */
-    private suspend fun resolveScope(scope: Set<Long>): List<Habit> {
+    private suspend fun resolveScope(scope: Set<Long>, includePrivate: Boolean): List<Habit> {
         return if (scope.isEmpty()) {
-            habitRepository.getAllHabits().filter { !it.isPrivate }
+            habitRepository.getAllHabits().filter { includePrivate || !it.isPrivate }
         } else {
             scope.mapNotNull { habitRepository.getHabit(it) }
         }

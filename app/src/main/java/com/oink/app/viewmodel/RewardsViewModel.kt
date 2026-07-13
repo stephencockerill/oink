@@ -13,12 +13,15 @@ import com.oink.app.data.CashOutRepository
 import com.oink.app.data.CheckInRepository
 import com.oink.app.data.FreezeRepository
 import com.oink.app.data.HabitRepository
+import com.oink.app.data.PrivateGate
 import com.oink.app.widget.OinkWidget
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -30,17 +33,22 @@ import kotlinx.coroutines.withContext
  * The key psychological framing here is CELEBRATION - cashing out
  * should feel like a victory, not a loss!
  *
- * IMPORTANT: Balance calculation follows the same pattern as MainViewModel:
- *   Actual Balance = Check-in balance - Total cashed out - Freeze spending
+ * Balance and reward history follow the private-area unlock state: while locked
+ * the pot and history span public habits only, and a cash-out that drew from a
+ * private habit is hidden. While unlocked the pot spans public and private
+ * habits and the full history shows. See [CashOutRepository].
  *
- * We also track "Total Earned" which is the raw check-in balance (total
- * accumulated through exercise before any spending).
+ * No lifetime "earned - cashed out = balance" figure is surfaced here: with
+ * gating a hidden private-funded claim would break the reconciliation and betray
+ * that hidden claims exist.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 class RewardsViewModel(
     application: Application,
     private val cashOutRepository: CashOutRepository,
     private val checkInRepository: CheckInRepository,
-    private val freezeRepository: FreezeRepository
+    private val freezeRepository: FreezeRepository,
+    private val privateGate: PrivateGate
 ) : AndroidViewModel(application) {
 
     /**
@@ -50,10 +58,12 @@ class RewardsViewModel(
     private val habitId: Long = HabitRepository.DEFAULT_HABIT_ID
 
     /**
-     * Current spendable balance: the shared pot across every public habit.
-     * This is what the user can actually spend. See [CashOutRepository.pot].
+     * Current spendable balance: the shared pot. While locked it spans public
+     * habits only; while unlocked it also spans private habits, so a claim can
+     * draw from private banks. See [CashOutRepository.pot].
      */
-    val currentBalance: StateFlow<Long> = cashOutRepository.pot
+    val currentBalance: StateFlow<Long> = privateGate.isUnlocked
+        .flatMapLatest { unlocked -> cashOutRepository.pot(includePrivate = unlocked) }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
@@ -61,21 +71,13 @@ class RewardsViewModel(
         )
 
     /**
-     * Total earned through exercise (raw check-in balance).
-     * This is the total accumulated before any spending.
-     * Used to show "Total Lifetime Earned" on the rewards screen.
+     * Reward history. While locked this is the visible (gated) set - cash-outs
+     * that touched a private habit are hidden; while unlocked it is the full set.
      */
-    val totalEarned: StateFlow<Long> = checkInRepository.currentBalance(habitId)
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = 0L
-        )
-
-    /**
-     * All cash-outs (reward history).
-     */
-    val allCashOuts: StateFlow<List<CashOut>> = cashOutRepository.allCashOuts
+    val allCashOuts: StateFlow<List<CashOut>> = privateGate.isUnlocked
+        .flatMapLatest { unlocked ->
+            if (unlocked) cashOutRepository.allCashOuts else cashOutRepository.visibleCashOuts
+        }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
@@ -83,9 +85,13 @@ class RewardsViewModel(
         )
 
     /**
-     * Total amount cashed out all-time.
+     * Total amount cashed out, matching the visibility of [allCashOuts]: the
+     * gated total while locked, the full total while unlocked.
      */
-    val totalCashedOut: StateFlow<Long> = cashOutRepository.totalCashedOut
+    val totalCashedOut: StateFlow<Long> = privateGate.isUnlocked
+        .flatMapLatest { unlocked ->
+            if (unlocked) cashOutRepository.totalCashedOut else cashOutRepository.visibleTotalCashedOut
+        }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
@@ -172,8 +178,15 @@ class RewardsViewModel(
 
             try {
                 withContext(NonCancellable) {
-                    // Empty scope draws the claim from all public habits.
-                    val cashOut = cashOutRepository.cashOut(name, amount, emoji, scope = emptySet())
+                    // Empty scope draws the claim from the whole pot; unlock state
+                    // decides whether private habits are in it.
+                    val cashOut = cashOutRepository.cashOut(
+                        name = name,
+                        amount = amount,
+                        emoji = emoji,
+                        scope = emptySet(),
+                        includePrivate = privateGate.isUnlocked.value
+                    )
                     if (cashOut != null) {
                         _cashOutSuccess.value = cashOut
                         // Update widget to reflect new balance
@@ -355,7 +368,8 @@ class RewardsViewModel(
                         application = application,
                         cashOutRepository = container.cashOutRepository,
                         checkInRepository = container.checkInRepository,
-                        freezeRepository = container.freezeRepository
+                        freezeRepository = container.freezeRepository,
+                        privateGate = container.privateGate
                     )
                 }
             }

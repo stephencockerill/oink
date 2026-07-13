@@ -107,16 +107,11 @@ fun RewardsScreen(
     val cashOuts by viewModel.allCashOuts.collectAsStateWithLifecycle()
     val totalCashedOut by viewModel.totalCashedOut.collectAsStateWithLifecycle()
     val totalWorkouts by viewModel.totalWorkouts.collectAsStateWithLifecycle()
-    val totalEarned by viewModel.totalEarned.collectAsStateWithLifecycle()
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
     val error by viewModel.error.collectAsStateWithLifecycle()
     val cashOutSuccess by viewModel.cashOutSuccess.collectAsStateWithLifecycle()
     val selectedCashOut by viewModel.selectedCashOut.collectAsStateWithLifecycle()
     val showDeleteConfirmation by viewModel.showDeleteConfirmation.collectAsStateWithLifecycle()
-
-    // Use totalEarned from ViewModel (raw check-in balance = total accumulated through exercise)
-    // This is correct even with freeze spending, because freezes don't reduce earnings - just spending
-    val lifetimeEarned = totalEarned
 
     val snackbarHostState = remember { SnackbarHostState() }
     var showCashOutSheet by remember { mutableStateOf(false) }
@@ -179,7 +174,6 @@ fun RewardsScreen(
                 // Stats
                 item {
                     StatsRow(
-                        lifetimeEarned = lifetimeEarned,
                         rewardCount = cashOuts.size,
                         totalWorkouts = totalWorkouts
                     )
@@ -350,7 +344,6 @@ private fun BalanceCard(
 
 @Composable
 private fun StatsRow(
-    lifetimeEarned: Long,
     rewardCount: Int,
     totalWorkouts: Int
 ) {
@@ -358,12 +351,6 @@ private fun StatsRow(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        StatCard(
-            modifier = Modifier.weight(1f),
-            emoji = "💰",
-            label = "Earned",
-            value = Formatters.formatCurrency(lifetimeEarned)
-        )
         StatCard(
             modifier = Modifier.weight(1f),
             emoji = "🎁",
