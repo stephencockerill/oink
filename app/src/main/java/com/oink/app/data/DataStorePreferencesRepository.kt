@@ -1,26 +1,11 @@
 package com.oink.app.data
 
 import android.content.Context
-import androidx.datastore.core.DataStore
-import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.intPreferencesKey
-import androidx.datastore.preferences.core.longPreferencesKey
-import androidx.datastore.preferences.core.stringSetPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import java.time.LocalDate
-
-/**
- * DataStore instance for app preferences.
- * Created as an extension property on Context for easy access.
- */
-private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(
-    name = "oink_preferences"
-)
 
 /**
  * DataStore-backed implementation of [PreferencesRepository].
@@ -30,21 +15,14 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(
  * 2. It's type-safe with Kotlin coroutines/Flow
  * 3. It handles errors gracefully
  * 4. SharedPreferences is legacy garbage
+ *
+ * The single DataStore instance and its keys live in [OinkPreferences] so they
+ * are shared with any other component that touches the same preferences.
  */
 class DataStorePreferencesRepository(private val context: Context) : PreferencesRepository {
 
-    private object Keys {
-        val REMINDERS_ENABLED = booleanPreferencesKey("reminders_enabled")
-        val REMINDER_HOUR = intPreferencesKey("reminder_hour")
-        val REMINDER_MINUTE = intPreferencesKey("reminder_minute")
-        val AVAILABLE_FREEZES = intPreferencesKey("available_freezes")
-        val FROZEN_DATES = stringSetPreferencesKey("frozen_dates") // Store as epoch day strings
-        val EXERCISE_REWARD = longPreferencesKey("exercise_reward")
-        val TOTAL_FREEZE_SPENDING = longPreferencesKey("total_freeze_spending")
-    }
-
     override val userPreferences: Flow<UserPreferences> = context.dataStore.data.map { prefs ->
-        val frozenDatesStrings = prefs[Keys.FROZEN_DATES] ?: emptySet()
+        val frozenDatesStrings = prefs[OinkPreferenceKeys.FROZEN_DATES] ?: emptySet()
         val frozenDates = frozenDatesStrings.mapNotNull { epochStr ->
             try {
                 LocalDate.ofEpochDay(epochStr.toLong())
@@ -54,21 +32,21 @@ class DataStorePreferencesRepository(private val context: Context) : Preferences
         }.toSet()
 
         UserPreferences(
-            remindersEnabled = prefs[Keys.REMINDERS_ENABLED] ?: false,
-            reminderHour = prefs[Keys.REMINDER_HOUR] ?: 20,
-            reminderMinute = prefs[Keys.REMINDER_MINUTE] ?: 0,
-            availableFreezes = prefs[Keys.AVAILABLE_FREEZES] ?: 0,
+            remindersEnabled = prefs[OinkPreferenceKeys.REMINDERS_ENABLED] ?: false,
+            reminderHour = prefs[OinkPreferenceKeys.REMINDER_HOUR] ?: 20,
+            reminderMinute = prefs[OinkPreferenceKeys.REMINDER_MINUTE] ?: 0,
+            availableFreezes = prefs[OinkPreferenceKeys.AVAILABLE_FREEZES] ?: 0,
             frozenDates = frozenDates,
-            exerciseReward = prefs[Keys.EXERCISE_REWARD] ?: PreferencesRepository.DEFAULT_EXERCISE_REWARD
+            exerciseReward = prefs[OinkPreferenceKeys.EXERCISE_REWARD] ?: PreferencesRepository.DEFAULT_EXERCISE_REWARD
         )
     }
 
     override suspend fun getAvailableFreezes(): Int {
-        return context.dataStore.data.first()[Keys.AVAILABLE_FREEZES] ?: 0
+        return context.dataStore.data.first()[OinkPreferenceKeys.AVAILABLE_FREEZES] ?: 0
     }
 
     override suspend fun getFrozenDates(): Set<LocalDate> {
-        val strings = context.dataStore.data.first()[Keys.FROZEN_DATES] ?: emptySet()
+        val strings = context.dataStore.data.first()[OinkPreferenceKeys.FROZEN_DATES] ?: emptySet()
         return strings.mapNotNull { epochStr ->
             try {
                 LocalDate.ofEpochDay(epochStr.toLong())
@@ -88,7 +66,7 @@ class DataStorePreferencesRepository(private val context: Context) : Preferences
             return false
         }
         context.dataStore.edit { prefs ->
-            prefs[Keys.AVAILABLE_FREEZES] = current + 1
+            prefs[OinkPreferenceKeys.AVAILABLE_FREEZES] = current + 1
         }
         return true
     }
@@ -101,39 +79,39 @@ class DataStorePreferencesRepository(private val context: Context) : Preferences
 
         context.dataStore.edit { prefs ->
             // Decrement available freezes
-            prefs[Keys.AVAILABLE_FREEZES] = available - 1
+            prefs[OinkPreferenceKeys.AVAILABLE_FREEZES] = available - 1
 
             // Add date to frozen dates
-            val currentFrozen = prefs[Keys.FROZEN_DATES] ?: emptySet()
-            prefs[Keys.FROZEN_DATES] = currentFrozen + date.toEpochDay().toString()
+            val currentFrozen = prefs[OinkPreferenceKeys.FROZEN_DATES] ?: emptySet()
+            prefs[OinkPreferenceKeys.FROZEN_DATES] = currentFrozen + date.toEpochDay().toString()
         }
         return true
     }
 
     override suspend fun setAvailableFreezes(count: Int) {
         context.dataStore.edit { prefs ->
-            prefs[Keys.AVAILABLE_FREEZES] = count.coerceIn(0, PreferencesRepository.MAX_FREEZES)
+            prefs[OinkPreferenceKeys.AVAILABLE_FREEZES] = count.coerceIn(0, PreferencesRepository.MAX_FREEZES)
         }
     }
 
     override suspend fun setRemindersEnabled(enabled: Boolean) {
         context.dataStore.edit { prefs ->
-            prefs[Keys.REMINDERS_ENABLED] = enabled
+            prefs[OinkPreferenceKeys.REMINDERS_ENABLED] = enabled
         }
     }
 
     override suspend fun setReminderTime(hour: Int, minute: Int) {
         context.dataStore.edit { prefs ->
-            prefs[Keys.REMINDER_HOUR] = hour
-            prefs[Keys.REMINDER_MINUTE] = minute
+            prefs[OinkPreferenceKeys.REMINDER_HOUR] = hour
+            prefs[OinkPreferenceKeys.REMINDER_MINUTE] = minute
         }
     }
 
     override suspend fun updateReminderSettings(enabled: Boolean, hour: Int, minute: Int) {
         context.dataStore.edit { prefs ->
-            prefs[Keys.REMINDERS_ENABLED] = enabled
-            prefs[Keys.REMINDER_HOUR] = hour
-            prefs[Keys.REMINDER_MINUTE] = minute
+            prefs[OinkPreferenceKeys.REMINDERS_ENABLED] = enabled
+            prefs[OinkPreferenceKeys.REMINDER_HOUR] = hour
+            prefs[OinkPreferenceKeys.REMINDER_MINUTE] = minute
         }
     }
 
@@ -142,12 +120,12 @@ class DataStorePreferencesRepository(private val context: Context) : Preferences
      * Implements ExerciseRewardProvider interface.
      */
     override suspend fun getExerciseReward(): Long {
-        return context.dataStore.data.first()[Keys.EXERCISE_REWARD] ?: PreferencesRepository.DEFAULT_EXERCISE_REWARD
+        return context.dataStore.data.first()[OinkPreferenceKeys.EXERCISE_REWARD] ?: PreferencesRepository.DEFAULT_EXERCISE_REWARD
     }
 
     override suspend fun setExerciseReward(amount: Long) {
         context.dataStore.edit { prefs ->
-            prefs[Keys.EXERCISE_REWARD] = amount.coerceAtLeast(1L) // Minimum 1 cent
+            prefs[OinkPreferenceKeys.EXERCISE_REWARD] = amount.coerceAtLeast(1L) // Minimum 1 cent
         }
     }
 
@@ -167,11 +145,11 @@ class DataStorePreferencesRepository(private val context: Context) : Preferences
     // ============================================================
 
     override val totalFreezeSpending: Flow<Long> = context.dataStore.data.map { prefs ->
-        prefs[Keys.TOTAL_FREEZE_SPENDING] ?: 0L
+        prefs[OinkPreferenceKeys.TOTAL_FREEZE_SPENDING] ?: 0L
     }
 
     override suspend fun getTotalFreezeSpending(): Long {
-        return context.dataStore.data.first()[Keys.TOTAL_FREEZE_SPENDING] ?: 0L
+        return context.dataStore.data.first()[OinkPreferenceKeys.TOTAL_FREEZE_SPENDING] ?: 0L
     }
 
     /**
@@ -180,8 +158,8 @@ class DataStorePreferencesRepository(private val context: Context) : Preferences
      */
     override suspend fun addFreezeSpending(amount: Long) {
         context.dataStore.edit { prefs ->
-            val current = prefs[Keys.TOTAL_FREEZE_SPENDING] ?: 0L
-            prefs[Keys.TOTAL_FREEZE_SPENDING] = current + amount
+            val current = prefs[OinkPreferenceKeys.TOTAL_FREEZE_SPENDING] ?: 0L
+            prefs[OinkPreferenceKeys.TOTAL_FREEZE_SPENDING] = current + amount
         }
     }
 }

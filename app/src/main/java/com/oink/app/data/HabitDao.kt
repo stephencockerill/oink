@@ -40,6 +40,25 @@ interface HabitDao {
     suspend fun getById(id: Long): Habit?
 
     /**
+     * Overwrite the per-habit settings copied from legacy DataStore preferences
+     * onto a single habit. Writes absolute values (not increments), so re-running
+     * the one-time preferences migration cannot double [totalFreezeSpending].
+     * Leaves name/emoji/isPrivate/sortOrder/createdAt untouched. Returns the
+     * number of rows updated (0 when no habit with [id] exists).
+     */
+    @Query(
+        "UPDATE habits SET rewardValue = :rewardValue, " +
+            "availableFreezes = :availableFreezes, " +
+            "totalFreezeSpending = :totalFreezeSpending WHERE id = :id"
+    )
+    suspend fun applyMigratedPreferences(
+        id: Long,
+        rewardValue: Long,
+        availableFreezes: Int,
+        totalFreezeSpending: Long
+    ): Int
+
+    /**
      * Observe all habits in display order (sortOrder, then id).
      */
     @Query("SELECT * FROM habits ORDER BY sortOrder ASC, id ASC")
