@@ -322,7 +322,7 @@ class MainViewModel(
      * @param didExercise Whether the user exercised today
      */
     fun recordTodayCheckIn(didExercise: Boolean) {
-        recordCheckIn(LocalDate.now(), didExercise)
+        recordCheckIn(repository.today(), didExercise)
     }
 
     /**
