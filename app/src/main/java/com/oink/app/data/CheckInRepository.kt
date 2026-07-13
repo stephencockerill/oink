@@ -19,10 +19,15 @@ import kotlin.math.roundToLong
  * The exerciseRewardProvider parameter uses an interface instead of
  * the concrete PreferencesRepository to enable testing with fakes.
  * PreferencesRepository implements ExerciseRewardProvider.
+ *
+ * The deductionProvider supplies cash-out + freeze spending totals so that a
+ * miss halves the SPENDABLE balance (raw - deductions) rather than the raw
+ * ledger. See [calculateNewBalance].
  */
 class CheckInRepository(
     private val checkInDao: CheckInDao,
-    private val exerciseRewardProvider: ExerciseRewardProvider
+    private val exerciseRewardProvider: ExerciseRewardProvider,
+    private val deductionProvider: DeductionProvider
 ) {
 
     companion object {
@@ -92,7 +97,8 @@ class CheckInRepository(
         // New check-in
         val exerciseReward = getExerciseReward()
         val previousBalance = getPreviousBalance(date)
-        val newBalance = calculateNewBalance(previousBalance, didExercise, exerciseReward)
+        val deductions = deductionProvider.getDeductionsAsOf(date)
+        val newBalance = calculateNewBalance(previousBalance, didExercise, exerciseReward, deductions)
 
         val checkIn = CheckIn(
             date = date,
@@ -123,7 +129,8 @@ class CheckInRepository(
         // Find the balance BEFORE this check-in
         val exerciseReward = getExerciseReward()
         val previousBalance = getPreviousBalance(existing.date)
-        val newBalance = calculateNewBalance(previousBalance, didExercise, exerciseReward)
+        val deductions = deductionProvider.getDeductionsAsOf(existing.date)
+        val newBalance = calculateNewBalance(previousBalance, didExercise, exerciseReward, deductions)
 
         val updated = existing.copy(
             didExercise = didExercise,
@@ -161,7 +168,8 @@ class CheckInRepository(
         for (date in sortedDates) {
             val existing = checkInDao.getCheckInForDate(date.toEpochDay())
             val previousBalance = getPreviousBalance(date)
-            val newBalance = calculateNewBalance(previousBalance, didExercise, exerciseReward)
+            val deductions = deductionProvider.getDeductionsAsOf(date)
+            val newBalance = calculateNewBalance(previousBalance, didExercise, exerciseReward, deductions)
 
             if (existing != null) {
                 // Update existing
@@ -201,20 +209,33 @@ class CheckInRepository(
     }
 
     /**
-     * Calculate the new balance based on the rules:
+     * Calculate the new raw check-in balance based on the rules:
      * - Exercise: + exercise reward (configurable, default $5.00)
-     * - Miss: balance / 2 (rounded to 2 decimal places)
+     * - Miss: halve the SPENDABLE balance, expressed back in raw terms
+     *
+     * A miss must halve what the user can actually spend, which is
+     * `raw - deductions` (cash-outs + freeze spending), not the raw ledger.
+     * Solving for the new raw balance:
+     *   spendable' = (raw - deductions) / 2
+     *   raw'       = spendable' + deductions = (raw + deductions) / 2
+     * Deductions stay tracked separately in their own tables; this only
+     * references them, so toggling a check-in never loses track of spending.
+     *
+     * @param deductions Total cash-outs + freeze spending in force at this
+     *   check-in's date. Zero for exercise days (unused) and for users who
+     *   have never cashed out, in which case a miss reduces to raw / 2.
      */
     private fun calculateNewBalance(
         previousBalance: Double,
         didExercise: Boolean,
-        exerciseReward: Double
+        exerciseReward: Double,
+        deductions: Double
     ): Double {
         return if (didExercise) {
             previousBalance + exerciseReward
         } else {
             // Round to 2 decimal places
-            (previousBalance / 2.0 * 100).roundToLong() / 100.0
+            ((previousBalance + deductions) / 2.0 * 100).roundToLong() / 100.0
         }
     }
 
@@ -243,7 +264,8 @@ class CheckInRepository(
         allCheckIns
             .filter { it.date > afterDate }
             .forEach { checkIn ->
-                val newBalance = calculateNewBalance(currentBalance, checkIn.didExercise, exerciseReward)
+                val deductions = deductionProvider.getDeductionsAsOf(checkIn.date)
+                val newBalance = calculateNewBalance(currentBalance, checkIn.didExercise, exerciseReward, deductions)
                 if (newBalance != checkIn.balanceAfter) {
                     checkInDao.update(checkIn.copy(balanceAfter = newBalance))
                 }
@@ -360,16 +382,23 @@ class CheckInRepository(
     suspend fun previewExerciseBalance(): Double {
         val exerciseReward = getExerciseReward()
         val current = checkInDao.getLatestCheckIn()?.balanceAfter ?: STARTING_BALANCE
-        return calculateNewBalance(current, didExercise = true, exerciseReward)
+        val deductions = deductionProvider.getDeductionsAsOf(LocalDate.now())
+        return calculateNewBalance(current, didExercise = true, exerciseReward, deductions)
     }
 
     /**
-     * Get what the balance would be if user misses today.
+     * Get what the raw balance would be if user misses today.
+     *
+     * Returns the raw check-in balance; callers subtract current deductions to
+     * get the spendable preview (see MainViewModel). Because a miss halves
+     * spendable, the deduction-aware raw result yields exactly half the current
+     * spendable balance once deductions are subtracted.
      */
     suspend fun previewMissBalance(): Double {
         val exerciseReward = getExerciseReward()
         val current = checkInDao.getLatestCheckIn()?.balanceAfter ?: STARTING_BALANCE
-        return calculateNewBalance(current, didExercise = false, exerciseReward)
+        val deductions = deductionProvider.getDeductionsAsOf(LocalDate.now())
+        return calculateNewBalance(current, didExercise = false, exerciseReward, deductions)
     }
 
     /**

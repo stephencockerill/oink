@@ -42,6 +42,7 @@ import com.oink.app.MainActivity
 import com.oink.app.R
 import com.oink.app.data.AppDatabase
 import com.oink.app.data.CheckInRepository
+import com.oink.app.data.DefaultDeductionProvider
 import com.oink.app.data.PreferencesRepository
 import com.oink.app.utils.BalanceCalculator
 import kotlinx.coroutines.Dispatchers
@@ -101,7 +102,11 @@ class OinkWidget : GlanceAppWidget() {
     private suspend fun getWidgetData(context: Context): WidgetData {
         val database = AppDatabase.getDatabase(context)
         val preferencesRepository = PreferencesRepository(context)
-        val repository = CheckInRepository(database.checkInDao(), preferencesRepository)
+        val repository = CheckInRepository(
+            database.checkInDao(),
+            preferencesRepository,
+            DefaultDeductionProvider(database.cashOutDao(), preferencesRepository)
+        )
 
         val latestCheckIn = database.checkInDao().getLatestCheckIn()
         val todayCheckIn = database.checkInDao().getCheckInForDate(LocalDate.now().toEpochDay())
