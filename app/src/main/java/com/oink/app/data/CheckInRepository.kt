@@ -1,7 +1,12 @@
 package com.oink.app.data
 
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
+import java.time.Clock
 import java.time.LocalDate
 
 /**
@@ -26,13 +31,23 @@ import java.time.LocalDate
 class CheckInRepository(
     private val checkInDao: CheckInDao,
     private val exerciseRewardProvider: ExerciseRewardProvider,
-    private val deductionProvider: DeductionProvider
+    private val deductionProvider: DeductionProvider,
+    private val clock: Clock = Clock.systemDefaultZone()
 ) {
 
     companion object {
         const val DEFAULT_EXERCISE_REWARD = 500L // cents ($5.00)
         const val STARTING_BALANCE = 0L
     }
+
+    /**
+     * Today's date in the clock's zone.
+     *
+     * Every "now" in the repository routes through the injected [clock], so
+     * tests pin it to a fixed instant instead of the real system clock and the
+     * app has one authoritative source of "today".
+     */
+    fun today(): LocalDate = LocalDate.now(clock)
 
     /**
      * Get the current exercise reward from preferences, in cents.
@@ -61,9 +76,37 @@ class CheckInRepository(
 
     /**
      * Flow of today's check-in status.
+     *
+     * The query re-subscribes whenever the calendar date rolls over (see
+     * [currentDateFlow]), so leaving the app open past midnight shows the new
+     * day's status rather than a stale "today" captured when the flow was first
+     * collected.
      */
+    @OptIn(ExperimentalCoroutinesApi::class)
     fun getTodayCheckIn(): Flow<CheckIn?> {
-        return checkInDao.getTodayCheckInFlow(LocalDate.now().toEpochDay())
+        return currentDateFlow().flatMapLatest { date ->
+            checkInDao.getTodayCheckInFlow(date.toEpochDay())
+        }
+    }
+
+    /**
+     * Emits the current date, then re-emits each time the date rolls over.
+     *
+     * Sleeps until the clock's next local midnight between emissions, so an
+     * idle subscription costs nothing yet still advances "today" at the day
+     * boundary. Driven by the injected [clock] so tests stay deterministic: a
+     * fixed clock emits once and then suspends (its next-midnight delay never
+     * elapses in virtual time).
+     */
+    private fun currentDateFlow(): Flow<LocalDate> = flow {
+        var current = today()
+        emit(current)
+        while (true) {
+            val nextMidnight = current.plusDays(1).atStartOfDay(clock.zone).toInstant()
+            delay((nextMidnight.toEpochMilli() - clock.millis()).coerceAtLeast(0L))
+            current = today()
+            emit(current)
+        }
     }
 
     /**
@@ -108,7 +151,7 @@ class CheckInRepository(
         val id = checkInDao.insert(checkIn)
 
         // If this is a past date, we need to recalculate all subsequent balances
-        if (date < LocalDate.now()) {
+        if (date < today()) {
             recalculateBalancesAfter(date)
         }
 
@@ -290,7 +333,7 @@ class CheckInRepository(
         if (allCheckIns.isEmpty() && frozenDates.isEmpty()) return 0
 
         var streak = 0
-        val today = LocalDate.now()
+        val today = today()
         var currentDate = today
 
         // Work backwards from today
@@ -348,7 +391,7 @@ class CheckInRepository(
      */
     suspend fun findMissedDayForFreeze(frozenDates: Set<LocalDate> = emptySet()): LocalDate? {
         val allCheckIns = checkInDao.getAllCheckInsAsc()
-        val today = LocalDate.now()
+        val today = today()
         var currentDate = today.minusDays(1) // Start from yesterday
 
         val checkInMap = allCheckIns.associateBy { it.date }
@@ -385,7 +428,7 @@ class CheckInRepository(
     suspend fun previewExerciseBalance(): Long {
         val exerciseReward = getExerciseReward()
         val current = checkInDao.getLatestCheckIn()?.balanceAfter ?: STARTING_BALANCE
-        val deductions = deductionProvider.getDeductionsAsOf(LocalDate.now())
+        val deductions = deductionProvider.getDeductionsAsOf(today())
         return calculateNewBalance(current, didExercise = true, exerciseReward, deductions)
     }
 
@@ -400,7 +443,7 @@ class CheckInRepository(
     suspend fun previewMissBalance(): Long {
         val exerciseReward = getExerciseReward()
         val current = checkInDao.getLatestCheckIn()?.balanceAfter ?: STARTING_BALANCE
-        val deductions = deductionProvider.getDeductionsAsOf(LocalDate.now())
+        val deductions = deductionProvider.getDeductionsAsOf(today())
         return calculateNewBalance(current, didExercise = false, exerciseReward, deductions)
     }
 
