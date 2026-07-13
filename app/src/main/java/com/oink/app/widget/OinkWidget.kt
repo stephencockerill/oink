@@ -38,6 +38,7 @@ import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
+import com.oink.app.BuildConfig
 import com.oink.app.MainActivity
 import com.oink.app.R
 import com.oink.app.data.AppDatabase
@@ -45,10 +46,9 @@ import com.oink.app.data.CheckInRepository
 import com.oink.app.data.DataStorePreferencesRepository
 import com.oink.app.data.DefaultDeductionProvider
 import com.oink.app.utils.BalanceCalculator
+import com.oink.app.utils.Formatters
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
-import java.time.LocalDate
 import java.time.LocalTime
 
 /**
@@ -78,20 +78,20 @@ class OinkWidget : GlanceAppWidget() {
     override val stateDefinition: GlanceStateDefinition<*> = PreferencesGlanceStateDefinition
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        Log.d(TAG, "provideGlance called for widget $id")
+        logd { "provideGlance called for widget $id" }
 
         // Fetch data from database
         val widgetData = withContext(Dispatchers.IO) {
             getWidgetData(context)
         }
 
-        Log.d(TAG, "Widget data: balance=${widgetData.balance}, streak=${widgetData.streak}, exercisedToday=${widgetData.exercisedToday}")
+        logd { "Widget data: balance=${widgetData.balance}, streak=${widgetData.streak}, exercisedToday=${widgetData.exercisedToday}" }
 
         provideContent {
             // Read state to establish dependency (forces re-render when state changes)
             val prefs = currentState<Preferences>()
             val lastUpdate = prefs[LAST_UPDATE_KEY] ?: 0L
-            Log.d(TAG, "Widget rendering with lastUpdate=$lastUpdate")
+            logd { "Widget rendering with lastUpdate=$lastUpdate" }
 
             GlanceTheme {
                 WidgetContent(data = widgetData)
@@ -109,7 +109,7 @@ class OinkWidget : GlanceAppWidget() {
         )
 
         val latestCheckIn = database.checkInDao().getLatestCheckIn()
-        val todayCheckIn = database.checkInDao().getCheckInForDate(LocalDate.now().toEpochDay())
+        val todayCheckIn = database.checkInDao().getCheckInForDate(repository.today().toEpochDay())
         val streak = repository.calculateStreak()
 
         // Calculate ACTUAL balance using centralized BalanceCalculator
@@ -122,7 +122,7 @@ class OinkWidget : GlanceAppWidget() {
             totalFreezeSpending = totalFreezeSpending
         )
 
-        Log.d(TAG, "getWidgetData: checkInBalance=$checkInBalance, cashedOut=$totalCashedOut, freezeSpending=$totalFreezeSpending, actual=$actualBalance")
+        logd { "getWidgetData: checkInBalance=$checkInBalance, cashedOut=$totalCashedOut, freezeSpending=$totalFreezeSpending, actual=$actualBalance" }
 
         return WidgetData(
             balance = actualBalance,
@@ -140,6 +140,16 @@ class OinkWidget : GlanceAppWidget() {
         private val LAST_UPDATE_KEY = longPreferencesKey("last_update")
 
         /**
+         * Log a debug message only in debug builds.
+         *
+         * The message lambda is inlined, so the string is never built in release
+         * builds where these verbose render/update traces would only add noise.
+         */
+        private inline fun logd(message: () -> String) {
+            if (BuildConfig.DEBUG) Log.d(TAG, message())
+        }
+
+        /**
          * Update all widget instances.
          * Call this whenever check-in data changes.
          *
@@ -147,15 +157,12 @@ class OinkWidget : GlanceAppWidget() {
          * Glance to actually re-render instead of serving cached content.
          */
         suspend fun updateAllWidgets(context: Context) {
-            Log.d(TAG, "=== WIDGET UPDATE TRIGGERED ===")
-
-            // Small delay to ensure DB transaction is fully committed
-            delay(100)
+            logd { "=== WIDGET UPDATE TRIGGERED ===" }
 
             try {
                 val glanceManager = GlanceAppWidgetManager(context)
                 val glanceIds = glanceManager.getGlanceIds(OinkWidget::class.java)
-                Log.d(TAG, "Found ${glanceIds.size} Glance widget IDs")
+                logd { "Found ${glanceIds.size} Glance widget IDs" }
 
                 val widget = OinkWidget()
                 val updateTimestamp = System.currentTimeMillis()
@@ -169,17 +176,17 @@ class OinkWidget : GlanceAppWidget() {
                                 this[LAST_UPDATE_KEY] = updateTimestamp
                             }
                         }
-                        Log.d(TAG, "Updated state for widget $glanceId with timestamp $updateTimestamp")
+                        logd { "Updated state for widget $glanceId with timestamp $updateTimestamp" }
 
                         // Now trigger the actual update
                         widget.update(context, glanceId)
-                        Log.d(TAG, "Triggered update for widget $glanceId")
+                        logd { "Triggered update for widget $glanceId" }
                     } catch (e: Exception) {
                         Log.e(TAG, "Failed to update widget $glanceId", e)
                     }
                 }
 
-                Log.d(TAG, "=== WIDGET UPDATE COMPLETE ===")
+                logd { "=== WIDGET UPDATE COMPLETE ===" }
             } catch (e: Exception) {
                 Log.e(TAG, "Widget update failed", e)
             }
@@ -342,7 +349,7 @@ private fun WidgetContent(data: WidgetData) {
                     )
                 )
                 Text(
-                    text = formatCurrency(data.balance),
+                    text = Formatters.formatCurrency(data.balance),
                     style = TextStyle(
                         color = ColorProvider(R.color.widget_accent),  // Coral pink!
                         fontSize = 28.sp,
@@ -357,7 +364,7 @@ private fun WidgetContent(data: WidgetData) {
             Column(
                 horizontalAlignment = Alignment.End
             ) {
-                // Streak - BIG AND PROUD AS FUCK
+                // Streak - big and proud
                 if (data.streak > 0) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically
@@ -443,13 +450,6 @@ private fun WidgetContent(data: WidgetData) {
             }
         }
     }
-}
-
-/**
- * Format currency for display.
- */
-private fun formatCurrency(cents: Long): String {
-    return "$${String.format("%.2f", cents / 100.0)}"
 }
 
 /**

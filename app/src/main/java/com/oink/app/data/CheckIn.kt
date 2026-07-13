@@ -4,7 +4,6 @@ import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import androidx.room.TypeConverter
-import androidx.room.TypeConverters
 import java.time.LocalDate
 
 /**
@@ -21,7 +20,6 @@ import java.time.LocalDate
     tableName = "check_ins",
     indices = [Index(value = ["date"], unique = true)]
 )
-@TypeConverters(Converters::class)
 data class CheckIn(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
@@ -47,7 +45,20 @@ data class CheckIn(
      * Money is stored as Long minor units (cents) so it never lives in
      * binary floating point, e.g. $5.00 is 500.
      */
-    val balanceAfter: Long
+    val balanceAfter: Long,
+
+    /**
+     * The exercise reward in force when this check-in was recorded, in cents.
+     *
+     * We store it per check-in so that recalculating historical balances uses
+     * the reward that actually applied on each day, not whatever the user has
+     * their reward set to today. Without this, changing the reward setting and
+     * then editing a past day would silently rewrite history with the new rate.
+     * This mirrors [CashOut.exerciseRewardAtTime].
+     *
+     * Money is stored as Long minor units (cents), e.g. $5.00 is 500.
+     */
+    val exerciseRewardAtTime: Long = 500L
 )
 
 /**

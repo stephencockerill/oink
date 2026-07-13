@@ -4,7 +4,9 @@ import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.oink.app.data.AppDatabase
+import com.oink.app.data.DataStorePreferencesRepository
 import com.oink.app.widget.OinkWidget
+import kotlinx.coroutines.flow.first
 import java.time.LocalDate
 
 /**
@@ -17,6 +19,11 @@ import java.time.LocalDate
  *
  * The trade-off is that the notification might be slightly
  * delayed during Doze mode, but for a daily reminder that's fine.
+ *
+ * This worker is enqueued as one-time work. After firing, it reschedules the
+ * next day's run via [ReminderScheduler], recomputing the delay against the
+ * wall clock so the reminder time does not drift. See [ReminderScheduler] for
+ * the rationale.
  */
 class ReminderWorker(
     context: Context,
@@ -37,6 +44,18 @@ class ReminderWorker(
 
         // Always refresh the widget so urgency state is current
         OinkWidget.updateAllWidgets(applicationContext)
+
+        // Reschedule the next day's run anchored to the wall-clock target time.
+        // Reading preferences here keeps them the single source of truth: if the
+        // user disabled reminders, we stop; if they changed the time, we honor it.
+        val prefs = DataStorePreferencesRepository(applicationContext).userPreferences.first()
+        if (prefs.remindersEnabled) {
+            ReminderScheduler.scheduleDailyReminder(
+                applicationContext,
+                prefs.reminderHour,
+                prefs.reminderMinute
+            )
+        }
 
         return Result.success()
     }

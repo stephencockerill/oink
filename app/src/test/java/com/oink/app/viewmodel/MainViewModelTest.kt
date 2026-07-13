@@ -12,6 +12,7 @@ import com.oink.app.data.FakePreferencesRepository
 import com.oink.app.data.PreferencesRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -185,6 +186,52 @@ class MainViewModelTest {
         assert(error != null && error.contains("balance", ignoreCase = true)) {
             "Expected balance error, got: $error"
         }
+    }
+
+    // ============================================================
+    // Reactivity Tests
+    // These prove the derived StateFlows update off their source flows
+    // with no imperative refresh call - the whole point of issue #9.
+    // WhileSubscribed flows only run while collected, so each test keeps
+    // an active collector alive in backgroundScope.
+    // ============================================================
+
+    @Test
+    fun `streak updates reactively after check-in without any refresh`() = runTest {
+        backgroundScope.launch { viewModel.streak.collect {} }
+        advanceUntilIdle()
+        assertEquals(0, viewModel.streak.value)
+
+        viewModel.recordTodayCheckIn(didExercise = true)
+        advanceUntilIdle()
+
+        assertEquals(1, viewModel.streak.value)
+    }
+
+    @Test
+    fun `availableFreezes updates reactively after purchase without any refresh`() = runTest {
+        backgroundScope.launch { viewModel.availableFreezes.collect {} }
+        advanceUntilIdle()
+        assertEquals(0, viewModel.availableFreezes.value)
+
+        viewModel.purchaseFreeze()
+        advanceUntilIdle()
+
+        assertEquals(1, viewModel.availableFreezes.value)
+    }
+
+    @Test
+    fun `exercisePreview updates reactively after a check-in raises balance`() = runTest {
+        backgroundScope.launch { viewModel.exercisePreview.collect {} }
+        advanceUntilIdle()
+        // From a zero balance, exercising today would reach one reward.
+        assertEquals(PreferencesRepository.DEFAULT_EXERCISE_REWARD, viewModel.exercisePreview.value)
+
+        viewModel.recordTodayCheckIn(didExercise = true)
+        advanceUntilIdle()
+
+        // Balance is now one reward, so exercising again previews two rewards.
+        assertEquals(PreferencesRepository.DEFAULT_EXERCISE_REWARD * 2, viewModel.exercisePreview.value)
     }
 
     // ============================================================

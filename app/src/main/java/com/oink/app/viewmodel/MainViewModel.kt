@@ -18,7 +18,9 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
@@ -96,24 +98,6 @@ class MainViewModel(
         )
 
     /**
-     * Current streak count.
-     */
-    private val _streak = MutableStateFlow(0)
-    val streak: StateFlow<Int> = _streak.asStateFlow()
-
-    /**
-     * Preview of what balance would be if user exercises.
-     */
-    private val _exercisePreview = MutableStateFlow(0L)
-    val exercisePreview: StateFlow<Long> = _exercisePreview.asStateFlow()
-
-    /**
-     * Preview of what balance would be if user misses.
-     */
-    private val _missPreview = MutableStateFlow(0L)
-    val missPreview: StateFlow<Long> = _missPreview.asStateFlow()
-
-    /**
      * Loading state for UI feedback.
      */
     private val _isLoading = MutableStateFlow(false)
@@ -126,78 +110,129 @@ class MainViewModel(
     val error: StateFlow<String?> = _error.asStateFlow()
 
     /**
-     * Available streak freezes.
+     * Current exercise reward amount, in cents.
      */
-    private val _availableFreezes = MutableStateFlow(0)
-    val availableFreezes: StateFlow<Int> = _availableFreezes.asStateFlow()
-
-    /**
-     * A missed day that could be frozen (if any).
-     * null means no missed day needs attention.
-     */
-    private val _missedDayForFreeze = MutableStateFlow<LocalDate?>(null)
-    val missedDayForFreeze: StateFlow<LocalDate?> = _missedDayForFreeze.asStateFlow()
-
-    /**
-     * Current frozen dates.
-     */
-    private val _frozenDates = MutableStateFlow<Set<LocalDate>>(emptySet())
-    val frozenDates: StateFlow<Set<LocalDate>> = _frozenDates.asStateFlow()
-
-    /**
-     * Current exercise reward amount.
-     */
-    private val _exerciseReward = MutableStateFlow(PreferencesRepository.DEFAULT_EXERCISE_REWARD)
-    val exerciseReward: StateFlow<Long> = _exerciseReward.asStateFlow()
+    val exerciseReward: StateFlow<Long> = preferencesRepository.userPreferences
+        .map { it.exerciseReward }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = PreferencesRepository.DEFAULT_EXERCISE_REWARD
+        )
 
     /**
      * Freeze cost (2x exercise reward), in cents.
      */
-    private val _freezeCost = MutableStateFlow(PreferencesRepository.DEFAULT_EXERCISE_REWARD * 2)
-    val freezeCost: StateFlow<Long> = _freezeCost.asStateFlow()
-
-    init {
-        refreshData()
-    }
+    val freezeCost: StateFlow<Long> = preferencesRepository.userPreferences
+        .map { it.freezeCost }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = PreferencesRepository.DEFAULT_EXERCISE_REWARD * 2
+        )
 
     /**
-     * Refresh all data.
-     * Call this when the app resumes or when data might be stale.
+     * Available streak freezes.
      */
-    fun refreshData() {
-        viewModelScope.launch {
-            try {
-                // Load exercise reward setting
-                val reward = preferencesRepository.getExerciseReward()
-                _exerciseReward.value = reward
-                _freezeCost.value = reward * 2
+    val availableFreezes: StateFlow<Int> = preferencesRepository.userPreferences
+        .map { it.availableFreezes }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = 0
+        )
 
-                // Load freeze data
-                _availableFreezes.value = preferencesRepository.getAvailableFreezes()
-                _frozenDates.value = preferencesRepository.getFrozenDates()
+    /**
+     * Current frozen dates.
+     */
+    val frozenDates: StateFlow<Set<LocalDate>> = preferencesRepository.userPreferences
+        .map { it.frozenDates }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptySet()
+        )
 
-                // Calculate streak with frozen dates considered
-                _streak.value = repository.calculateStreak(_frozenDates.value)
+    /**
+     * Missed days the user has dismissed this session, so the freeze prompt
+     * stops surfacing them. This is genuine transient UI state (not persisted
+     * and not derivable from stored data), so it stays a MutableStateFlow.
+     */
+    private val _dismissedFreezeDates = MutableStateFlow<Set<LocalDate>>(emptySet())
 
-                // Calculate previews that account for deductions
-                // Raw preview = what the check-in balance would be
-                // Actual preview = raw preview - total deductions
-                val totalDeductions = cashOutRepository.getTotalCashedOut() +
-                    preferencesRepository.getTotalFreezeSpending()
+    /**
+     * Current streak count.
+     *
+     * Derived from check-ins and frozen dates so it can never go stale: any
+     * check-in edit or freeze change re-emits and recomputes automatically.
+     */
+    val streak: StateFlow<Int> = combine(
+        repository.allCheckIns,
+        frozenDates
+    ) { checkIns, frozen ->
+        repository.calculateStreak(checkIns, frozen)
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = 0
+    )
 
-                val rawExercisePreview = repository.previewExerciseBalance()
-                val rawMissPreview = repository.previewMissBalance()
+    /**
+     * Preview of what the spendable balance would be if the user exercises.
+     *
+     * Actual preview = raw preview - total deductions (cash-outs + freeze
+     * spending), floored at zero.
+     */
+    val exercisePreview: StateFlow<Long> = combine(
+        repository.currentBalance,
+        exerciseReward,
+        cashOutRepository.totalCashedOut,
+        preferencesRepository.totalFreezeSpending
+    ) { rawBalance, reward, cashedOut, freezeSpending ->
+        val deductions = cashedOut + freezeSpending
+        val rawPreview = repository.previewExerciseBalance(rawBalance, reward, deductions)
+        (rawPreview - deductions).coerceAtLeast(0L)
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = 0L
+    )
 
-                _exercisePreview.value = (rawExercisePreview - totalDeductions).coerceAtLeast(0L)
-                _missPreview.value = (rawMissPreview - totalDeductions).coerceAtLeast(0L)
+    /**
+     * Preview of what the spendable balance would be if the user misses.
+     */
+    val missPreview: StateFlow<Long> = combine(
+        repository.currentBalance,
+        cashOutRepository.totalCashedOut,
+        preferencesRepository.totalFreezeSpending
+    ) { rawBalance, cashedOut, freezeSpending ->
+        val deductions = cashedOut + freezeSpending
+        val rawPreview = repository.previewMissBalance(rawBalance, deductions)
+        (rawPreview - deductions).coerceAtLeast(0L)
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = 0L
+    )
 
-                // Check for missed days that could be frozen
-                _missedDayForFreeze.value = repository.findMissedDayForFreeze(_frozenDates.value)
-            } catch (e: Exception) {
-                _error.value = "Failed to load data: ${e.message}"
-            }
-        }
-    }
+    /**
+     * A missed day that could be frozen (if any).
+     * null means no missed day needs attention.
+     *
+     * Dismissed dates are folded into the skip set alongside frozen dates so a
+     * dismissed prompt doesn't immediately reappear.
+     */
+    val missedDayForFreeze: StateFlow<LocalDate?> = combine(
+        repository.allCheckIns,
+        frozenDates,
+        _dismissedFreezeDates
+    ) { checkIns, frozen, dismissed ->
+        repository.findMissedDayForFreeze(checkIns, frozen + dismissed)
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = null
+    )
 
     /**
      * Purchase a streak freeze.
@@ -209,16 +244,15 @@ class MainViewModel(
      * - [error] StateFlow for any error messages
      */
     fun purchaseFreeze() {
-        if (_availableFreezes.value >= PreferencesRepository.MAX_FREEZES) {
+        if (availableFreezes.value >= PreferencesRepository.MAX_FREEZES) {
             _error.value = "Already have max freezes (${PreferencesRepository.MAX_FREEZES})"
             return
         }
 
         viewModelScope.launch {
             try {
-                if (preferencesRepository.purchaseFreeze()) {
-                    _availableFreezes.value = preferencesRepository.getAvailableFreezes()
-                }
+                // availableFreezes updates reactively via the preferences flow.
+                preferencesRepository.purchaseFreeze()
             } catch (e: Exception) {
                 _error.value = "Failed to get freeze: ${e.message}"
             }
@@ -237,12 +271,12 @@ class MainViewModel(
      */
     fun useFreeze(date: LocalDate) {
         val balance = currentBalance.value
-        val cost = _freezeCost.value
+        val cost = freezeCost.value
         if (balance < cost) {
             _error.value = "Not enough balance! Need ${Formatters.formatCurrency(cost)} to use a freeze"
             return
         }
-        if (_availableFreezes.value <= 0) {
+        if (availableFreezes.value <= 0) {
             _error.value = "No freezes available! Buy one in Settings first."
             return
         }
@@ -250,7 +284,10 @@ class MainViewModel(
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                // Critical operations - must complete even if user exits
+                // Critical operations - must complete even if user exits.
+                // The freeze mutations flow back through the preferences and
+                // check-in flows, so streak/balance/missedDayForFreeze update
+                // reactively - no manual refresh needed.
                 kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
                     // Use the freeze (decrements available count, adds to frozen dates)
                     if (preferencesRepository.useFreeze(date)) {
@@ -260,9 +297,6 @@ class MainViewModel(
                         updateWidget()
                     }
                 }
-                // UI state refresh can be cancelled
-                refreshData()
-                _missedDayForFreeze.value = null
             } catch (e: Exception) {
                 _error.value = "Failed to use freeze: ${e.message}"
             } finally {
@@ -273,9 +307,13 @@ class MainViewModel(
 
     /**
      * Dismiss the freeze prompt without using a freeze.
+     *
+     * Records the currently-surfaced missed day as dismissed so the reactive
+     * [missedDayForFreeze] derivation skips past it instead of re-showing it.
      */
     fun dismissFreezePrompt() {
-        _missedDayForFreeze.value = null
+        val date = missedDayForFreeze.value ?: return
+        _dismissedFreezeDates.update { it + date }
     }
 
     /**
@@ -284,7 +322,7 @@ class MainViewModel(
      * @param didExercise Whether the user exercised today
      */
     fun recordTodayCheckIn(didExercise: Boolean) {
-        recordCheckIn(LocalDate.now(), didExercise)
+        recordCheckIn(repository.today(), didExercise)
     }
 
     /**
@@ -304,12 +342,12 @@ class MainViewModel(
                 // even if user presses home button immediately after tapping
                 kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
                     repository.recordCheckIn(date, didExercise)
-                    // Update widget IMMEDIATELY after DB write, before refreshData
-                    // This ensures widget gets updated even if user exits fast
+                    // Update widget IMMEDIATELY after DB write.
+                    // This ensures widget gets updated even if user exits fast.
+                    // UI state (streak, previews, balance) updates reactively
+                    // off the check-in flow, so no manual refresh is needed.
                     updateWidget()
                 }
-                // UI state refresh can be cancelled - it's not critical
-                refreshData()
             } catch (e: Exception) {
                 _error.value = "Failed to save check-in: ${e.message}"
             } finally {
@@ -339,7 +377,6 @@ class MainViewModel(
                     repository.bulkRecordCheckIns(dates, didExercise)
                     updateWidget()
                 }
-                refreshData()
             } catch (e: Exception) {
                 _error.value = "Failed to save check-ins: ${e.message}"
             } finally {
