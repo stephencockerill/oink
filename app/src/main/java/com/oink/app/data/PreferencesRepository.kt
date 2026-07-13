@@ -5,18 +5,18 @@ import kotlinx.coroutines.flow.Flow
 /**
  * User preferences data class.
  *
- * Covers app-wide settings only. Per-habit state (streak freezes, freeze
- * spending) lives on the [Habit] row and is served by [FreezeRepository].
+ * Covers app-wide settings only. Per-habit state (the reward, streak freezes,
+ * freeze spending) lives on the [Habit] row - the reward via [Habit.rewardValue],
+ * freezes via [FreezeRepository].
  */
 data class UserPreferences(
     val remindersEnabled: Boolean = false,
     val reminderHour: Int = 20, // Default: 8 PM
-    val reminderMinute: Int = 0,
-    val exerciseReward: Long = 500L // How much you earn per workout, in cents (default $5.00)
+    val reminderMinute: Int = 0
 )
 
 /**
- * Repository for managing user preferences.
+ * Repository for managing app-wide user preferences.
  *
  * This is an interface so that ViewModels and other repositories depend on
  * an abstraction rather than the DataStore-backed implementation. That keeps
@@ -24,10 +24,10 @@ data class UserPreferences(
  * tests inject FakePreferencesRepository with no Android Context or on-disk
  * DataStore.
  *
- * Extends [ExerciseRewardProvider] so a single implementation also satisfies the
- * narrower contract consumed by CheckInRepository.
+ * The per-day reward is not here; it lives on the [Habit] row
+ * ([Habit.rewardValue]) and is read via [HabitRewardProvider].
  */
-interface PreferencesRepository : ExerciseRewardProvider {
+interface PreferencesRepository {
 
     companion object {
         const val MAX_FREEZES = 2
@@ -57,10 +57,4 @@ interface PreferencesRepository : ExerciseRewardProvider {
      * Update all reminder settings at once.
      */
     suspend fun updateReminderSettings(enabled: Boolean, hour: Int, minute: Int)
-
-    /**
-     * Set the exercise reward amount, in cents.
-     * This affects how much you earn per workout.
-     */
-    suspend fun setExerciseReward(amount: Long)
 }

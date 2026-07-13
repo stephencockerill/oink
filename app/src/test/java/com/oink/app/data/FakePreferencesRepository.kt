@@ -12,14 +12,12 @@ import kotlinx.coroutines.flow.combine
  * implementation, so it can be injected into repositories and ViewModels
  * without any Android Context or on-disk state.
  *
- * Per-habit freeze state is not here; see [FreezeRepository] and its fake DAOs.
+ * Covers app-wide settings only. The per-day reward lives on the [Habit] row
+ * ([Habit.rewardValue]); per-habit freeze state lives in [FreezeRepository].
  */
-class FakePreferencesRepository(
-    initialExerciseReward: Long = PreferencesRepository.DEFAULT_EXERCISE_REWARD
-) : PreferencesRepository {
+class FakePreferencesRepository : PreferencesRepository {
 
     // Internal state
-    private val _exerciseReward = MutableStateFlow(initialExerciseReward)
     private val _remindersEnabled = MutableStateFlow(false)
     private val _reminderHour = MutableStateFlow(20)
     private val _reminderMinute = MutableStateFlow(0)
@@ -31,29 +29,15 @@ class FakePreferencesRepository(
      * matching the DataStore-backed implementation.
      */
     override val userPreferences: Flow<UserPreferences> = combine(
-        _exerciseReward,
         _remindersEnabled,
         _reminderHour,
         _reminderMinute
-    ) { reward, remindersEnabled, hour, minute ->
+    ) { remindersEnabled, hour, minute ->
         UserPreferences(
             remindersEnabled = remindersEnabled,
             reminderHour = hour,
-            reminderMinute = minute,
-            exerciseReward = reward
+            reminderMinute = minute
         )
-    }
-
-    // ============================================================
-    // Exercise Reward
-    // ============================================================
-
-    override suspend fun getExerciseReward(): Long {
-        return _exerciseReward.value
-    }
-
-    override suspend fun setExerciseReward(amount: Long) {
-        _exerciseReward.value = amount.coerceAtLeast(1L)
     }
 
     // ============================================================
@@ -82,10 +66,7 @@ class FakePreferencesRepository(
     /**
      * Reset all state to defaults. Useful between tests.
      */
-    fun reset(
-        exerciseReward: Long = PreferencesRepository.DEFAULT_EXERCISE_REWARD
-    ) {
-        _exerciseReward.value = exerciseReward
+    fun reset() {
         _remindersEnabled.value = false
         _reminderHour.value = 20
         _reminderMinute.value = 0

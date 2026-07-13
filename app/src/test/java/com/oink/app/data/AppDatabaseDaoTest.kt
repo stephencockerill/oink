@@ -69,7 +69,7 @@ class AppDatabaseDaoTest {
             CheckIn(date = date, didExercise = true, balanceAfter = 1234, exerciseRewardAtTime = 500)
         )
 
-        val stored = checkInDao.getCheckInForDate(date.toEpochDay())
+        val stored = checkInDao.getCheckInForDate(1L, date.toEpochDay())
 
         assertEquals(id, stored?.id)
         assertEquals(date, stored?.date)
@@ -87,8 +87,8 @@ class AppDatabaseDaoTest {
         val date = LocalDate.of(2020, 1, 1)
         checkInDao.insert(CheckIn(date = date, didExercise = false, balanceAfter = 0))
 
-        assertNull(checkInDao.getCheckInForDate(date.toEpochDay() - 1))
-        assertEquals(date, checkInDao.getCheckInForDate(date.toEpochDay())?.date)
+        assertNull(checkInDao.getCheckInForDate(1L, date.toEpochDay() - 1))
+        assertEquals(date, checkInDao.getCheckInForDate(1L, date.toEpochDay())?.date)
     }
 
     /**
@@ -102,7 +102,7 @@ class AppDatabaseDaoTest {
         checkInDao.insert(CheckIn(date = date, didExercise = false, balanceAfter = 100))
         checkInDao.insert(CheckIn(date = date, didExercise = true, balanceAfter = 600))
 
-        val all = checkInDao.getAllCheckInsAsc()
+        val all = checkInDao.getAllCheckInsAsc(1L)
         assertEquals(1, all.size)
         assertTrue(all.first().didExercise)
         assertEquals(600L, all.first().balanceAfter)
@@ -121,10 +121,10 @@ class AppDatabaseDaoTest {
         checkInDao.insert(CheckIn(date = jan, didExercise = true, balanceAfter = 100))
         checkInDao.insert(CheckIn(date = mar, didExercise = true, balanceAfter = 300))
 
-        assertEquals(listOf(jan, feb, mar), checkInDao.getAllCheckInsAsc().map { it.date })
-        assertEquals(mar, checkInDao.getLatestCheckIn()?.date)
-        assertEquals(jan, checkInDao.getCheckInBefore(feb.toEpochDay())?.date)
-        assertNull(checkInDao.getCheckInBefore(jan.toEpochDay()))
+        assertEquals(listOf(jan, feb, mar), checkInDao.getAllCheckInsAsc(1L).map { it.date })
+        assertEquals(mar, checkInDao.getLatestCheckIn(1L)?.date)
+        assertEquals(jan, checkInDao.getCheckInBefore(1L, feb.toEpochDay())?.date)
+        assertNull(checkInDao.getCheckInBefore(1L, jan.toEpochDay()))
     }
 
     /**
@@ -136,7 +136,7 @@ class AppDatabaseDaoTest {
         checkInDao.insert(CheckIn(date = LocalDate.of(2024, 1, 2), didExercise = false, balanceAfter = 50))
         checkInDao.insert(CheckIn(date = LocalDate.of(2024, 1, 3), didExercise = true, balanceAfter = 550))
 
-        assertEquals(2, checkInDao.getTotalWorkoutCount())
+        assertEquals(2, checkInDao.getTotalWorkoutCount(1L))
     }
 
     /**
@@ -147,7 +147,7 @@ class AppDatabaseDaoTest {
         checkInDao.insert(CheckIn(date = LocalDate.of(2024, 1, 1), didExercise = true, balanceAfter = 100))
         checkInDao.insert(CheckIn(date = LocalDate.of(2024, 1, 5), didExercise = true, balanceAfter = 600))
 
-        val dates = checkInDao.getAllCheckInsFlow().first().map { it.date }
+        val dates = checkInDao.getAllCheckInsFlow(1L).first().map { it.date }
         assertEquals(listOf(LocalDate.of(2024, 1, 5), LocalDate.of(2024, 1, 1)), dates)
     }
 

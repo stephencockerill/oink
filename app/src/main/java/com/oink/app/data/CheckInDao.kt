@@ -32,66 +32,66 @@ interface CheckInDao {
     suspend fun update(checkIn: CheckIn)
 
     /**
-     * Get all check-ins ordered by date descending (newest first).
+     * Get all of a habit's check-ins ordered by date descending (newest first).
      * This is what powers the history screen.
      */
-    @Query("SELECT * FROM check_ins ORDER BY date DESC")
-    fun getAllCheckInsFlow(): Flow<List<CheckIn>>
+    @Query("SELECT * FROM check_ins WHERE habitId = :habitId ORDER BY date DESC")
+    fun getAllCheckInsFlow(habitId: Long): Flow<List<CheckIn>>
 
     /**
-     * Get all check-ins ordered by date ascending (oldest first).
+     * Get all of a habit's check-ins ordered by date ascending (oldest first).
      * Useful for calculating streaks and recalculating balances.
      */
-    @Query("SELECT * FROM check_ins ORDER BY date ASC")
-    suspend fun getAllCheckInsAsc(): List<CheckIn>
+    @Query("SELECT * FROM check_ins WHERE habitId = :habitId ORDER BY date ASC")
+    suspend fun getAllCheckInsAsc(habitId: Long): List<CheckIn>
 
     /**
-     * Get a specific check-in by date.
-     * Returns null if no check-in exists for that date.
+     * Get a habit's check-in for a specific date.
+     * Returns null if no check-in exists for that (habit, date).
      */
-    @Query("SELECT * FROM check_ins WHERE date = :epochDay LIMIT 1")
-    suspend fun getCheckInForDate(epochDay: Long): CheckIn?
+    @Query("SELECT * FROM check_ins WHERE habitId = :habitId AND date = :epochDay LIMIT 1")
+    suspend fun getCheckInForDate(habitId: Long, epochDay: Long): CheckIn?
 
     /**
-     * Get the most recent check-in.
+     * Get a habit's most recent check-in.
      * Used to determine the current balance.
      */
-    @Query("SELECT * FROM check_ins ORDER BY date DESC LIMIT 1")
-    suspend fun getLatestCheckIn(): CheckIn?
+    @Query("SELECT * FROM check_ins WHERE habitId = :habitId ORDER BY date DESC LIMIT 1")
+    suspend fun getLatestCheckIn(habitId: Long): CheckIn?
 
     /**
-     * Get the most recent check-in as a Flow.
+     * Get a habit's most recent check-in as a Flow.
      * UI observes this to update the balance display.
      */
-    @Query("SELECT * FROM check_ins ORDER BY date DESC LIMIT 1")
-    fun getLatestCheckInFlow(): Flow<CheckIn?>
+    @Query("SELECT * FROM check_ins WHERE habitId = :habitId ORDER BY date DESC LIMIT 1")
+    fun getLatestCheckInFlow(habitId: Long): Flow<CheckIn?>
 
     /**
-     * Get the check-in for today.
-     * Used to determine if user has already checked in today.
+     * Get a habit's check-in for today.
+     * Used to determine if the user has already checked in today.
      */
-    @Query("SELECT * FROM check_ins WHERE date = :todayEpochDay LIMIT 1")
-    fun getTodayCheckInFlow(todayEpochDay: Long): Flow<CheckIn?>
+    @Query("SELECT * FROM check_ins WHERE habitId = :habitId AND date = :todayEpochDay LIMIT 1")
+    fun getTodayCheckInFlow(habitId: Long, todayEpochDay: Long): Flow<CheckIn?>
 
     /**
-     * Delete all check-ins.
+     * Delete all check-ins for a habit.
      * Nuclear option - use carefully!
      */
-    @Query("DELETE FROM check_ins")
-    suspend fun deleteAll()
+    @Query("DELETE FROM check_ins WHERE habitId = :habitId")
+    suspend fun deleteAll(habitId: Long)
 
     /**
-     * Get total count of workout days (days where user exercised).
+     * Get a habit's total count of workout days (days where the user exercised).
      * Used for stats and calculating workout counts.
      */
-    @Query("SELECT COUNT(*) FROM check_ins WHERE didExercise = 1")
-    suspend fun getTotalWorkoutCount(): Int
+    @Query("SELECT COUNT(*) FROM check_ins WHERE habitId = :habitId AND didExercise = 1")
+    suspend fun getTotalWorkoutCount(habitId: Long): Int
 
     /**
-     * Get the check-in immediately before a given date.
+     * Get a habit's check-in immediately before a given date.
      * Efficient single query instead of loading all check-ins and filtering.
      */
-    @Query("SELECT * FROM check_ins WHERE date < :epochDay ORDER BY date DESC LIMIT 1")
-    suspend fun getCheckInBefore(epochDay: Long): CheckIn?
+    @Query("SELECT * FROM check_ins WHERE habitId = :habitId AND date < :epochDay ORDER BY date DESC LIMIT 1")
+    suspend fun getCheckInBefore(habitId: Long, epochDay: Long): CheckIn?
 }
 

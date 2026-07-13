@@ -21,11 +21,20 @@ import kotlinx.coroutines.flow.Flow
  *
  * This prevents the nasty bug where toggling a check-in between
  * "exercised" and "didn't" would lose track of cash-outs.
+ *
+ * A cash-out is pot-level, but every one carries a [CashOutAllocation]
+ * attributing its amount to a habit ([habitId], defaulting to
+ * [HabitRepository.DEFAULT_HABIT_ID]). The allocation is what the per-habit
+ * halving reads (see [DefaultDeductionProvider]), so this repository keeps it in
+ * step with the cash-out on create, edit, and delete. Splitting one cash-out
+ * across multiple habits is deferred to the pot-aggregation work.
  */
 class CashOutRepository(
     private val cashOutDao: CashOutDao,
+    private val cashOutAllocationDao: CashOutAllocationDao,
     private val checkInRepository: CheckInRepository,
-    private val preferencesProvider: CashOutPreferencesProvider
+    private val preferencesProvider: CashOutPreferencesProvider,
+    private val habitId: Long = HabitRepository.DEFAULT_HABIT_ID
 ) {
 
     /**
@@ -68,7 +77,7 @@ class CashOutRepository(
         }
 
         val balanceAfter = BalanceCalculator.calculateBalanceAfterDeduction(
-            currentCheckInBalance = checkInRepository.getCurrentBalanceOnce(),
+            currentCheckInBalance = checkInRepository.getCurrentBalanceOnce(habitId),
             totalCashedOut = cashOutDao.getTotalCashedOut(),
             totalFreezeSpending = preferencesProvider.getTotalFreezeSpending(),
             additionalDeduction = amount
@@ -85,6 +94,16 @@ class CashOutRepository(
         )
 
         val id = cashOutDao.insert(cashOut)
+        // Attribute the full amount to the habit so the per-habit halving sees
+        // this spending, capturing the reward rate in force for "workouts earned".
+        cashOutAllocationDao.insert(
+            CashOutAllocation(
+                cashOutId = id,
+                habitId = habitId,
+                amount = amount,
+                exerciseRewardAtTime = checkInRepository.getExerciseReward(habitId)
+            )
+        )
         return cashOut.copy(id = id)
     }
 
@@ -94,7 +113,7 @@ class CashOutRepository(
      */
     private suspend fun getCurrentBalance(): Long {
         return BalanceCalculator.calculateActualBalance(
-            checkInBalance = checkInRepository.getCurrentBalanceOnce(),
+            checkInBalance = checkInRepository.getCurrentBalanceOnce(habitId),
             totalCashedOut = cashOutDao.getTotalCashedOut(),
             totalFreezeSpending = preferencesProvider.getTotalFreezeSpending()
         )
@@ -156,6 +175,15 @@ class CashOutRepository(
         // Update the record - balance calculation happens automatically
         // because totalCashedOut flow will emit the new sum
         cashOutDao.update(cashOut)
+        // Keep the habit's allocation share in step so the per-habit halving
+        // reads the edited amount. Single-habit: the whole amount is one share.
+        cashOutAllocationDao.getForCashOut(cashOut.id)
+            .firstOrNull { it.habitId == habitId }
+            ?.let { allocation ->
+                if (allocation.amount != cashOut.amount) {
+                    cashOutAllocationDao.update(allocation.copy(amount = cashOut.amount))
+                }
+            }
         return true
     }
 
@@ -172,6 +200,7 @@ class CashOutRepository(
         val existing = cashOutDao.getById(cashOut.id)
         if (existing == null) return false
 
+        deleteAllocationsFor(cashOut.id)
         cashOutDao.delete(cashOut)
         return true
     }
@@ -181,8 +210,20 @@ class CashOutRepository(
      */
     suspend fun deleteCashOutById(id: Long): Boolean {
         val existing = cashOutDao.getById(id) ?: return false
+        deleteAllocationsFor(id)
         cashOutDao.delete(existing)
         return true
+    }
+
+    /**
+     * Drop a cash-out's allocations so its spending leaves the per-habit halving.
+     *
+     * Room cascades these on the foreign key, but deleting them explicitly first
+     * keeps the in-memory fakes (which have no cascade) correct too, and makes
+     * the intent obvious at the call site.
+     */
+    private suspend fun deleteAllocationsFor(cashOutId: Long) {
+        cashOutAllocationDao.getForCashOut(cashOutId).forEach { cashOutAllocationDao.delete(it) }
     }
 }
 

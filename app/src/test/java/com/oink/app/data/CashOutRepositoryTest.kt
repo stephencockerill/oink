@@ -25,8 +25,10 @@ import java.time.LocalDate
 class CashOutRepositoryTest {
 
     private lateinit var fakeCashOutDao: FakeCashOutDao
+    private lateinit var fakeCashOutAllocationDao: FakeCashOutAllocationDao
     private lateinit var fakeCheckInDao: FakeCheckInDao
-    private lateinit var fakePreferencesRepository: FakePreferencesRepository
+    private lateinit var fakeHabitDao: FakeHabitDao
+    private lateinit var freezeRepository: FreezeRepository
     private lateinit var fakeCashOutPreferences: FakeCashOutPreferencesProvider
     private lateinit var checkInRepository: CheckInRepository
     private lateinit var repository: CashOutRepository
@@ -34,15 +36,24 @@ class CashOutRepositoryTest {
     @Before
     fun setup() {
         fakeCashOutDao = FakeCashOutDao()
+        fakeCashOutAllocationDao = FakeCashOutAllocationDao()
         fakeCheckInDao = FakeCheckInDao()
-        fakePreferencesRepository = FakePreferencesRepository()
+        fakeHabitDao = FakeHabitDao().apply {
+            seed(Habit(id = HabitRepository.DEFAULT_HABIT_ID, name = "Workout"))
+        }
+        freezeRepository = FreezeRepository(fakeHabitDao, FakeFrozenDayDao())
         fakeCashOutPreferences = FakeCashOutPreferencesProvider()
         checkInRepository = CheckInRepository(
             fakeCheckInDao,
-            fakePreferencesRepository,
-            DefaultDeductionProvider(fakeCashOutDao, fakeCashOutPreferences)
+            HabitRewardProvider(fakeHabitDao),
+            DefaultDeductionProvider(fakeCashOutDao, fakeCashOutAllocationDao, freezeRepository)
         )
-        repository = CashOutRepository(fakeCashOutDao, checkInRepository, fakeCashOutPreferences)
+        repository = CashOutRepository(
+            fakeCashOutDao,
+            fakeCashOutAllocationDao,
+            checkInRepository,
+            fakeCashOutPreferences
+        )
     }
 
     // =====================================================================
@@ -245,8 +256,7 @@ class CashOutRepositoryTest {
 
     @Test
     fun `getTotalWorkoutsRewarded should sum workouts from all cashOuts`() = runTest {
-        // Setup: $5 per workout reward
-        fakePreferencesRepository.setExerciseReward(500)
+        // Workouts-to-earn divides by the default $5 reward (500 cents).
         setupBalance(10000)
 
         // Cash out $25 (5 workouts worth) and $15 (3 workouts worth)

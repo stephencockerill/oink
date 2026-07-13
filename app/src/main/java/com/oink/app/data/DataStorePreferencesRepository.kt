@@ -3,7 +3,6 @@ package com.oink.app.data
 import android.content.Context
 import androidx.datastore.preferences.core.edit
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 /**
@@ -27,8 +26,7 @@ class DataStorePreferencesRepository(private val context: Context) : Preferences
         UserPreferences(
             remindersEnabled = prefs[OinkPreferenceKeys.REMINDERS_ENABLED] ?: false,
             reminderHour = prefs[OinkPreferenceKeys.REMINDER_HOUR] ?: 20,
-            reminderMinute = prefs[OinkPreferenceKeys.REMINDER_MINUTE] ?: 0,
-            exerciseReward = prefs[OinkPreferenceKeys.EXERCISE_REWARD] ?: PreferencesRepository.DEFAULT_EXERCISE_REWARD
+            reminderMinute = prefs[OinkPreferenceKeys.REMINDER_MINUTE] ?: 0
         )
     }
 
@@ -50,20 +48,6 @@ class DataStorePreferencesRepository(private val context: Context) : Preferences
             prefs[OinkPreferenceKeys.REMINDERS_ENABLED] = enabled
             prefs[OinkPreferenceKeys.REMINDER_HOUR] = hour
             prefs[OinkPreferenceKeys.REMINDER_MINUTE] = minute
-        }
-    }
-
-    /**
-     * Get the current exercise reward amount.
-     * Implements ExerciseRewardProvider interface.
-     */
-    override suspend fun getExerciseReward(): Long {
-        return context.dataStore.data.first()[OinkPreferenceKeys.EXERCISE_REWARD] ?: PreferencesRepository.DEFAULT_EXERCISE_REWARD
-    }
-
-    override suspend fun setExerciseReward(amount: Long) {
-        context.dataStore.edit { prefs ->
-            prefs[OinkPreferenceKeys.EXERCISE_REWARD] = amount.coerceAtLeast(1L) // Minimum 1 cent
         }
     }
 }

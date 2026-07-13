@@ -5,6 +5,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.oink.app.data.AppDatabase
 import com.oink.app.data.DataStorePreferencesRepository
+import com.oink.app.data.HabitRepository
 import com.oink.app.widget.OinkWidget
 import kotlinx.coroutines.flow.first
 import java.time.LocalDate
@@ -33,7 +34,8 @@ class ReminderWorker(
     override suspend fun doWork(): Result {
         // Check if user already logged exercise today
         val database = AppDatabase.getDatabase(applicationContext)
-        val todayCheckIn = database.checkInDao().getCheckInForDate(LocalDate.now().toEpochDay())
+        val todayCheckIn = database.checkInDao()
+            .getCheckInForDate(HabitRepository.DEFAULT_HABIT_ID, LocalDate.now().toEpochDay())
 
         // Only show notification if:
         // - No check-in for today, OR
