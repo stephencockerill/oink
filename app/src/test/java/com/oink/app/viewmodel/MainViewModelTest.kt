@@ -8,10 +8,10 @@ import com.oink.app.data.DefaultDeductionProvider
 import com.oink.app.data.CheckInRepository
 import com.oink.app.data.FakeCashOutAllocationDao
 import com.oink.app.data.FakeCashOutDao
-import com.oink.app.data.FakeCashOutPreferencesProvider
 import com.oink.app.data.FakeCheckInDao
 import com.oink.app.data.FakeFrozenDayDao
 import com.oink.app.data.FakeHabitDao
+import com.oink.app.data.FakeTransactionRunner
 import com.oink.app.data.FreezeRepository
 import com.oink.app.data.Habit
 import com.oink.app.data.HabitRepository
@@ -68,7 +68,6 @@ class MainViewModelTest {
     private lateinit var fakeHabitDao: FakeHabitDao
     private lateinit var fakeFrozenDayDao: FakeFrozenDayDao
     private lateinit var habitRepository: HabitRepository
-    private lateinit var cashOutPreferences: FakeCashOutPreferencesProvider
     private lateinit var freezeRepository: FreezeRepository
     private lateinit var checkInRepository: CheckInRepository
     private lateinit var cashOutRepository: CashOutRepository
@@ -87,7 +86,6 @@ class MainViewModelTest {
         }
         fakeFrozenDayDao = FakeFrozenDayDao()
         habitRepository = HabitRepository(fakeHabitDao)
-        cashOutPreferences = FakeCashOutPreferencesProvider()
         freezeRepository = FreezeRepository(fakeHabitDao, fakeFrozenDayDao)
         checkInRepository = CheckInRepository(
             fakeCheckInDao,
@@ -98,7 +96,9 @@ class MainViewModelTest {
             fakeCashOutDao,
             fakeCashOutAllocationDao,
             checkInRepository,
-            cashOutPreferences
+            habitRepository,
+            freezeRepository,
+            FakeTransactionRunner()
         )
 
         viewModel = MainViewModel(

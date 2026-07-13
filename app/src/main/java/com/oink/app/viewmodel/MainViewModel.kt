@@ -12,7 +12,6 @@ import com.oink.app.data.CheckInRepository
 import com.oink.app.data.FreezeRepository
 import com.oink.app.data.HabitRepository
 import com.oink.app.data.PreferencesRepository
-import com.oink.app.utils.BalanceCalculator
 import com.oink.app.utils.Formatters
 import com.oink.app.widget.OinkWidget
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -59,22 +58,17 @@ class MainViewModel(
     private val habitId: Long = HabitRepository.DEFAULT_HABIT_ID
 
     /**
-     * Current balance as a StateFlow.
+     * Current spendable balance as a StateFlow.
      *
-     * Uses BalanceCalculator for the actual calculation - see that class
-     * for the formula and rationale.
+     * This is the shared pot: the sum of every public habit's spendable balance.
+     * See [CashOutRepository.pot] for the derivation.
      */
-    val currentBalance: StateFlow<Long> = combine(
-        repository.currentBalance(habitId),
-        cashOutRepository.totalCashedOut,
-        freezeRepository.totalFreezeSpending(habitId)
-    ) { checkInBalance, cashedOut, freezeSpending ->
-        BalanceCalculator.calculateActualBalance(checkInBalance, cashedOut, freezeSpending)
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = 0L
-    )
+    val currentBalance: StateFlow<Long> = cashOutRepository.pot
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = 0L
+        )
 
     /**
      * Today's check-in status.
@@ -195,10 +189,10 @@ class MainViewModel(
     val exercisePreview: StateFlow<Long> = combine(
         repository.currentBalance(habitId),
         exerciseReward,
-        cashOutRepository.totalCashedOut,
+        cashOutRepository.allocatedForHabit(habitId),
         freezeRepository.totalFreezeSpending(habitId)
-    ) { rawBalance, reward, cashedOut, freezeSpending ->
-        val deductions = cashedOut + freezeSpending
+    ) { rawBalance, reward, allocated, freezeSpending ->
+        val deductions = allocated + freezeSpending
         val rawPreview = repository.previewExerciseBalance(rawBalance, reward, deductions)
         (rawPreview - deductions).coerceAtLeast(0L)
     }.stateIn(
@@ -212,10 +206,10 @@ class MainViewModel(
      */
     val missPreview: StateFlow<Long> = combine(
         repository.currentBalance(habitId),
-        cashOutRepository.totalCashedOut,
+        cashOutRepository.allocatedForHabit(habitId),
         freezeRepository.totalFreezeSpending(habitId)
-    ) { rawBalance, cashedOut, freezeSpending ->
-        val deductions = cashedOut + freezeSpending
+    ) { rawBalance, allocated, freezeSpending ->
+        val deductions = allocated + freezeSpending
         val rawPreview = repository.previewMissBalance(rawBalance, deductions)
         (rawPreview - deductions).coerceAtLeast(0L)
     }.stateIn(

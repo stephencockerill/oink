@@ -45,11 +45,17 @@ class FakeCashOutAllocationDao : CashOutAllocationDao {
     override suspend fun getForHabit(habitId: Long): List<CashOutAllocation> =
         allocations.value.filter { it.habitId == habitId }
 
+    override suspend fun getAll(): List<CashOutAllocation> =
+        allocations.value
+
     override fun getForHabitFlow(habitId: Long): Flow<List<CashOutAllocation>> =
         allocations.map { list -> list.filter { it.habitId == habitId } }
 
     override suspend fun getTotalForHabit(habitId: Long): Long =
         allocations.value.filter { it.habitId == habitId }.sumOf { it.amount }
+
+    override fun getTotalForHabitFlow(habitId: Long): Flow<Long> =
+        allocations.map { list -> list.filter { it.habitId == habitId }.sumOf { it.amount } }
 
     // ============================================================
     // Test Helpers

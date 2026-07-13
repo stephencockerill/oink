@@ -15,9 +15,9 @@ import com.oink.app.data.CheckInRepository
 import com.oink.app.data.DataStorePreferencesRepository
 import com.oink.app.data.DefaultDeductionProvider
 import com.oink.app.data.FreezeRepository
-import com.oink.app.data.HabitCashOutPreferencesProvider
 import com.oink.app.data.HabitRepository
 import com.oink.app.data.HabitRewardProvider
+import com.oink.app.data.RoomTransactionRunner
 import com.oink.app.ui.navigation.OinkNavHost
 import com.oink.app.ui.theme.OinkTheme
 import com.oink.app.viewmodel.MainViewModel
@@ -45,9 +45,6 @@ class MainActivity : ComponentActivity() {
         val preferencesRepository = DataStorePreferencesRepository(applicationContext)
         val habitRepository = HabitRepository(database.habitDao())
         val freezeRepository = FreezeRepository(database.habitDao(), database.frozenDayDao())
-        // Cash-out balance math is single-habit for now: freeze spending is
-        // sourced from the default habit.
-        val cashOutPreferencesProvider = HabitCashOutPreferencesProvider(freezeRepository)
         val checkInRepository = CheckInRepository(
             database.checkInDao(),
             HabitRewardProvider(database.habitDao()),
@@ -61,7 +58,9 @@ class MainActivity : ComponentActivity() {
             database.cashOutDao(),
             database.cashOutAllocationDao(),
             checkInRepository,
-            cashOutPreferencesProvider
+            habitRepository,
+            freezeRepository,
+            RoomTransactionRunner(database)
         )
 
         setContent {
