@@ -33,15 +33,21 @@ class AppDatabaseDaoTest {
     private lateinit var db: AppDatabase
     private lateinit var checkInDao: CheckInDao
     private lateinit var cashOutDao: CashOutDao
+    private lateinit var habitDao: HabitDao
 
     @Before
-    fun createDb() {
+    fun createDb() = runTest {
         db = Room.inMemoryDatabaseBuilder(
             ApplicationProvider.getApplicationContext(),
             AppDatabase::class.java
         ).build()
         checkInDao = db.checkInDao()
         cashOutDao = db.cashOutDao()
+        habitDao = db.habitDao()
+
+        // Check-ins carry a foreign key to habits, so the default habit
+        // (id = 1, the parent every check-in defaults to) must exist first.
+        habitDao.insert(Habit(id = 1L, name = "Workout"))
     }
 
     @After
@@ -162,8 +168,7 @@ class AppDatabaseDaoTest {
                 emoji = "🎯",
                 cashedOutAt = 1_700_000_000_000,
                 balanceBefore = 5000,
-                balanceAfter = 2500,
-                exerciseRewardAtTime = 500
+                balanceAfter = 2500
             )
         )
         cashOutDao.insert(
@@ -173,8 +178,7 @@ class AppDatabaseDaoTest {
                 emoji = "☕",
                 cashedOutAt = 1_700_000_100_000,
                 balanceBefore = 2500,
-                balanceAfter = 1750,
-                exerciseRewardAtTime = 500
+                balanceAfter = 1750
             )
         )
 

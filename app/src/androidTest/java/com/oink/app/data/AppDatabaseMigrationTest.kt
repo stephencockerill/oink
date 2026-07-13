@@ -5,6 +5,7 @@ import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -101,6 +102,107 @@ class AppDatabaseMigrationTest {
         db.query("SELECT exerciseRewardAtTime FROM check_ins WHERE id = 1").use { cursor ->
             assertTrue(cursor.moveToFirst())
             assertEquals(500L, cursor.getLong(0))
+        }
+    }
+
+    /**
+     * v3 -> v4: multi-habit data model.
+     *
+     * Seeds v3 check-ins and cash-outs (the latter with differing per-cash-out
+     * rewards), runs [AppDatabase.MIGRATION_3_4], validates the v4 schema, and
+     * asserts:
+     * - the default habit (id = 1, "Workout") is seeded;
+     * - every check-in and cash-out is preserved, with check-ins attributed to
+     *   the default habit and balances untouched;
+     * - exactly one allocation per legacy cash-out, capturing its amount and the
+     *   reward that applied before the cash_outs column was dropped;
+     * - the check_ins unique index is (habitId, date) and the old date-only
+     *   index is gone.
+     */
+    @Test
+    @Throws(IOException::class)
+    fun migrate3To4_seedsDefaultHabitAndBackfillsAllocations() {
+        helper.createDatabase(TEST_DB, 3).apply {
+            execSQL(
+                "INSERT INTO check_ins (id, date, didExercise, balanceAfter, exerciseRewardAtTime) " +
+                    "VALUES (1, 20000, 1, 1234, 500), (2, 20001, 0, 617, 500)"
+            )
+            execSQL(
+                "INSERT INTO cash_outs " +
+                    "(id, name, amount, emoji, cashedOutAt, balanceBefore, balanceAfter, exerciseRewardAtTime) " +
+                    "VALUES (1, 'Darts', 2500, '🎯', 1700000000000, 5000, 2500, 500), " +
+                    "(2, 'Coffee', 1500, '☕', 1700000100000, 2500, 1000, 700)"
+            )
+            close()
+        }
+
+        val db = helper.runMigrationsAndValidate(TEST_DB, 4, true, AppDatabase.MIGRATION_3_4)
+
+        // Default habit seeded.
+        db.query("SELECT id, name FROM habits ORDER BY id").use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals(1, cursor.getCount())
+            assertEquals(1L, cursor.getLong(0))
+            assertEquals("Workout", cursor.getString(1))
+        }
+
+        // Check-ins preserved and attributed to the default habit.
+        db.query("SELECT habitId, balanceAfter FROM check_ins ORDER BY id").use { cursor ->
+            assertEquals(2, cursor.getCount())
+            assertTrue(cursor.moveToFirst())
+            assertEquals(1L, cursor.getLong(0))
+            assertEquals(1234L, cursor.getLong(1))
+            assertTrue(cursor.moveToNext())
+            assertEquals(1L, cursor.getLong(0))
+            assertEquals(617L, cursor.getLong(1))
+        }
+
+        // Cash-outs preserved (pot-level, no habitId, no exerciseRewardAtTime).
+        db.query("SELECT amount, balanceAfter FROM cash_outs ORDER BY id").use { cursor ->
+            assertEquals(2, cursor.getCount())
+            assertTrue(cursor.moveToFirst())
+            assertEquals(2500L, cursor.getLong(0))
+            assertEquals(2500L, cursor.getLong(1))
+            assertTrue(cursor.moveToNext())
+            assertEquals(1500L, cursor.getLong(0))
+            assertEquals(1000L, cursor.getLong(1))
+        }
+
+        // Exactly one allocation per legacy cash-out, capturing amount + reward.
+        db.query(
+            "SELECT cashOutId, habitId, amount, exerciseRewardAtTime " +
+                "FROM cash_out_allocations ORDER BY cashOutId"
+        ).use { cursor ->
+            assertEquals(2, cursor.getCount())
+            assertTrue(cursor.moveToFirst())
+            assertEquals(1L, cursor.getLong(0)) // cashOutId
+            assertEquals(1L, cursor.getLong(1)) // default habit
+            assertEquals(2500L, cursor.getLong(2))
+            assertEquals(500L, cursor.getLong(3))
+            assertTrue(cursor.moveToNext())
+            assertEquals(2L, cursor.getLong(0))
+            assertEquals(1L, cursor.getLong(1))
+            assertEquals(1500L, cursor.getLong(2))
+            assertEquals(700L, cursor.getLong(3)) // captured pre-drop reward
+        }
+
+        // Unique index is (habitId, date); old date-only index is gone.
+        val checkInIndexes = mutableListOf<String>()
+        db.query("SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'check_ins'")
+            .use { cursor ->
+                while (cursor.moveToNext()) {
+                    cursor.getString(0)?.let { checkInIndexes.add(it) }
+                }
+            }
+        assertTrue(checkInIndexes.contains("index_check_ins_habitId_date"))
+        assertFalse(checkInIndexes.contains("index_check_ins_date"))
+
+        db.query("PRAGMA index_info(`index_check_ins_habitId_date`)").use { cursor ->
+            val columns = mutableListOf<String>()
+            while (cursor.moveToNext()) {
+                columns.add(cursor.getString(cursor.getColumnIndexOrThrow("name")))
+            }
+            assertEquals(listOf("habitId", "date"), columns)
         }
     }
 

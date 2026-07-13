@@ -48,22 +48,19 @@ data class CashOut(
     /**
      * Balance after cashing out, in cents.
      */
-    val balanceAfter: Long,
-
-    /**
-     * The exercise reward amount at the time of this cash-out, in cents.
-     * We store this because the user can change their reward setting,
-     * but we want to accurately show "X workouts earned this" based on
-     * what the reward was when they actually earned the money.
-     */
-    val exerciseRewardAtTime: Long = 500L
+    val balanceAfter: Long
 ) {
     /**
-     * Calculate how many workouts it took to earn this reward.
-     * Uses the reward amount that was set at the time of cash-out.
+     * Approximate how many workouts it took to earn this reward.
+     *
+     * A cash-out is pot-level; the per-habit reward rate that funded it lives
+     * in [CashOutAllocation.exerciseRewardAtTime]. Until allocation-aware reads
+     * land, this display divides by the default per-workout reward
+     * ([PreferencesRepository.DEFAULT_EXERCISE_REWARD]), which is exact for
+     * every user whose reward has only ever been the default.
      */
     val workoutsToEarn: Int
-        get() = if (exerciseRewardAtTime > 0) (amount / exerciseRewardAtTime).toInt() else 0
+        get() = (amount / PreferencesRepository.DEFAULT_EXERCISE_REWARD).toInt()
 }
 
 /**
