@@ -74,10 +74,6 @@ class CashOutRepository(
             additionalDeduction = amount
         )
 
-        // Get the current exercise reward so we can calculate "workouts earned" accurately
-        // even if the user changes their reward setting later
-        val exerciseReward = preferencesProvider.getExerciseReward()
-
         // Just record the cash-out - DON'T deduct from check-in!
         // The balance reduction happens automatically via the calculation.
         val cashOut = CashOut(
@@ -85,8 +81,7 @@ class CashOutRepository(
             amount = amount,
             emoji = emoji,
             balanceBefore = currentBalance,
-            balanceAfter = balanceAfter,
-            exerciseRewardAtTime = exerciseReward
+            balanceAfter = balanceAfter
         )
 
         val id = cashOutDao.insert(cashOut)
