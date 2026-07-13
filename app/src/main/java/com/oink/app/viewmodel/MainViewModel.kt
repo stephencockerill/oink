@@ -46,14 +46,15 @@ import java.time.LocalDate
 class MainViewModel(
     application: Application,
     private val repository: CheckInRepository,
-    private val preferencesRepository: PreferencesRepository,
+    private val habitRepository: HabitRepository,
     private val cashOutRepository: CashOutRepository,
     private val freezeRepository: FreezeRepository
 ) : AndroidViewModel(application) {
 
     /**
      * The habit this screen operates on. The app is single-habit for now, so
-     * every freeze read/write targets the seeded default habit.
+     * every check-in, streak, and freeze read/write targets the seeded default
+     * habit.
      */
     private val habitId: Long = HabitRepository.DEFAULT_HABIT_ID
 
@@ -64,7 +65,7 @@ class MainViewModel(
      * for the formula and rationale.
      */
     val currentBalance: StateFlow<Long> = combine(
-        repository.currentBalance,
+        repository.currentBalance(habitId),
         cashOutRepository.totalCashedOut,
         freezeRepository.totalFreezeSpending(habitId)
     ) { checkInBalance, cashedOut, freezeSpending ->
@@ -79,7 +80,7 @@ class MainViewModel(
      * Today's check-in status.
      * null means not checked in yet.
      */
-    val todayCheckIn: StateFlow<CheckIn?> = repository.getTodayCheckIn()
+    val todayCheckIn: StateFlow<CheckIn?> = repository.getTodayCheckIn(habitId)
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
@@ -89,7 +90,7 @@ class MainViewModel(
     /**
      * All check-ins for the history screen.
      */
-    val allCheckIns: StateFlow<List<CheckIn>> = repository.allCheckIns
+    val allCheckIns: StateFlow<List<CheckIn>> = repository.allCheckIns(habitId)
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
@@ -119,10 +120,11 @@ class MainViewModel(
     val error: StateFlow<String?> = _error.asStateFlow()
 
     /**
-     * Current exercise reward amount, in cents.
+     * This habit's per-day reward, in cents. Sourced from [Habit.rewardValue],
+     * the single source of truth, so a settings edit flows straight through.
      */
-    val exerciseReward: StateFlow<Long> = preferencesRepository.userPreferences
-        .map { it.exerciseReward }
+    val exerciseReward: StateFlow<Long> = habitRepository.habit(habitId)
+        .map { it?.rewardValue ?: PreferencesRepository.DEFAULT_EXERCISE_REWARD }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
@@ -130,10 +132,10 @@ class MainViewModel(
         )
 
     /**
-     * Freeze cost (2x exercise reward), in cents.
+     * Freeze cost (2x this habit's reward), in cents.
      */
-    val freezeCost: StateFlow<Long> = preferencesRepository.userPreferences
-        .map { it.exerciseReward * 2 }
+    val freezeCost: StateFlow<Long> = habitRepository.habit(habitId)
+        .map { (it?.rewardValue ?: PreferencesRepository.DEFAULT_EXERCISE_REWARD) * 2 }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
@@ -174,7 +176,7 @@ class MainViewModel(
      * check-in edit or freeze change re-emits and recomputes automatically.
      */
     val streak: StateFlow<Int> = combine(
-        repository.allCheckIns,
+        repository.allCheckIns(habitId),
         frozenDates
     ) { checkIns, frozen ->
         repository.calculateStreak(checkIns, frozen)
@@ -191,7 +193,7 @@ class MainViewModel(
      * spending), floored at zero.
      */
     val exercisePreview: StateFlow<Long> = combine(
-        repository.currentBalance,
+        repository.currentBalance(habitId),
         exerciseReward,
         cashOutRepository.totalCashedOut,
         freezeRepository.totalFreezeSpending(habitId)
@@ -209,7 +211,7 @@ class MainViewModel(
      * Preview of what the spendable balance would be if the user misses.
      */
     val missPreview: StateFlow<Long> = combine(
-        repository.currentBalance,
+        repository.currentBalance(habitId),
         cashOutRepository.totalCashedOut,
         freezeRepository.totalFreezeSpending(habitId)
     ) { rawBalance, cashedOut, freezeSpending ->
@@ -230,7 +232,7 @@ class MainViewModel(
      * dismissed prompt doesn't immediately reappear.
      */
     val missedDayForFreeze: StateFlow<LocalDate?> = combine(
-        repository.allCheckIns,
+        repository.allCheckIns(habitId),
         frozenDates,
         _dismissedFreezeDates
     ) { checkIns, frozen, dismissed ->
@@ -348,7 +350,7 @@ class MainViewModel(
                 // Wrap the critical operations in NonCancellable so they complete
                 // even if user presses home button immediately after tapping
                 kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
-                    repository.recordCheckIn(date, didExercise)
+                    repository.recordCheckIn(date, didExercise, habitId)
                     // Update widget IMMEDIATELY after DB write.
                     // This ensures widget gets updated even if user exits fast.
                     // UI state (streak, previews, balance) updates reactively
@@ -381,7 +383,7 @@ class MainViewModel(
 
             try {
                 kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
-                    repository.bulkRecordCheckIns(dates, didExercise)
+                    repository.bulkRecordCheckIns(dates, didExercise, habitId)
                     updateWidget()
                 }
             } catch (e: Exception) {
@@ -426,14 +428,14 @@ class MainViewModel(
     class Factory(
         private val application: Application,
         private val repository: CheckInRepository,
-        private val preferencesRepository: PreferencesRepository,
+        private val habitRepository: HabitRepository,
         private val cashOutRepository: CashOutRepository,
         private val freezeRepository: FreezeRepository
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(MainViewModel::class.java)) {
-                return MainViewModel(application, repository, preferencesRepository, cashOutRepository, freezeRepository) as T
+                return MainViewModel(application, repository, habitRepository, cashOutRepository, freezeRepository) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
         }

@@ -13,6 +13,7 @@ import com.oink.app.notifications.NotificationHelper
 import com.oink.app.notifications.ReminderScheduler
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -33,12 +34,13 @@ import kotlinx.coroutines.launch
 class SettingsViewModel(
     application: Application,
     private val preferencesRepository: PreferencesRepository,
+    private val habitRepository: HabitRepository,
     private val freezeRepository: FreezeRepository
 ) : AndroidViewModel(application) {
 
     /**
      * The habit this screen operates on. The app is single-habit for now, so
-     * every freeze read/write targets the seeded default habit.
+     * the reward and every freeze read/write target the seeded default habit.
      */
     private val habitId: Long = HabitRepository.DEFAULT_HABIT_ID
 
@@ -50,6 +52,19 @@ class SettingsViewModel(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = UserPreferences()
+        )
+
+    /**
+     * This habit's per-day reward, in cents. Sourced from [Habit.rewardValue],
+     * the single source of truth, so the chip selection reflects the stored
+     * habit and edits round-trip through it.
+     */
+    val exerciseReward: StateFlow<Long> = habitRepository.habit(habitId)
+        .map { it?.rewardValue ?: PreferencesRepository.DEFAULT_EXERCISE_REWARD }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = PreferencesRepository.DEFAULT_EXERCISE_REWARD
         )
 
     /**
@@ -126,12 +141,14 @@ class SettingsViewModel(
     }
 
     /**
-     * Set the exercise reward amount, in cents.
-     * This affects how much you earn per workout.
+     * Set this habit's per-day reward, in cents, on [Habit.rewardValue] - the
+     * single source of truth. No-op when the habit does not exist. The
+     * [exerciseReward] flow re-emits so the UI reflects the change.
      */
     fun setExerciseReward(amount: Long) {
         viewModelScope.launch {
-            preferencesRepository.setExerciseReward(amount)
+            val habit = habitRepository.getHabit(habitId) ?: return@launch
+            habitRepository.updateHabit(habit.copy(rewardValue = amount.coerceAtLeast(1L)))
         }
     }
 
@@ -146,12 +163,13 @@ class SettingsViewModel(
     class Factory(
         private val application: Application,
         private val preferencesRepository: PreferencesRepository,
+        private val habitRepository: HabitRepository,
         private val freezeRepository: FreezeRepository
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(SettingsViewModel::class.java)) {
-                return SettingsViewModel(application, preferencesRepository, freezeRepository) as T
+                return SettingsViewModel(application, preferencesRepository, habitRepository, freezeRepository) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
         }

@@ -43,11 +43,10 @@ import com.oink.app.MainActivity
 import com.oink.app.R
 import com.oink.app.data.AppDatabase
 import com.oink.app.data.CheckInRepository
-import com.oink.app.data.DataStorePreferencesRepository
 import com.oink.app.data.DefaultDeductionProvider
 import com.oink.app.data.FreezeRepository
-import com.oink.app.data.HabitCashOutPreferencesProvider
 import com.oink.app.data.HabitRepository
+import com.oink.app.data.HabitRewardProvider
 import com.oink.app.utils.BalanceCalculator
 import com.oink.app.utils.Formatters
 import kotlinx.coroutines.Dispatchers
@@ -104,23 +103,26 @@ class OinkWidget : GlanceAppWidget() {
 
     private suspend fun getWidgetData(context: Context): WidgetData {
         val database = AppDatabase.getDatabase(context)
-        val preferencesRepository = DataStorePreferencesRepository(context)
+        val habitId = HabitRepository.DEFAULT_HABIT_ID
         val freezeRepository = FreezeRepository(database.habitDao(), database.frozenDayDao())
-        val cashOutPreferencesProvider = HabitCashOutPreferencesProvider(freezeRepository, preferencesRepository)
         val repository = CheckInRepository(
             database.checkInDao(),
-            preferencesRepository,
-            DefaultDeductionProvider(database.cashOutDao(), cashOutPreferencesProvider)
+            HabitRewardProvider(database.habitDao()),
+            DefaultDeductionProvider(
+                database.cashOutDao(),
+                database.cashOutAllocationDao(),
+                freezeRepository
+            )
         )
 
-        val latestCheckIn = database.checkInDao().getLatestCheckIn()
-        val todayCheckIn = database.checkInDao().getCheckInForDate(repository.today().toEpochDay())
-        val streak = repository.calculateStreak()
+        val latestCheckIn = database.checkInDao().getLatestCheckIn(habitId)
+        val todayCheckIn = database.checkInDao().getCheckInForDate(habitId, repository.today().toEpochDay())
+        val streak = repository.calculateStreak(habitId)
 
         // Calculate ACTUAL balance using centralized BalanceCalculator
         val checkInBalance = latestCheckIn?.balanceAfter ?: 0L
         val totalCashedOut = database.cashOutDao().getTotalCashedOut()
-        val totalFreezeSpending = freezeRepository.getTotalFreezeSpending(HabitRepository.DEFAULT_HABIT_ID)
+        val totalFreezeSpending = freezeRepository.getTotalFreezeSpending(habitId)
         val actualBalance = BalanceCalculator.calculateActualBalance(
             checkInBalance = checkInBalance,
             totalCashedOut = totalCashedOut,

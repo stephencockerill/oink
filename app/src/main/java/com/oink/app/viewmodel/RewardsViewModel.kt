@@ -53,7 +53,7 @@ class RewardsViewModel(
      * This is what the user can actually spend.
      */
     val currentBalance: StateFlow<Long> = combine(
-        checkInRepository.currentBalance,
+        checkInRepository.currentBalance(habitId),
         cashOutRepository.totalCashedOut,
         freezeRepository.totalFreezeSpending(habitId)
     ) { checkInBalance, cashedOut, freezeSpending ->
@@ -69,7 +69,7 @@ class RewardsViewModel(
      * This is the total accumulated before any spending.
      * Used to show "Total Lifetime Earned" on the rewards screen.
      */
-    val totalEarned: StateFlow<Long> = checkInRepository.currentBalance
+    val totalEarned: StateFlow<Long> = checkInRepository.currentBalance(habitId)
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
@@ -113,7 +113,7 @@ class RewardsViewModel(
      * Refresh stats that need manual loading.
      */
     private suspend fun refreshStats() {
-        _totalWorkouts.value = checkInRepository.getTotalWorkoutCount()
+        _totalWorkouts.value = checkInRepository.getTotalWorkoutCount(habitId)
     }
 
     /**

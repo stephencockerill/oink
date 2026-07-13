@@ -20,13 +20,19 @@ import java.time.LocalDate
  * 2. Makes testing easier (you can mock this)
  * 3. If we ever switch from Room to something else, only this changes
  *
- * The exerciseRewardProvider parameter uses an interface instead of
- * the concrete PreferencesRepository to enable testing with fakes.
- * PreferencesRepository implements ExerciseRewardProvider.
+ * Every query, streak, and halving is scoped to a habit: the repository serves
+ * all habits, and each method takes a `habitId` (defaulting to
+ * [HabitRepository.DEFAULT_HABIT_ID] for the single-habit call sites). Two
+ * habits therefore never collide - each has its own check-in per date, its own
+ * streak, and its own deductions.
  *
- * The deductionProvider supplies cash-out + freeze spending totals so that a
- * miss halves the SPENDABLE balance (raw - deductions) rather than the raw
- * ledger. See [calculateNewBalance].
+ * The exerciseRewardProvider parameter uses an interface instead of the concrete
+ * Room-backed source to enable testing with fakes; in production
+ * [HabitRewardProvider] reads [Habit.rewardValue].
+ *
+ * The deductionProvider supplies a habit's cash-out + freeze spending totals so
+ * that a miss halves the SPENDABLE balance (raw - deductions) rather than the
+ * raw ledger. See [calculateNewBalance].
  */
 class CheckInRepository(
     private val checkInDao: CheckInDao,
@@ -50,32 +56,35 @@ class CheckInRepository(
     fun today(): LocalDate = LocalDate.now(clock)
 
     /**
-     * Get the current exercise reward from preferences, in cents.
+     * Get a habit's per-day reward, in cents. Sourced from [Habit.rewardValue].
      */
-    suspend fun getExerciseReward(): Long {
-        return exerciseRewardProvider.getExerciseReward()
+    suspend fun getExerciseReward(habitId: Long = HabitRepository.DEFAULT_HABIT_ID): Long {
+        return exerciseRewardProvider.getExerciseReward(habitId)
     }
 
     /**
-     * Flow of all check-ins, newest first.
+     * Flow of a habit's check-ins, newest first.
      */
-    val allCheckIns: Flow<List<CheckIn>> = checkInDao.getAllCheckInsFlow()
+    fun allCheckIns(habitId: Long = HabitRepository.DEFAULT_HABIT_ID): Flow<List<CheckIn>> =
+        checkInDao.getAllCheckInsFlow(habitId)
 
     /**
-     * Flow of the latest check-in.
+     * Flow of a habit's latest check-in.
      */
-    val latestCheckIn: Flow<CheckIn?> = checkInDao.getLatestCheckInFlow()
+    fun latestCheckIn(habitId: Long = HabitRepository.DEFAULT_HABIT_ID): Flow<CheckIn?> =
+        checkInDao.getLatestCheckInFlow(habitId)
 
     /**
-     * Flow of the current balance.
+     * Flow of a habit's current balance.
      * Derived from the latest check-in's balanceAfter field.
      */
-    val currentBalance: Flow<Long> = latestCheckIn.map { checkIn ->
-        checkIn?.balanceAfter ?: STARTING_BALANCE
-    }
+    fun currentBalance(habitId: Long = HabitRepository.DEFAULT_HABIT_ID): Flow<Long> =
+        latestCheckIn(habitId).map { checkIn ->
+            checkIn?.balanceAfter ?: STARTING_BALANCE
+        }
 
     /**
-     * Flow of today's check-in status.
+     * Flow of a habit's today check-in status.
      *
      * The query re-subscribes whenever the calendar date rolls over (see
      * [currentDateFlow]), so leaving the app open past midnight shows the new
@@ -83,9 +92,9 @@ class CheckInRepository(
      * collected.
      */
     @OptIn(ExperimentalCoroutinesApi::class)
-    fun getTodayCheckIn(): Flow<CheckIn?> {
+    fun getTodayCheckIn(habitId: Long = HabitRepository.DEFAULT_HABIT_ID): Flow<CheckIn?> {
         return currentDateFlow().flatMapLatest { date ->
-            checkInDao.getTodayCheckInFlow(date.toEpochDay())
+            checkInDao.getTodayCheckInFlow(habitId, date.toEpochDay())
         }
     }
 
@@ -110,10 +119,13 @@ class CheckInRepository(
     }
 
     /**
-     * Get check-in for a specific date.
+     * Get a habit's check-in for a specific date.
      */
-    suspend fun getCheckInForDate(date: LocalDate): CheckIn? {
-        return checkInDao.getCheckInForDate(date.toEpochDay())
+    suspend fun getCheckInForDate(
+        date: LocalDate,
+        habitId: Long = HabitRepository.DEFAULT_HABIT_ID
+    ): CheckIn? {
+        return checkInDao.getCheckInForDate(habitId, date.toEpochDay())
     }
 
     /**
@@ -126,34 +138,40 @@ class CheckInRepository(
      *
      * @param date The date to record the check-in for
      * @param didExercise Whether the user exercised
+     * @param habitId The habit to record against
      * @return The recorded check-in
      */
-    suspend fun recordCheckIn(date: LocalDate, didExercise: Boolean): CheckIn {
-        val existingCheckIn = getCheckInForDate(date)
+    suspend fun recordCheckIn(
+        date: LocalDate,
+        didExercise: Boolean,
+        habitId: Long = HabitRepository.DEFAULT_HABIT_ID
+    ): CheckIn {
+        val existingCheckIn = getCheckInForDate(date, habitId)
 
         if (existingCheckIn != null) {
             // Update existing check-in
-            return updateCheckIn(existingCheckIn, didExercise)
+            return updateCheckIn(existingCheckIn, didExercise, habitId)
         }
 
         // New check-in
-        val exerciseReward = getExerciseReward()
-        val previousBalance = getPreviousBalance(date)
-        val deductions = deductionProvider.getDeductionsAsOf(date)
+        val exerciseReward = getExerciseReward(habitId)
+        val previousBalance = getPreviousBalance(date, habitId)
+        val deductions = deductionProvider.getDeductionsAsOf(habitId, date)
         val newBalance = calculateNewBalance(previousBalance, didExercise, exerciseReward, deductions)
 
         val checkIn = CheckIn(
             date = date,
             didExercise = didExercise,
             balanceAfter = newBalance,
-            exerciseRewardAtTime = exerciseReward
+            exerciseRewardAtTime = exerciseReward,
+            habitId = habitId
         )
 
         val id = checkInDao.insert(checkIn)
 
         // If this is a past date, we need to recalculate all subsequent balances
         if (date < today()) {
-            recalculateBalancesAfter(date)
+            recalculateBalancesAfter(date, habitId)
         }
 
         return checkIn.copy(id = id)
@@ -161,9 +179,9 @@ class CheckInRepository(
 
     /**
      * Update an existing check-in.
-     * This will also recalculate all subsequent balances.
+     * This will also recalculate all subsequent balances for its habit.
      */
-    private suspend fun updateCheckIn(existing: CheckIn, didExercise: Boolean): CheckIn {
+    private suspend fun updateCheckIn(existing: CheckIn, didExercise: Boolean, habitId: Long): CheckIn {
         if (existing.didExercise == didExercise) {
             // No change needed
             return existing
@@ -171,8 +189,8 @@ class CheckInRepository(
 
         // Find the balance BEFORE this check-in. Reuse the reward stored on the
         // check-in so editing a past day never rewrites it with today's rate.
-        val previousBalance = getPreviousBalance(existing.date)
-        val deductions = deductionProvider.getDeductionsAsOf(existing.date)
+        val previousBalance = getPreviousBalance(existing.date, habitId)
+        val deductions = deductionProvider.getDeductionsAsOf(habitId, existing.date)
         val newBalance = calculateNewBalance(previousBalance, didExercise, existing.exerciseRewardAtTime, deductions)
 
         val updated = existing.copy(
@@ -183,7 +201,7 @@ class CheckInRepository(
         checkInDao.update(updated)
 
         // Recalculate all subsequent balances
-        recalculateBalancesAfter(existing.date)
+        recalculateBalancesAfter(existing.date, habitId)
 
         return updated
     }
@@ -199,19 +217,24 @@ class CheckInRepository(
      *
      * @param dates The dates to update
      * @param didExercise Whether these days were exercise days
+     * @param habitId The habit to record against
      */
-    suspend fun bulkRecordCheckIns(dates: Set<LocalDate>, didExercise: Boolean) {
+    suspend fun bulkRecordCheckIns(
+        dates: Set<LocalDate>,
+        didExercise: Boolean,
+        habitId: Long = HabitRepository.DEFAULT_HABIT_ID
+    ) {
         if (dates.isEmpty()) return
 
-        val exerciseReward = getExerciseReward()
+        val exerciseReward = getExerciseReward(habitId)
         val sortedDates = dates.sorted()
         val earliestDate = sortedDates.first()
 
         // Process each date
         for (date in sortedDates) {
-            val existing = checkInDao.getCheckInForDate(date.toEpochDay())
-            val previousBalance = getPreviousBalance(date)
-            val deductions = deductionProvider.getDeductionsAsOf(date)
+            val existing = checkInDao.getCheckInForDate(habitId, date.toEpochDay())
+            val previousBalance = getPreviousBalance(date, habitId)
+            val deductions = deductionProvider.getDeductionsAsOf(habitId, date)
 
             if (existing != null) {
                 // Update existing, keeping its recorded reward so a past day
@@ -235,24 +258,25 @@ class CheckInRepository(
                         date = date,
                         didExercise = didExercise,
                         balanceAfter = newBalance,
-                        exerciseRewardAtTime = exerciseReward
+                        exerciseRewardAtTime = exerciseReward,
+                        habitId = habitId
                     )
                 )
             }
         }
 
         // Recalculate all balances after the earliest date we touched
-        recalculateBalancesAfter(earliestDate)
+        recalculateBalancesAfter(earliestDate, habitId)
     }
 
     /**
-     * Get the balance before a given date.
+     * Get the balance before a given date within a habit.
      * If no check-ins exist before this date, returns the starting balance.
      *
      * Uses a targeted DAO query instead of loading all check-ins.
      */
-    private suspend fun getPreviousBalance(date: LocalDate): Long {
-        val previousCheckIn = checkInDao.getCheckInBefore(date.toEpochDay())
+    private suspend fun getPreviousBalance(date: LocalDate, habitId: Long): Long {
+        val previousCheckIn = checkInDao.getCheckInBefore(habitId, date.toEpochDay())
         return previousCheckIn?.balanceAfter ?: STARTING_BALANCE
     }
 
@@ -304,9 +328,9 @@ class CheckInRepository(
      * gonna have thousands of check-ins. If they do, they're a
      * legend and deserve the slight delay.
      */
-    private suspend fun recalculateBalancesAfter(afterDate: LocalDate) {
-        val allCheckIns = checkInDao.getAllCheckInsAsc()
-        var currentBalance = getPreviousBalance(afterDate.plusDays(1))
+    private suspend fun recalculateBalancesAfter(afterDate: LocalDate, habitId: Long) {
+        val allCheckIns = checkInDao.getAllCheckInsAsc(habitId)
+        var currentBalance = getPreviousBalance(afterDate.plusDays(1), habitId)
 
         // Find the check-in for afterDate and use its balance as starting point
         val checkInOnDate = allCheckIns.find { it.date == afterDate }
@@ -318,7 +342,7 @@ class CheckInRepository(
         allCheckIns
             .filter { it.date > afterDate }
             .forEach { checkIn ->
-                val deductions = deductionProvider.getDeductionsAsOf(checkIn.date)
+                val deductions = deductionProvider.getDeductionsAsOf(habitId, checkIn.date)
                 val newBalance = calculateNewBalance(
                     currentBalance, checkIn.didExercise, checkIn.exerciseRewardAtTime, deductions
                 )
@@ -337,10 +361,14 @@ class CheckInRepository(
      * - User misses a day (didExercise = false) AND it's not frozen
      * - There's a gap in dates (user didn't log at all) AND it's not frozen
      *
+     * @param habitId The habit whose streak to calculate
      * @param frozenDates Set of dates that are "frozen" and don't break the streak
      */
-    suspend fun calculateStreak(frozenDates: Set<LocalDate> = emptySet()): Int =
-        calculateStreak(checkInDao.getAllCheckInsAsc(), frozenDates)
+    suspend fun calculateStreak(
+        habitId: Long = HabitRepository.DEFAULT_HABIT_ID,
+        frozenDates: Set<LocalDate> = emptySet()
+    ): Int =
+        calculateStreak(checkInDao.getAllCheckInsAsc(habitId), frozenDates)
 
     /**
      * Pure streak calculation over an already-loaded list of check-ins.
@@ -410,10 +438,14 @@ class CheckInRepository(
      * - A gap in dates (no check-in)
      * - A logged "rest day" (didExercise = false)
      *
+     * @param habitId The habit to search
      * @param frozenDates Dates already frozen (to exclude)
      */
-    suspend fun findMissedDayForFreeze(frozenDates: Set<LocalDate> = emptySet()): LocalDate? =
-        findMissedDayForFreeze(checkInDao.getAllCheckInsAsc(), frozenDates)
+    suspend fun findMissedDayForFreeze(
+        habitId: Long = HabitRepository.DEFAULT_HABIT_ID,
+        frozenDates: Set<LocalDate> = emptySet()
+    ): LocalDate? =
+        findMissedDayForFreeze(checkInDao.getAllCheckInsAsc(habitId), frozenDates)
 
     /**
      * Pure freeze-candidate search over an already-loaded list of check-ins.
@@ -456,12 +488,12 @@ class CheckInRepository(
     }
 
     /**
-     * Get what the raw balance would be if user exercises today.
+     * Get what the raw balance would be if the user exercises today.
      */
-    suspend fun previewExerciseBalance(): Long {
-        val exerciseReward = getExerciseReward()
-        val current = checkInDao.getLatestCheckIn()?.balanceAfter ?: STARTING_BALANCE
-        val deductions = deductionProvider.getDeductionsAsOf(today())
+    suspend fun previewExerciseBalance(habitId: Long = HabitRepository.DEFAULT_HABIT_ID): Long {
+        val exerciseReward = getExerciseReward(habitId)
+        val current = checkInDao.getLatestCheckIn(habitId)?.balanceAfter ?: STARTING_BALANCE
+        val deductions = deductionProvider.getDeductionsAsOf(habitId, today())
         return previewExerciseBalance(current, exerciseReward, deductions)
     }
 
@@ -486,9 +518,9 @@ class CheckInRepository(
      * spendable, the deduction-aware raw result yields exactly half the current
      * spendable balance once deductions are subtracted.
      */
-    suspend fun previewMissBalance(): Long {
-        val current = checkInDao.getLatestCheckIn()?.balanceAfter ?: STARTING_BALANCE
-        val deductions = deductionProvider.getDeductionsAsOf(today())
+    suspend fun previewMissBalance(habitId: Long = HabitRepository.DEFAULT_HABIT_ID): Long {
+        val current = checkInDao.getLatestCheckIn(habitId)?.balanceAfter ?: STARTING_BALANCE
+        val deductions = deductionProvider.getDeductionsAsOf(habitId, today())
         return previewMissBalance(current, deductions)
     }
 
@@ -509,15 +541,15 @@ class CheckInRepository(
      * Useful for operations that need to know the current balance
      * at a specific point in time.
      */
-    suspend fun getCurrentBalanceOnce(): Long {
-        return checkInDao.getLatestCheckIn()?.balanceAfter ?: STARTING_BALANCE
+    suspend fun getCurrentBalanceOnce(habitId: Long = HabitRepository.DEFAULT_HABIT_ID): Long {
+        return checkInDao.getLatestCheckIn(habitId)?.balanceAfter ?: STARTING_BALANCE
     }
 
     /**
-     * Get total number of workout days (days where user exercised).
+     * Get a habit's total number of workout days (days where the user exercised).
      */
-    suspend fun getTotalWorkoutCount(): Int {
-        return checkInDao.getTotalWorkoutCount()
+    suspend fun getTotalWorkoutCount(habitId: Long = HabitRepository.DEFAULT_HABIT_ID): Int {
+        return checkInDao.getTotalWorkoutCount(habitId)
     }
 
     // NOTE: We intentionally DO NOT have a deductBalance() method!

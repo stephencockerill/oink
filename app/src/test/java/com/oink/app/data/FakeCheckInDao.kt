@@ -48,9 +48,11 @@ class FakeCheckInDao : CheckInDao {
         val id = if (checkIn.id == 0L) nextId++ else checkIn.id
         val newCheckIn = checkIn.copy(id = id)
 
-        // REPLACE behavior - remove existing with same date
+        // REPLACE behavior mirrors the unique index on (habitId, date): remove
+        // an existing row for the same habit AND date, so different habits can
+        // both hold a check-in on the same date without colliding.
         val updated = checkIns.value
-            .filter { it.date != checkIn.date }
+            .filterNot { it.habitId == checkIn.habitId && it.date == checkIn.date }
             .plus(newCheckIn)
             .sortedByDescending { it.date }
 
@@ -64,43 +66,45 @@ class FakeCheckInDao : CheckInDao {
         }
     }
 
-    override fun getAllCheckInsFlow(): Flow<List<CheckIn>> {
-        return checkIns.map { list -> list.sortedByDescending { it.date } }
-    }
-
-    override suspend fun getAllCheckInsAsc(): List<CheckIn> {
-        return checkIns.value.sortedBy { it.date }
-    }
-
-    override suspend fun getCheckInForDate(epochDay: Long): CheckIn? {
-        return checkIns.value.find { it.date.toEpochDay() == epochDay }
-    }
-
-    override suspend fun getLatestCheckIn(): CheckIn? {
-        return checkIns.value.maxByOrNull { it.date }
-    }
-
-    override fun getLatestCheckInFlow(): Flow<CheckIn?> {
-        return checkIns.map { list -> list.maxByOrNull { it.date } }
-    }
-
-    override fun getTodayCheckInFlow(todayEpochDay: Long): Flow<CheckIn?> {
+    override fun getAllCheckInsFlow(habitId: Long): Flow<List<CheckIn>> {
         return checkIns.map { list ->
-            list.find { it.date.toEpochDay() == todayEpochDay }
+            list.filter { it.habitId == habitId }.sortedByDescending { it.date }
         }
     }
 
-    override suspend fun deleteAll() {
-        checkIns.value = emptyList()
+    override suspend fun getAllCheckInsAsc(habitId: Long): List<CheckIn> {
+        return checkIns.value.filter { it.habitId == habitId }.sortedBy { it.date }
     }
 
-    override suspend fun getTotalWorkoutCount(): Int {
-        return checkIns.value.count { it.didExercise }
+    override suspend fun getCheckInForDate(habitId: Long, epochDay: Long): CheckIn? {
+        return checkIns.value.find { it.habitId == habitId && it.date.toEpochDay() == epochDay }
     }
 
-    override suspend fun getCheckInBefore(epochDay: Long): CheckIn? {
+    override suspend fun getLatestCheckIn(habitId: Long): CheckIn? {
+        return checkIns.value.filter { it.habitId == habitId }.maxByOrNull { it.date }
+    }
+
+    override fun getLatestCheckInFlow(habitId: Long): Flow<CheckIn?> {
+        return checkIns.map { list -> list.filter { it.habitId == habitId }.maxByOrNull { it.date } }
+    }
+
+    override fun getTodayCheckInFlow(habitId: Long, todayEpochDay: Long): Flow<CheckIn?> {
+        return checkIns.map { list ->
+            list.find { it.habitId == habitId && it.date.toEpochDay() == todayEpochDay }
+        }
+    }
+
+    override suspend fun deleteAll(habitId: Long) {
+        checkIns.value = checkIns.value.filterNot { it.habitId == habitId }
+    }
+
+    override suspend fun getTotalWorkoutCount(habitId: Long): Int {
+        return checkIns.value.count { it.habitId == habitId && it.didExercise }
+    }
+
+    override suspend fun getCheckInBefore(habitId: Long, epochDay: Long): CheckIn? {
         return checkIns.value
-            .filter { it.date.toEpochDay() < epochDay }
+            .filter { it.habitId == habitId && it.date.toEpochDay() < epochDay }
             .maxByOrNull { it.date }
     }
 }

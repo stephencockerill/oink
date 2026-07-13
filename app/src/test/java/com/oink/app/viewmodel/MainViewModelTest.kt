@@ -6,15 +6,16 @@ import androidx.test.core.app.ApplicationProvider
 import com.oink.app.data.CashOutRepository
 import com.oink.app.data.DefaultDeductionProvider
 import com.oink.app.data.CheckInRepository
+import com.oink.app.data.FakeCashOutAllocationDao
 import com.oink.app.data.FakeCashOutDao
 import com.oink.app.data.FakeCashOutPreferencesProvider
 import com.oink.app.data.FakeCheckInDao
 import com.oink.app.data.FakeFrozenDayDao
 import com.oink.app.data.FakeHabitDao
-import com.oink.app.data.FakePreferencesRepository
 import com.oink.app.data.FreezeRepository
 import com.oink.app.data.Habit
 import com.oink.app.data.HabitRepository
+import com.oink.app.data.HabitRewardProvider
 import com.oink.app.data.PreferencesRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -63,9 +64,10 @@ class MainViewModelTest {
     private lateinit var application: Application
     private lateinit var fakeCheckInDao: FakeCheckInDao
     private lateinit var fakeCashOutDao: FakeCashOutDao
+    private lateinit var fakeCashOutAllocationDao: FakeCashOutAllocationDao
     private lateinit var fakeHabitDao: FakeHabitDao
     private lateinit var fakeFrozenDayDao: FakeFrozenDayDao
-    private lateinit var preferencesRepository: FakePreferencesRepository
+    private lateinit var habitRepository: HabitRepository
     private lateinit var cashOutPreferences: FakeCashOutPreferencesProvider
     private lateinit var freezeRepository: FreezeRepository
     private lateinit var checkInRepository: CheckInRepository
@@ -79,24 +81,30 @@ class MainViewModelTest {
         application = ApplicationProvider.getApplicationContext()
         fakeCheckInDao = FakeCheckInDao()
         fakeCashOutDao = FakeCashOutDao()
+        fakeCashOutAllocationDao = FakeCashOutAllocationDao()
         fakeHabitDao = FakeHabitDao().apply {
             seed(Habit(id = HabitRepository.DEFAULT_HABIT_ID, name = "Workout"))
         }
         fakeFrozenDayDao = FakeFrozenDayDao()
-        preferencesRepository = FakePreferencesRepository()
+        habitRepository = HabitRepository(fakeHabitDao)
         cashOutPreferences = FakeCashOutPreferencesProvider()
         freezeRepository = FreezeRepository(fakeHabitDao, fakeFrozenDayDao)
         checkInRepository = CheckInRepository(
             fakeCheckInDao,
-            preferencesRepository,
-            DefaultDeductionProvider(fakeCashOutDao, cashOutPreferences)
+            HabitRewardProvider(fakeHabitDao),
+            DefaultDeductionProvider(fakeCashOutDao, fakeCashOutAllocationDao, freezeRepository)
         )
-        cashOutRepository = CashOutRepository(fakeCashOutDao, checkInRepository, cashOutPreferences)
+        cashOutRepository = CashOutRepository(
+            fakeCashOutDao,
+            fakeCashOutAllocationDao,
+            checkInRepository,
+            cashOutPreferences
+        )
 
         viewModel = MainViewModel(
             application = application,
             repository = checkInRepository,
-            preferencesRepository = preferencesRepository,
+            habitRepository = habitRepository,
             cashOutRepository = cashOutRepository,
             freezeRepository = freezeRepository
         )
@@ -260,7 +268,7 @@ class MainViewModelTest {
         val factory = MainViewModel.Factory(
             application = application,
             repository = checkInRepository,
-            preferencesRepository = preferencesRepository,
+            habitRepository = habitRepository,
             cashOutRepository = cashOutRepository,
             freezeRepository = freezeRepository
         )
