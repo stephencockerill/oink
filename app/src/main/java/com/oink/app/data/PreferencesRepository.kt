@@ -57,4 +57,22 @@ interface PreferencesRepository {
      * Update all reminder settings at once.
      */
     suspend fun updateReminderSettings(enabled: Boolean, hour: Int, minute: Int)
+
+    /**
+     * Whether a private-area PIN has been configured. Emits a new value when a
+     * PIN is first set. Deliberately exposes only existence, never the hash, so
+     * it is safe to observe from the UI.
+     */
+    val hasPin: Flow<Boolean>
+
+    /**
+     * The stored PIN hash (with its salt and iteration count), or null if none
+     * is set. Read only for verification; the plaintext PIN is never persisted.
+     */
+    suspend fun getHashedPin(): PinHasher.HashedPin?
+
+    /**
+     * Store the private-area PIN as its hash, salt, and iteration count.
+     */
+    suspend fun setPin(hashed: PinHasher.HashedPin)
 }

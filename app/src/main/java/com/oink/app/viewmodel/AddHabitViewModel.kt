@@ -1,7 +1,9 @@
 package com.oink.app.viewmodel
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
@@ -61,10 +63,19 @@ data class AddHabitUiState(
  * Application context.
  */
 class AddHabitViewModel(
-    private val habitRepository: HabitRepository
+    private val habitRepository: HabitRepository,
+    savedStateHandle: SavedStateHandle = SavedStateHandle()
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(AddHabitUiState())
+    /**
+     * Whether the form opens with the private toggle already on. Set from the
+     * `private` route argument, so opening add-habit from the private area
+     * defaults the new habit to private while the home FAB defaults it off.
+     */
+    private val initialPrivate: Boolean =
+        savedStateHandle.get<Boolean>(PRIVATE_ARG) ?: false
+
+    private val _uiState = MutableStateFlow(AddHabitUiState(isPrivate = initialPrivate))
     val uiState: StateFlow<AddHabitUiState> = _uiState.asStateFlow()
 
     fun onNameChange(name: String) {
@@ -119,15 +130,23 @@ class AddHabitViewModel(
 
     companion object {
         /**
-         * Factory that builds the ViewModel from the [AppContainer]. This
-         * ViewModel needs neither an Application context nor a habit id, so the
-         * container is simply closed over.
+         * Navigation argument name for the initial private state, kept in sync
+         * with the `add_habit?private=...` route.
+         */
+        const val PRIVATE_ARG = "private"
+
+        /**
+         * Factory that builds the ViewModel from the [AppContainer]. The
+         * per-entry [SavedStateHandle] - populated with the route's `private`
+         * argument - comes from [createSavedStateHandle], so the form opens with
+         * the right privacy default.
          */
         fun provideFactory(container: AppContainer): ViewModelProvider.Factory =
             viewModelFactory {
                 initializer {
                     AddHabitViewModel(
-                        habitRepository = container.habitRepository
+                        habitRepository = container.habitRepository,
+                        savedStateHandle = createSavedStateHandle()
                     )
                 }
             }

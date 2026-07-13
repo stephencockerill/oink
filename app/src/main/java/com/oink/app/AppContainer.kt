@@ -10,6 +10,7 @@ import com.oink.app.data.FreezeRepository
 import com.oink.app.data.HabitRepository
 import com.oink.app.data.HabitRewardProvider
 import com.oink.app.data.PreferencesRepository
+import com.oink.app.data.PrivateGate
 import com.oink.app.data.RoomTransactionRunner
 
 /**
@@ -29,6 +30,13 @@ class AppContainer(context: Context) {
     private val database: AppDatabase = AppDatabase.getDatabase(context)
 
     val preferencesRepository: PreferencesRepository = DataStorePreferencesRepository(context)
+
+    /**
+     * In-memory unlock state and rate limiter for the private area. One shared
+     * instance so the ProcessLifecycle re-lock observer and the private
+     * ViewModel act on the same unlocked flag; nothing here is persisted.
+     */
+    val privateGate: PrivateGate = PrivateGate()
 
     val habitRepository: HabitRepository = HabitRepository(database.habitDao())
 

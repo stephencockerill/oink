@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 
 /**
@@ -36,4 +37,12 @@ internal object OinkPreferenceKeys {
      * crashed run retries on the next cold start.
      */
     val PREFS_MIGRATED_TO_HABIT_V1 = booleanPreferencesKey("prefs_migrated_to_habit_v1")
+
+    /**
+     * Private-area PIN, stored as a PBKDF2 hash with its salt and iteration
+     * count. The plaintext PIN is never written. See [PinHasher].
+     */
+    val PIN_HASH = stringPreferencesKey("pin_hash")
+    val PIN_SALT = stringPreferencesKey("pin_salt")
+    val PIN_ITERATIONS = intPreferencesKey("pin_iterations")
 }
