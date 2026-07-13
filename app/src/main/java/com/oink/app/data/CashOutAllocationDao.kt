@@ -46,6 +46,12 @@ interface CashOutAllocationDao {
     suspend fun getForHabit(habitId: Long): List<CashOutAllocation>
 
     /**
+     * Get every allocation across all cash-outs and habits (one-shot).
+     */
+    @Query("SELECT * FROM cash_out_allocations")
+    suspend fun getAll(): List<CashOutAllocation>
+
+    /**
      * Observe every allocation attributed to a habit.
      */
     @Query("SELECT * FROM cash_out_allocations WHERE habitId = :habitId")
@@ -56,4 +62,10 @@ interface CashOutAllocationDao {
      */
     @Query("SELECT COALESCE(SUM(amount), 0) FROM cash_out_allocations WHERE habitId = :habitId")
     suspend fun getTotalForHabit(habitId: Long): Long
+
+    /**
+     * Observe the total cents attributed to a habit across all cash-outs.
+     */
+    @Query("SELECT COALESCE(SUM(amount), 0) FROM cash_out_allocations WHERE habitId = :habitId")
+    fun getTotalForHabitFlow(habitId: Long): Flow<Long>
 }

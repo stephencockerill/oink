@@ -10,14 +10,12 @@ import com.oink.app.data.CashOutRepository
 import com.oink.app.data.CheckInRepository
 import com.oink.app.data.FreezeRepository
 import com.oink.app.data.HabitRepository
-import com.oink.app.utils.BalanceCalculator
 import com.oink.app.widget.OinkWidget
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -49,20 +47,15 @@ class RewardsViewModel(
     private val habitId: Long = HabitRepository.DEFAULT_HABIT_ID
 
     /**
-     * Current ACTUAL balance (after all deductions).
-     * This is what the user can actually spend.
+     * Current spendable balance: the shared pot across every public habit.
+     * This is what the user can actually spend. See [CashOutRepository.pot].
      */
-    val currentBalance: StateFlow<Long> = combine(
-        checkInRepository.currentBalance(habitId),
-        cashOutRepository.totalCashedOut,
-        freezeRepository.totalFreezeSpending(habitId)
-    ) { checkInBalance, cashedOut, freezeSpending ->
-        BalanceCalculator.calculateActualBalance(checkInBalance, cashedOut, freezeSpending)
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = 0L
-    )
+    val currentBalance: StateFlow<Long> = cashOutRepository.pot
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = 0L
+        )
 
     /**
      * Total earned through exercise (raw check-in balance).
@@ -176,7 +169,8 @@ class RewardsViewModel(
 
             try {
                 withContext(NonCancellable) {
-                    val cashOut = cashOutRepository.cashOut(name, amount, emoji)
+                    // Empty scope draws the claim from all public habits.
+                    val cashOut = cashOutRepository.cashOut(name, amount, emoji, scope = emptySet())
                     if (cashOut != null) {
                         _cashOutSuccess.value = cashOut
                         // Update widget to reflect new balance
