@@ -3,7 +3,6 @@ package com.oink.app.data
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import java.time.LocalDate
-import kotlin.math.roundToLong
 
 /**
  * Repository for managing check-in data.
@@ -31,14 +30,14 @@ class CheckInRepository(
 ) {
 
     companion object {
-        const val DEFAULT_EXERCISE_REWARD = 5.00
-        const val STARTING_BALANCE = 0.00
+        const val DEFAULT_EXERCISE_REWARD = 500L // cents ($5.00)
+        const val STARTING_BALANCE = 0L
     }
 
     /**
-     * Get the current exercise reward from preferences.
+     * Get the current exercise reward from preferences, in cents.
      */
-    suspend fun getExerciseReward(): Double {
+    suspend fun getExerciseReward(): Long {
         return exerciseRewardProvider.getExerciseReward()
     }
 
@@ -56,7 +55,7 @@ class CheckInRepository(
      * Flow of the current balance.
      * Derived from the latest check-in's balanceAfter field.
      */
-    val currentBalance: Flow<Double> = latestCheckIn.map { checkIn ->
+    val currentBalance: Flow<Long> = latestCheckIn.map { checkIn ->
         checkIn?.balanceAfter ?: STARTING_BALANCE
     }
 
@@ -203,7 +202,7 @@ class CheckInRepository(
      *
      * Uses a targeted DAO query instead of loading all check-ins.
      */
-    private suspend fun getPreviousBalance(date: LocalDate): Double {
+    private suspend fun getPreviousBalance(date: LocalDate): Long {
         val previousCheckIn = checkInDao.getCheckInBefore(date.toEpochDay())
         return previousCheckIn?.balanceAfter ?: STARTING_BALANCE
     }
@@ -221,21 +220,24 @@ class CheckInRepository(
      * Deductions stay tracked separately in their own tables; this only
      * references them, so toggling a check-in never loses track of spending.
      *
+     * All values are cents. Halving uses round-half-up on the whole-cent
+     * result; since `raw + deductions` is never negative, `(x + 1) / 2` gives
+     * the correctly rounded half.
+     *
      * @param deductions Total cash-outs + freeze spending in force at this
      *   check-in's date. Zero for exercise days (unused) and for users who
      *   have never cashed out, in which case a miss reduces to raw / 2.
      */
     private fun calculateNewBalance(
-        previousBalance: Double,
+        previousBalance: Long,
         didExercise: Boolean,
-        exerciseReward: Double,
-        deductions: Double
-    ): Double {
+        exerciseReward: Long,
+        deductions: Long
+    ): Long {
         return if (didExercise) {
             previousBalance + exerciseReward
         } else {
-            // Round to 2 decimal places
-            ((previousBalance + deductions) / 2.0 * 100).roundToLong() / 100.0
+            (previousBalance + deductions + 1) / 2
         }
     }
 
@@ -266,6 +268,7 @@ class CheckInRepository(
             .forEach { checkIn ->
                 val deductions = deductionProvider.getDeductionsAsOf(checkIn.date)
                 val newBalance = calculateNewBalance(currentBalance, checkIn.didExercise, exerciseReward, deductions)
+                // Integer comparison - no float-equality fuzziness.
                 if (newBalance != checkIn.balanceAfter) {
                     checkInDao.update(checkIn.copy(balanceAfter = newBalance))
                 }
@@ -379,7 +382,7 @@ class CheckInRepository(
     /**
      * Get what the balance would be if user exercises today.
      */
-    suspend fun previewExerciseBalance(): Double {
+    suspend fun previewExerciseBalance(): Long {
         val exerciseReward = getExerciseReward()
         val current = checkInDao.getLatestCheckIn()?.balanceAfter ?: STARTING_BALANCE
         val deductions = deductionProvider.getDeductionsAsOf(LocalDate.now())
@@ -394,7 +397,7 @@ class CheckInRepository(
      * spendable, the deduction-aware raw result yields exactly half the current
      * spendable balance once deductions are subtracted.
      */
-    suspend fun previewMissBalance(): Double {
+    suspend fun previewMissBalance(): Long {
         val exerciseReward = getExerciseReward()
         val current = checkInDao.getLatestCheckIn()?.balanceAfter ?: STARTING_BALANCE
         val deductions = deductionProvider.getDeductionsAsOf(LocalDate.now())
@@ -406,7 +409,7 @@ class CheckInRepository(
      * Useful for operations that need to know the current balance
      * at a specific point in time.
      */
-    suspend fun getCurrentBalanceOnce(): Double {
+    suspend fun getCurrentBalanceOnce(): Long {
         return checkInDao.getLatestCheckIn()?.balanceAfter ?: STARTING_BALANCE
     }
 

@@ -281,7 +281,7 @@ fun RewardsScreen(
 
 @Composable
 private fun BalanceCard(
-    balance: Double,
+    balance: Long,
     onCashOut: () -> Unit
 ) {
     Card(
@@ -332,7 +332,7 @@ private fun BalanceCard(
                         fontWeight = FontWeight.Bold
                     )
                 }
-                if (balance == 0.0) {
+                if (balance == 0L) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = "Work out to earn rewards!",
@@ -347,7 +347,7 @@ private fun BalanceCard(
 
 @Composable
 private fun StatsRow(
-    lifetimeEarned: Double,
+    lifetimeEarned: Long,
     rewardCount: Int,
     totalWorkouts: Int
 ) {
@@ -505,10 +505,10 @@ private fun EmptyRewardsState() {
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 private fun CashOutBottomSheet(
-    balance: Double,
+    balance: Long,
     isLoading: Boolean,
     onDismiss: () -> Unit,
-    onCashOut: (name: String, amount: Double, emoji: String) -> Unit
+    onCashOut: (name: String, amount: Long, emoji: String) -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
@@ -516,7 +516,7 @@ private fun CashOutBottomSheet(
     var amountText by remember { mutableStateOf("") }
     var selectedEmoji by remember { mutableStateOf("🎁") }
 
-    val amount = amountText.toDoubleOrNull() ?: 0.0
+    val amount = Formatters.parseDollarsToCents(amountText) ?: 0L
     val isValid = name.isNotBlank() && amount > 0 && amount <= balance
 
     ModalBottomSheet(
@@ -772,19 +772,19 @@ private fun CelebrationOverlay(
 @Composable
 private fun EditRewardBottomSheet(
     cashOut: CashOut,
-    currentBalance: Double,
+    currentBalance: Long,
     isLoading: Boolean,
     onDismiss: () -> Unit,
-    onSave: (name: String, amount: Double, emoji: String) -> Unit,
+    onSave: (name: String, amount: Long, emoji: String) -> Unit,
     onDelete: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     var name by remember { mutableStateOf(cashOut.name) }
-    var amountText by remember { mutableStateOf(cashOut.amount.toString()) }
+    var amountText by remember { mutableStateOf(Formatters.centsToInput(cashOut.amount)) }
     var selectedEmoji by remember { mutableStateOf(cashOut.emoji) }
 
-    val amount = amountText.toDoubleOrNull() ?: 0.0
+    val amount = Formatters.parseDollarsToCents(amountText) ?: 0L
     // Can increase amount up to: current balance + original amount (what we'd get back if we deleted it)
     val maxAmount = currentBalance + cashOut.amount
     val isValid = name.isNotBlank() && amount > 0 && amount <= maxAmount

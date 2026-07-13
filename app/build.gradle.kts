@@ -41,6 +41,18 @@ android {
     buildFeatures {
         compose = true
     }
+
+    // Room's exported schema JSON lives in app/schemas. Bundling it as androidTest
+    // assets lets MigrationTestHelper load each version to verify migrations.
+    sourceSets {
+        getByName("androidTest").assets.srcDir("$projectDir/schemas")
+    }
+}
+
+// Write the Room schema JSON to a version-controlled location so every schema
+// version is committed and migrations can be tested against it.
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
 }
 
 dependencies {
@@ -66,6 +78,7 @@ dependencies {
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
+    androidTestImplementation(libs.androidx.room.testing)
 
     // DataStore
     implementation(libs.androidx.datastore.preferences)

@@ -55,8 +55,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.oink.app.data.PreferencesRepository
+import com.oink.app.utils.Formatters
 import com.oink.app.viewmodel.SettingsViewModel
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
@@ -74,8 +74,8 @@ import java.time.format.DateTimeFormatter
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
-    onNavigateBack: () -> Unit,
-    settingsViewModel: SettingsViewModel = viewModel()
+    settingsViewModel: SettingsViewModel,
+    onNavigateBack: () -> Unit
 ) {
     val userPreferences by settingsViewModel.userPreferences.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -220,7 +220,7 @@ fun SettingsScreen(
                                 onClick = { settingsViewModel.setExerciseReward(amount) },
                                 label = {
                                     Text(
-                                        text = "\$${amount.toInt()}",
+                                        text = "\$${amount / 100}",
                                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                                     )
                                 }
@@ -230,7 +230,7 @@ fun SettingsScreen(
 
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Miss a day = balance halved. Freeze cost = 2× reward (\$${(userPreferences.exerciseReward * 2).toInt()}).",
+                        text = "Miss a day = balance halved. Freeze cost = 2× reward (${Formatters.formatCurrency(userPreferences.exerciseReward * 2)}).",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                     )
@@ -298,7 +298,7 @@ fun SettingsScreen(
 
                     Text(
                         text = "Freezes protect your streak when you miss a day. " +
-                                "Using a freeze costs \$${(userPreferences.exerciseReward * 2).toInt()} from your balance.",
+                                "Using a freeze costs ${Formatters.formatCurrency(userPreferences.exerciseReward * 2)} from your balance.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                     )

@@ -8,6 +8,8 @@ import org.junit.Test
  *
  * These are pure function tests with no dependencies - exactly what
  * the Android testing guidelines recommend starting with.
+ *
+ * All money values are in cents (Long), e.g. $100.00 is 10000.
  */
 class BalanceCalculatorTest {
 
@@ -18,75 +20,75 @@ class BalanceCalculatorTest {
     @Test
     fun `calculate balance with no deductions returns check-in balance`() {
         val result = BalanceCalculator.calculateActualBalance(
-            checkInBalance = 100.0,
-            totalCashedOut = 0.0,
-            totalFreezeSpending = 0.0
+            checkInBalance = 10000,
+            totalCashedOut = 0,
+            totalFreezeSpending = 0
         )
-        assertEquals(100.0, result, 0.001)
+        assertEquals(10000L, result)
     }
 
     @Test
     fun `calculate balance subtracts cash-outs correctly`() {
         val result = BalanceCalculator.calculateActualBalance(
-            checkInBalance = 100.0,
-            totalCashedOut = 30.0,
-            totalFreezeSpending = 0.0
+            checkInBalance = 10000,
+            totalCashedOut = 3000,
+            totalFreezeSpending = 0
         )
-        assertEquals(70.0, result, 0.001)
+        assertEquals(7000L, result)
     }
 
     @Test
     fun `calculate balance subtracts freeze spending correctly`() {
         val result = BalanceCalculator.calculateActualBalance(
-            checkInBalance = 100.0,
-            totalCashedOut = 0.0,
-            totalFreezeSpending = 20.0
+            checkInBalance = 10000,
+            totalCashedOut = 0,
+            totalFreezeSpending = 2000
         )
-        assertEquals(80.0, result, 0.001)
+        assertEquals(8000L, result)
     }
 
     @Test
     fun `calculate balance subtracts both deductions correctly`() {
         val result = BalanceCalculator.calculateActualBalance(
-            checkInBalance = 130.0,
-            totalCashedOut = 50.0,
-            totalFreezeSpending = 10.0
+            checkInBalance = 13000,
+            totalCashedOut = 5000,
+            totalFreezeSpending = 1000
         )
         // 130 - 50 - 10 = 70
-        assertEquals(70.0, result, 0.001)
+        assertEquals(7000L, result)
     }
 
     @Test
     fun `calculate balance returns zero when deductions exceed balance`() {
         val result = BalanceCalculator.calculateActualBalance(
-            checkInBalance = 50.0,
-            totalCashedOut = 100.0,
-            totalFreezeSpending = 0.0
+            checkInBalance = 5000,
+            totalCashedOut = 10000,
+            totalFreezeSpending = 0
         )
         // Should be coerced to 0, not negative
-        assertEquals(0.0, result, 0.001)
+        assertEquals(0L, result)
     }
 
     @Test
-    fun `calculate balance handles floating point precision`() {
-        // This tests the "floating point fuckery" protection
+    fun `calculate balance is exact for odd cent amounts`() {
+        // Integer cents means subtraction is always exact - no rounding needed.
         val result = BalanceCalculator.calculateActualBalance(
-            checkInBalance = 100.33,
-            totalCashedOut = 50.11,
-            totalFreezeSpending = 10.22
+            checkInBalance = 10033,
+            totalCashedOut = 5011,
+            totalFreezeSpending = 1022
         )
-        // 100.33 - 50.11 - 10.22 = 40.00 (should be rounded to 2 decimal places)
-        assertEquals(40.0, result, 0.001)
+        // 10033 - 5011 - 1022 = 4000
+        assertEquals(4000L, result)
     }
 
     @Test
     fun `calculate balance with zero check-in balance`() {
         val result = BalanceCalculator.calculateActualBalance(
-            checkInBalance = 0.0,
-            totalCashedOut = 0.0,
-            totalFreezeSpending = 0.0
+            checkInBalance = 0,
+            totalCashedOut = 0,
+            totalFreezeSpending = 0
         )
-        assertEquals(0.0, result, 0.001)
+        assertEquals(0L, result)
     }
 
     // =====================================================================
@@ -96,38 +98,38 @@ class BalanceCalculatorTest {
     @Test
     fun `calculate balance after deduction includes additional amount`() {
         val result = BalanceCalculator.calculateBalanceAfterDeduction(
-            currentCheckInBalance = 100.0,
-            totalCashedOut = 20.0,
-            totalFreezeSpending = 0.0,
-            additionalDeduction = 30.0
+            currentCheckInBalance = 10000,
+            totalCashedOut = 2000,
+            totalFreezeSpending = 0,
+            additionalDeduction = 3000
         )
         // Current actual: 100 - 20 = 80
         // After deduction: 100 - (20 + 30) = 50
-        assertEquals(50.0, result, 0.001)
+        assertEquals(5000L, result)
     }
 
     @Test
     fun `calculate balance after deduction with existing spending`() {
         val result = BalanceCalculator.calculateBalanceAfterDeduction(
-            currentCheckInBalance = 130.0,
-            totalCashedOut = 50.0,
-            totalFreezeSpending = 10.0,
-            additionalDeduction = 20.0
+            currentCheckInBalance = 13000,
+            totalCashedOut = 5000,
+            totalFreezeSpending = 1000,
+            additionalDeduction = 2000
         )
         // 130 - 50 - 10 - 20 = 50
-        assertEquals(50.0, result, 0.001)
+        assertEquals(5000L, result)
     }
 
     @Test
     fun `calculate balance after deduction returns zero when over-deducting`() {
         val result = BalanceCalculator.calculateBalanceAfterDeduction(
-            currentCheckInBalance = 50.0,
-            totalCashedOut = 30.0,
-            totalFreezeSpending = 0.0,
-            additionalDeduction = 100.0
+            currentCheckInBalance = 5000,
+            totalCashedOut = 3000,
+            totalFreezeSpending = 0,
+            additionalDeduction = 10000
         )
         // 50 - 30 - 100 = -80, should be coerced to 0
-        assertEquals(0.0, result, 0.001)
+        assertEquals(0L, result)
     }
 
     // =====================================================================
@@ -137,11 +139,11 @@ class BalanceCalculatorTest {
     @Test
     fun `handles very small amounts correctly`() {
         val result = BalanceCalculator.calculateActualBalance(
-            checkInBalance = 0.01,
-            totalCashedOut = 0.0,
-            totalFreezeSpending = 0.0
+            checkInBalance = 1, // one cent
+            totalCashedOut = 0,
+            totalFreezeSpending = 0
         )
-        assertEquals(0.01, result, 0.001)
+        assertEquals(1L, result)
     }
 
     @Test
@@ -150,11 +152,11 @@ class BalanceCalculatorTest {
         // Cashed out $50 for darts
         // No freezes used
         val result = BalanceCalculator.calculateActualBalance(
-            checkInBalance = 130.0,
-            totalCashedOut = 50.0,
-            totalFreezeSpending = 0.0
+            checkInBalance = 13000,
+            totalCashedOut = 5000,
+            totalFreezeSpending = 0
         )
-        assertEquals(80.0, result, 0.001)
+        assertEquals(8000L, result)
     }
 
     @Test
@@ -163,11 +165,10 @@ class BalanceCalculatorTest {
         // Cashed out $50
         // Used one freeze at $10
         val result = BalanceCalculator.calculateActualBalance(
-            checkInBalance = 130.0,
-            totalCashedOut = 50.0,
-            totalFreezeSpending = 10.0
+            checkInBalance = 13000,
+            totalCashedOut = 5000,
+            totalFreezeSpending = 1000
         )
-        assertEquals(70.0, result, 0.001)
+        assertEquals(7000L, result)
     }
 }
-

@@ -15,9 +15,10 @@ import java.time.ZoneId
  */
 fun interface DeductionProvider {
     /**
-     * Total deductions (cash-outs + freeze spending) in force as of the end of [date].
+     * Total deductions (cash-outs + freeze spending) in force as of the end of
+     * [date], in cents.
      */
-    suspend fun getDeductionsAsOf(date: LocalDate): Double
+    suspend fun getDeductionsAsOf(date: LocalDate): Long
 }
 
 /**
@@ -37,7 +38,7 @@ class DefaultDeductionProvider(
     private val zoneId: ZoneId = ZoneId.systemDefault()
 ) : DeductionProvider {
 
-    override suspend fun getDeductionsAsOf(date: LocalDate): Double {
+    override suspend fun getDeductionsAsOf(date: LocalDate): Long {
         val cashedOut = cashOutDao.getAllCashOuts()
             .filter { cashOutDateOf(it) <= date }
             .sumOf { it.amount }

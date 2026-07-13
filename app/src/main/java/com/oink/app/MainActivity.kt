@@ -12,12 +12,13 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.rememberNavController
 import com.oink.app.data.CashOutRepository
 import com.oink.app.data.CheckInRepository
+import com.oink.app.data.DataStorePreferencesRepository
 import com.oink.app.data.DefaultDeductionProvider
-import com.oink.app.data.PreferencesRepository
 import com.oink.app.ui.navigation.OinkNavHost
 import com.oink.app.ui.theme.OinkTheme
 import com.oink.app.viewmodel.MainViewModel
 import com.oink.app.viewmodel.RewardsViewModel
+import com.oink.app.viewmodel.SettingsViewModel
 
 /**
  * Main entry point for the Oink app.
@@ -37,7 +38,7 @@ class MainActivity : ComponentActivity() {
         // Get our database from the Application class
         // This is manual DI - if the app grows, consider Hilt
         val database = (application as OinkApplication).database
-        val preferencesRepository = PreferencesRepository(applicationContext)
+        val preferencesRepository = DataStorePreferencesRepository(applicationContext)
         val checkInRepository = CheckInRepository(
             database.checkInDao(),
             preferencesRepository,
@@ -63,11 +64,16 @@ class MainActivity : ComponentActivity() {
                         factory = RewardsViewModel.Factory(application, cashOutRepository, checkInRepository, preferencesRepository)
                     )
 
+                    val settingsViewModel: SettingsViewModel = viewModel(
+                        factory = SettingsViewModel.Factory(application, preferencesRepository)
+                    )
+
                     // The NavHost handles all screen navigation
                     OinkNavHost(
                         navController = navController,
                         mainViewModel = mainViewModel,
-                        rewardsViewModel = rewardsViewModel
+                        rewardsViewModel = rewardsViewModel,
+                        settingsViewModel = settingsViewModel
                     )
                 }
             }

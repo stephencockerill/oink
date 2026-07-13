@@ -8,6 +8,7 @@ import com.oink.app.data.DefaultDeductionProvider
 import com.oink.app.data.CheckInRepository
 import com.oink.app.data.FakeCashOutDao
 import com.oink.app.data.FakeCheckInDao
+import com.oink.app.data.FakePreferencesRepository
 import com.oink.app.data.PreferencesRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -55,7 +56,7 @@ class MainViewModelTest {
     private lateinit var application: Application
     private lateinit var fakeCheckInDao: FakeCheckInDao
     private lateinit var fakeCashOutDao: FakeCashOutDao
-    private lateinit var preferencesRepository: PreferencesRepository
+    private lateinit var preferencesRepository: FakePreferencesRepository
     private lateinit var checkInRepository: CheckInRepository
     private lateinit var cashOutRepository: CashOutRepository
     private lateinit var viewModel: MainViewModel
@@ -67,7 +68,7 @@ class MainViewModelTest {
         application = ApplicationProvider.getApplicationContext()
         fakeCheckInDao = FakeCheckInDao()
         fakeCashOutDao = FakeCashOutDao()
-        preferencesRepository = PreferencesRepository(application)
+        preferencesRepository = FakePreferencesRepository()
         checkInRepository = CheckInRepository(
             fakeCheckInDao,
             preferencesRepository,
@@ -96,7 +97,7 @@ class MainViewModelTest {
     @Test
     fun `initial balance should be zero`() = runTest {
         advanceUntilIdle()
-        assertEquals(0.0, viewModel.currentBalance.value, 0.001)
+        assertEquals(0L, viewModel.currentBalance.value)
     }
 
     @Test
@@ -126,13 +127,13 @@ class MainViewModelTest {
     @Test
     fun `initial exerciseReward should be default`() = runTest {
         advanceUntilIdle()
-        assertEquals(PreferencesRepository.DEFAULT_EXERCISE_REWARD, viewModel.exerciseReward.value, 0.001)
+        assertEquals(PreferencesRepository.DEFAULT_EXERCISE_REWARD, viewModel.exerciseReward.value)
     }
 
     @Test
     fun `initial freezeCost should be 2x default reward`() = runTest {
         advanceUntilIdle()
-        assertEquals(PreferencesRepository.DEFAULT_EXERCISE_REWARD * 2, viewModel.freezeCost.value, 0.001)
+        assertEquals(PreferencesRepository.DEFAULT_EXERCISE_REWARD * 2, viewModel.freezeCost.value)
     }
 
     @Test
@@ -203,7 +204,7 @@ class MainViewModelTest {
         advanceUntilIdle()
 
         // Should not throw and should have default state
-        assertEquals(0.0, vm.currentBalance.value, 0.001)
+        assertEquals(0L, vm.currentBalance.value)
     }
 
 }

@@ -1,7 +1,5 @@
 package com.oink.app.utils
 
-import kotlin.math.roundToLong
-
 /**
  * Centralized balance calculation logic.
  *
@@ -27,19 +25,18 @@ object BalanceCalculator {
     /**
      * Calculate the actual spendable balance.
      *
-     * @param checkInBalance The raw balance from check-ins (result of exercise/miss calculations)
-     * @param totalCashedOut Sum of all cash-out amounts
-     * @param totalFreezeSpending Sum of all freeze costs paid
-     * @return The actual balance, rounded to 2 decimal places, minimum 0.0
+     * @param checkInBalance The raw balance from check-ins (result of exercise/miss calculations), in cents
+     * @param totalCashedOut Sum of all cash-out amounts, in cents
+     * @param totalFreezeSpending Sum of all freeze costs paid, in cents
+     * @return The actual balance in cents, minimum 0
      */
     fun calculateActualBalance(
-        checkInBalance: Double,
-        totalCashedOut: Double,
-        totalFreezeSpending: Double
-    ): Double {
-        val actualBalance = checkInBalance - totalCashedOut - totalFreezeSpending
-        // Round to 2 decimal places to avoid floating point fuckery
-        return ((actualBalance * 100).roundToLong() / 100.0).coerceAtLeast(0.0)
+        checkInBalance: Long,
+        totalCashedOut: Long,
+        totalFreezeSpending: Long
+    ): Long {
+        // Integer cents, so subtraction is exact - no floating point fuckery.
+        return (checkInBalance - totalCashedOut - totalFreezeSpending).coerceAtLeast(0L)
     }
 
     /**
@@ -52,11 +49,11 @@ object BalanceCalculator {
      * @return The projected balance after the deduction
      */
     fun calculateBalanceAfterDeduction(
-        currentCheckInBalance: Double,
-        totalCashedOut: Double,
-        totalFreezeSpending: Double,
-        additionalDeduction: Double
-    ): Double {
+        currentCheckInBalance: Long,
+        totalCashedOut: Long,
+        totalFreezeSpending: Long,
+        additionalDeduction: Long
+    ): Long {
         return calculateActualBalance(
             checkInBalance = currentCheckInBalance,
             totalCashedOut = totalCashedOut + additionalDeduction,

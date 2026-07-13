@@ -2,6 +2,8 @@ package com.oink.app.viewmodel
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.oink.app.data.PreferencesRepository
 import com.oink.app.data.UserPreferences
@@ -17,17 +19,19 @@ import kotlinx.coroutines.launch
  *
  * Why AndroidViewModel instead of ViewModel?
  * Because we need the Application context to:
- * 1. Access DataStore through PreferencesRepository
- * 2. Schedule/cancel reminders with WorkManager
- * 3. Check notification permissions
+ * 1. Schedule/cancel reminders with WorkManager
+ * 2. Check notification permissions
  *
  * We use Application context (not Activity context) to avoid memory leaks.
+ *
+ * Preferences are accessed through the injected [PreferencesRepository]
+ * interface (not a concrete DataStore-backed instance) so the ViewModel can
+ * be tested with a fake.
  */
 class SettingsViewModel(
-    application: Application
+    application: Application,
+    private val preferencesRepository: PreferencesRepository
 ) : AndroidViewModel(application) {
-
-    private val preferencesRepository = PreferencesRepository(application)
 
     /**
      * User preferences as a StateFlow.
@@ -104,12 +108,33 @@ class SettingsViewModel(
     }
 
     /**
-     * Set the exercise reward amount.
+     * Set the exercise reward amount, in cents.
      * This affects how much you earn per workout.
      */
-    fun setExerciseReward(amount: Double) {
+    fun setExerciseReward(amount: Long) {
         viewModelScope.launch {
             preferencesRepository.setExerciseReward(amount)
+        }
+    }
+
+    /**
+     * Factory for creating SettingsViewModel with dependencies.
+     *
+     * Mirrors the pattern used by [MainViewModel] and [RewardsViewModel]:
+     * the system needs to know how to recreate the ViewModel across
+     * configuration changes, and this tells it how while allowing the
+     * [PreferencesRepository] to be supplied (a fake in tests).
+     */
+    class Factory(
+        private val application: Application,
+        private val preferencesRepository: PreferencesRepository
+    ) : ViewModelProvider.Factory {
+        @Suppress("UNCHECKED_CAST")
+        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+            if (modelClass.isAssignableFrom(SettingsViewModel::class.java)) {
+                return SettingsViewModel(application, preferencesRepository) as T
+            }
+            throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
         }
     }
 }

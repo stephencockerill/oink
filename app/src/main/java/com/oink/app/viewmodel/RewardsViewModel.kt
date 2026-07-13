@@ -45,7 +45,7 @@ class RewardsViewModel(
      * Current ACTUAL balance (after all deductions).
      * This is what the user can actually spend.
      */
-    val currentBalance: StateFlow<Double> = combine(
+    val currentBalance: StateFlow<Long> = combine(
         checkInRepository.currentBalance,
         cashOutRepository.totalCashedOut,
         preferencesRepository.totalFreezeSpending
@@ -54,7 +54,7 @@ class RewardsViewModel(
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
-        initialValue = 0.0
+        initialValue = 0L
     )
 
     /**
@@ -62,11 +62,11 @@ class RewardsViewModel(
      * This is the total accumulated before any spending.
      * Used to show "Total Lifetime Earned" on the rewards screen.
      */
-    val totalEarned: StateFlow<Double> = checkInRepository.currentBalance
+    val totalEarned: StateFlow<Long> = checkInRepository.currentBalance
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
-            initialValue = 0.0
+            initialValue = 0L
         )
 
     /**
@@ -82,11 +82,11 @@ class RewardsViewModel(
     /**
      * Total amount cashed out all-time.
      */
-    val totalCashedOut: StateFlow<Double> = cashOutRepository.totalCashedOut
+    val totalCashedOut: StateFlow<Long> = cashOutRepository.totalCashedOut
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
-            initialValue = 0.0
+            initialValue = 0L
         )
 
     /**
@@ -149,7 +149,7 @@ class RewardsViewModel(
      * @param amount How much to cash out
      * @param emoji Emoji for your reward
      */
-    fun cashOut(name: String, amount: Double, emoji: String = "🎁") {
+    fun cashOut(name: String, amount: Long, emoji: String = "🎁") {
         if (name.isBlank()) {
             _error.value = "Give your reward a name! What are you treating yourself to?"
             return
@@ -246,7 +246,7 @@ class RewardsViewModel(
      * @param amount New amount
      * @param emoji New emoji
      */
-    fun updateSelectedCashOut(name: String, amount: Double, emoji: String) {
+    fun updateSelectedCashOut(name: String, amount: Long, emoji: String) {
         val selected = _selectedCashOut.value ?: return
 
         if (name.isBlank()) {
