@@ -228,4 +228,45 @@ class HabitListViewModelTest {
 
         assertEquals(emptyList<HabitCardState>(), viewModel.habitCards.value)
     }
+
+    @Test
+    fun `homeListState starts loading before the habit set resolves`() = runTest {
+        val viewModel = createViewModel()
+        // No collector yet, so allHabits has not emitted: state is the initial one.
+        assertEquals(HomeListState.Loading, viewModel.homeListState.value)
+    }
+
+    @Test
+    fun `homeListState resolves to empty when there are no public habits`() = runTest {
+        // No habits at all.
+        val viewModel = createViewModel()
+        backgroundScope.launch { viewModel.homeListState.collect {} }
+        advanceUntilIdle()
+
+        assertEquals(HomeListState.Empty, viewModel.homeListState.value)
+    }
+
+    @Test
+    fun `homeListState resolves to hasHabits when a public habit exists`() = runTest {
+        fakeHabitDao.seed(
+            Habit(id = 1L, name = "Workout", emoji = "🏋️", sortOrder = 0)
+        )
+        val viewModel = createViewModel()
+        backgroundScope.launch { viewModel.homeListState.collect {} }
+        advanceUntilIdle()
+
+        assertEquals(HomeListState.HasHabits, viewModel.homeListState.value)
+    }
+
+    @Test
+    fun `homeListState resolves to empty when only private habits exist`() = runTest {
+        fakeHabitDao.seed(
+            Habit(id = 1L, name = "Secret", isPrivate = true, sortOrder = 0)
+        )
+        val viewModel = createViewModel()
+        backgroundScope.launch { viewModel.homeListState.collect {} }
+        advanceUntilIdle()
+
+        assertEquals(HomeListState.Empty, viewModel.homeListState.value)
+    }
 }

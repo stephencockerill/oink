@@ -25,6 +25,8 @@ import androidx.compose.material.icons.filled.AcUnit
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CardGiftcard
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -46,6 +48,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -56,6 +59,7 @@ import com.oink.app.ui.theme.OinkTeal
 import com.oink.app.utils.Formatters
 import com.oink.app.viewmodel.HabitCardState
 import com.oink.app.viewmodel.HabitListViewModel
+import com.oink.app.viewmodel.HomeListState
 
 /**
  * Home screen - the scrollable list of habits.
@@ -64,6 +68,10 @@ import com.oink.app.viewmodel.HabitListViewModel
  * spendable balance. The overall-bank card at the top shows the shared piggy
  * bank total (the pot across every public habit) and opens the rewards screen.
  * Tapping a habit card opens that habit's detail.
+ *
+ * With no public habits the overall-bank card and cards are replaced by a
+ * no-habit hero that invites adding the first habit; the Private tile stays put
+ * so private-only users keep a way in. See [HomeListState].
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -76,6 +84,7 @@ fun HabitListScreen(
 ) {
     val habitCards by viewModel.habitCards.collectAsStateWithLifecycle()
     val overallBank by viewModel.overallBank.collectAsStateWithLifecycle()
+    val homeListState by viewModel.homeListState.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
@@ -112,28 +121,112 @@ fun HabitListScreen(
             contentPadding = PaddingValues(horizontal = 24.dp, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            item(key = "overall-bank", contentType = "overall-bank") {
-                OverallBankCard(
-                    overallBank = overallBank,
-                    onClick = onNavigateToRewards
-                )
-            }
+            when (homeListState) {
+                // The habit set has not resolved yet: render neither the list nor
+                // the empty state so a populated database never flashes empty.
+                HomeListState.Loading -> Unit
 
-            item(key = "private-tile", contentType = "private-tile") {
-                PrivateTile(onClick = onPrivateClick)
-            }
+                // No public habits: lead with the empty-state hero and its primary
+                // action, hide the meaningless overall-bank card, and keep the
+                // Private tile as the sole entry point to any private habits.
+                HomeListState.Empty -> {
+                    item(key = "empty-state", contentType = "empty-state") {
+                        EmptyHome(onAddHabit = onAddHabit)
+                    }
 
-            items(
-                items = habitCards,
-                key = { it.id },
-                contentType = { "habit-card" }
-            ) { card ->
-                HabitCard(
-                    card = card,
-                    onClick = { onHabitClick(card.id) },
-                    onCheckIn = { completed -> viewModel.recordCheckIn(card.id, completed) }
-                )
+                    item(key = "private-tile", contentType = "private-tile") {
+                        PrivateTile(onClick = onPrivateClick)
+                    }
+                }
+
+                HomeListState.HasHabits -> {
+                    item(key = "overall-bank", contentType = "overall-bank") {
+                        OverallBankCard(
+                            overallBank = overallBank,
+                            onClick = onNavigateToRewards
+                        )
+                    }
+
+                    item(key = "private-tile", contentType = "private-tile") {
+                        PrivateTile(onClick = onPrivateClick)
+                    }
+
+                    items(
+                        items = habitCards,
+                        key = { it.id },
+                        contentType = { "habit-card" }
+                    ) { card ->
+                        HabitCard(
+                            card = card,
+                            onClick = { onHabitClick(card.id) },
+                            onCheckIn = { completed -> viewModel.recordCheckIn(card.id, completed) }
+                        )
+                    }
+                }
             }
+        }
+    }
+}
+
+/**
+ * The no-habit home state: a friendly hero that frames adding a habit as the way
+ * to start earning, plus a prominent primary action. The Private tile is rendered
+ * by the caller, so a user whose only habits are private stays reachable.
+ */
+@Composable
+private fun EmptyHome(onAddHabit: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 48.dp, bottom = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            modifier = Modifier
+                .size(96.dp)
+                .clip(CircleShape)
+                .background(OinkPink.copy(alpha = 0.12f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(text = "🐷", fontSize = 48.sp)
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Text(
+            text = "No habits yet",
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Text(
+            text = "Add your first habit and start earning real cash every time you show up.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            textAlign = TextAlign.Center
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Button(
+            onClick = onAddHabit,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = OinkPink,
+                contentColor = Color.White
+            )
+        ) {
+            Text(
+                text = "Add a habit",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
         }
     }
 }
