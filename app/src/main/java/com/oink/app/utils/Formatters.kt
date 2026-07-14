@@ -3,9 +3,7 @@ package com.oink.app.utils
 import java.math.BigDecimal
 import java.math.RoundingMode
 import java.text.NumberFormat
-import java.time.Instant
 import java.time.LocalDate
-import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.util.Locale
@@ -102,17 +100,6 @@ object Formatters {
             days < 30 -> "🔥🔥 $days days"
             else -> "🔥🔥🔥 $days days"
         }
-    }
-
-    /**
-     * Format a date from epoch milliseconds.
-     * Uses relative formatting for recent dates.
-     */
-    fun formatDateFromMillis(millis: Long): String {
-        val date = Instant.ofEpochMilli(millis)
-            .atZone(ZoneId.systemDefault())
-            .toLocalDate()
-        return formatDateRelative(date)
     }
 }
 
