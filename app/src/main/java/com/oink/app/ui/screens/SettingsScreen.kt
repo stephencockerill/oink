@@ -57,6 +57,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.oink.app.data.PreferencesRepository
+import com.oink.app.ui.components.EmojiPickerField
 import com.oink.app.utils.Formatters
 import com.oink.app.utils.HabitCopy
 import com.oink.app.viewmodel.SettingsViewModel
@@ -89,6 +90,7 @@ fun SettingsScreen(
     val userPreferences by settingsViewModel.userPreferences.collectAsStateWithLifecycle()
     val dailyReward by settingsViewModel.dailyReward.collectAsStateWithLifecycle()
     val availableFreezes by settingsViewModel.availableFreezes.collectAsStateWithLifecycle()
+    val emoji by settingsViewModel.emoji.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     var showTimePicker by remember { mutableStateOf(false) }
@@ -135,6 +137,40 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp)
         ) {
+            // Icon section
+            SectionHeader(title = "Icon")
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            SettingsCard {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Habit Icon",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Text(
+                            text = "Pick any emoji to represent this habit.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(16.dp))
+                    EmojiPickerField(
+                        emoji = emoji,
+                        onEmojiSelected = settingsViewModel::setEmoji
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
+
             // Notifications section
             SectionHeader(title = "Notifications")
 

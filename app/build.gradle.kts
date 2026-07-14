@@ -92,6 +92,11 @@ dependencies {
     implementation(libs.androidx.glance.appwidget)
     implementation(libs.androidx.glance.material3)
 
+    // Full emoji picker (searchable/categorized grid, ships its own emoji data)
+    implementation(libs.androidx.emoji2.emojipicker)
+    // Restores ListenableFuture on the compile classpath (see catalog note).
+    implementation(libs.guava)
+
     // Coroutines
     implementation(libs.kotlinx.coroutines.android)
 
