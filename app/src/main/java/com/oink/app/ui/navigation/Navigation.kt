@@ -1,6 +1,7 @@
 package com.oink.app.ui.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -17,6 +18,7 @@ import com.oink.app.ui.screens.HistoryScreen
 import com.oink.app.ui.screens.PrivateScreen
 import com.oink.app.ui.screens.RewardsScreen
 import com.oink.app.ui.screens.SettingsScreen
+import com.oink.app.ui.security.rememberDeviceAuthLauncher
 import com.oink.app.viewmodel.AddHabitViewModel
 import com.oink.app.viewmodel.HabitListViewModel
 import com.oink.app.viewmodel.MainViewModel
@@ -148,6 +150,17 @@ fun OinkNavHost(
         composable(Screen.Private.route) {
             val privateViewModel: PrivateViewModel =
                 viewModel(factory = PrivateViewModel.provideFactory(container))
+
+            // The biometric / device-credential prompt is Activity-scoped, so it
+            // lives here in the UI layer. The ViewModel requests it via a one-shot
+            // event and is told only whether it succeeded.
+            val launchDeviceAuth = rememberDeviceAuthLauncher(
+                onAuthenticated = privateViewModel::onDeviceAuthSucceeded
+            )
+            LaunchedEffect(privateViewModel) {
+                privateViewModel.launchDeviceAuth.collect { launchDeviceAuth() }
+            }
+
             PrivateScreen(
                 viewModel = privateViewModel,
                 onHabitClick = { habitId ->

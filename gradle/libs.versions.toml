@@ -13,6 +13,7 @@ navigationCompose = "2.8.4"
 workManager = "2.9.1"
 glance = "1.1.1"
 emoji2 = "1.5.0"
+biometric = "1.1.0"
 guava = "31.0.1-jre"
 robolectric = "4.11.1"
 archCore = "2.2.0"
@@ -56,6 +57,10 @@ androidx-glance-material3 = { group = "androidx.glance", name = "glance-material
 
 # Emoji picker (full, searchable emoji grid with correct multi-codepoint handling)
 androidx-emoji2-emojipicker = { group = "androidx.emoji2", name = "emoji2-emojipicker", version.ref = "emoji2" }
+
+# Biometric / device-credential auth (BiometricPrompt) for PIN recovery. Pulls in
+# androidx.fragment transitively, which MainActivity's FragmentActivity relies on.
+androidx-biometric = { group = "androidx.biometric", name = "biometric", version.ref = "biometric" }
 
 # Guava - emoji2-emojipicker ships this at runtime but strictly pins the empty
 # `listenablefuture` stub, dropping ListenableFuture from the compile classpath.

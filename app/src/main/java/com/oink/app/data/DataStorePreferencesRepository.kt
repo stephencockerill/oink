@@ -71,4 +71,42 @@ class DataStorePreferencesRepository(private val context: Context) : Preferences
             prefs[OinkPreferenceKeys.PIN_ITERATIONS] = hashed.iterations
         }
     }
+
+    override suspend fun getSecurityQuestion(): SecurityQuestion? {
+        val prefs = context.dataStore.data.first()
+        val prompt = prefs[OinkPreferenceKeys.SECURITY_QUESTION_PROMPT] ?: return null
+        val hash = prefs[OinkPreferenceKeys.SECURITY_ANSWER_HASH] ?: return null
+        val salt = prefs[OinkPreferenceKeys.SECURITY_ANSWER_SALT] ?: return null
+        val iterations = prefs[OinkPreferenceKeys.SECURITY_ANSWER_ITERATIONS] ?: return null
+        return SecurityQuestion(
+            prompt = prompt,
+            answer = PinHasher.HashedPin(hashBase64 = hash, saltBase64 = salt, iterations = iterations)
+        )
+    }
+
+    override suspend fun setSecurityQuestion(question: SecurityQuestion) {
+        context.dataStore.edit { prefs ->
+            prefs[OinkPreferenceKeys.SECURITY_QUESTION_PROMPT] = question.prompt
+            prefs[OinkPreferenceKeys.SECURITY_ANSWER_HASH] = question.answer.hashBase64
+            prefs[OinkPreferenceKeys.SECURITY_ANSWER_SALT] = question.answer.saltBase64
+            prefs[OinkPreferenceKeys.SECURITY_ANSWER_ITERATIONS] = question.answer.iterations
+        }
+    }
+
+    override suspend fun getSecurityQuestionLimiterState(): SecurityQuestionLimiter.State {
+        val prefs = context.dataStore.data.first()
+        return SecurityQuestionLimiter.State(
+            consecutiveFailures = prefs[OinkPreferenceKeys.SECURITY_QUESTION_FAILURES] ?: 0,
+            lockoutCount = prefs[OinkPreferenceKeys.SECURITY_QUESTION_LOCKOUT_COUNT] ?: 0,
+            lockedOutUntilEpochMillis = prefs[OinkPreferenceKeys.SECURITY_QUESTION_LOCKED_UNTIL] ?: 0L
+        )
+    }
+
+    override suspend fun setSecurityQuestionLimiterState(state: SecurityQuestionLimiter.State) {
+        context.dataStore.edit { prefs ->
+            prefs[OinkPreferenceKeys.SECURITY_QUESTION_FAILURES] = state.consecutiveFailures
+            prefs[OinkPreferenceKeys.SECURITY_QUESTION_LOCKOUT_COUNT] = state.lockoutCount
+            prefs[OinkPreferenceKeys.SECURITY_QUESTION_LOCKED_UNTIL] = state.lockedOutUntilEpochMillis
+        }
+    }
 }

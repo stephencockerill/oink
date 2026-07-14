@@ -50,6 +50,25 @@ internal object OinkPreferenceKeys {
     val PIN_HASH = stringPreferencesKey("pin_hash")
     val PIN_SALT = stringPreferencesKey("pin_salt")
     val PIN_ITERATIONS = intPreferencesKey("pin_iterations")
+
+    /**
+     * Security-question recovery. The prompt is the user's own question text,
+     * stored in the clear so it can be shown back at recovery time; the answer is
+     * a PBKDF2 hash of its normalized form (see [SecurityAnswer]). Present only
+     * for users set up on a device with no biometric or lockscreen credential.
+     */
+    val SECURITY_QUESTION_PROMPT = stringPreferencesKey("security_question_prompt")
+    val SECURITY_ANSWER_HASH = stringPreferencesKey("security_answer_hash")
+    val SECURITY_ANSWER_SALT = stringPreferencesKey("security_answer_salt")
+    val SECURITY_ANSWER_ITERATIONS = intPreferencesKey("security_answer_iterations")
+
+    /**
+     * Persisted counters for the [SecurityQuestionLimiter]. Survive process death
+     * so the escalating lockout cannot be shed by force-killing the app.
+     */
+    val SECURITY_QUESTION_FAILURES = intPreferencesKey("security_question_failures")
+    val SECURITY_QUESTION_LOCKOUT_COUNT = intPreferencesKey("security_question_lockout_count")
+    val SECURITY_QUESTION_LOCKED_UNTIL = longPreferencesKey("security_question_locked_until")
 }
 
 /**

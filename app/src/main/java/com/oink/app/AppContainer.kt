@@ -12,6 +12,9 @@ import com.oink.app.data.HabitRewardProvider
 import com.oink.app.data.PreferencesRepository
 import com.oink.app.data.PrivateGate
 import com.oink.app.data.RoomTransactionRunner
+import com.oink.app.data.SecurityQuestionLimiter
+import com.oink.app.security.AndroidDeviceCredentialAvailability
+import com.oink.app.security.DeviceCredentialAvailability
 import com.oink.app.widget.OinkWidget
 import com.oink.app.widget.WidgetUpdater
 
@@ -46,6 +49,22 @@ class AppContainer(context: Context) {
      * ViewModel act on the same unlocked flag; nothing here is persisted.
      */
     val privateGate: PrivateGate = PrivateGate()
+
+    /**
+     * Whether the device offers biometric / lockscreen-credential recovery. Read
+     * when deciding the PIN-recovery path and whether a security question is
+     * required at setup.
+     */
+    val deviceCredentialAvailability: DeviceCredentialAvailability =
+        AndroidDeviceCredentialAvailability(context)
+
+    /**
+     * Persisted brute-force limiter for the security-question recovery path. Backed
+     * by the same DataStore as [preferencesRepository] so its lockout survives
+     * process death (unlike [privateGate], which is in-memory by design).
+     */
+    val securityQuestionLimiter: SecurityQuestionLimiter =
+        SecurityQuestionLimiter(preferencesRepository)
 
     val habitRepository: HabitRepository = HabitRepository(database.habitDao())
 

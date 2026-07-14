@@ -14,19 +14,26 @@ import com.oink.app.data.HabitRepository
 import com.oink.app.data.PinHasher
 import com.oink.app.data.PreferencesRepository
 import com.oink.app.data.PrivateGate
+import com.oink.app.data.SecurityAnswer
+import com.oink.app.data.SecurityQuestion
+import com.oink.app.data.SecurityQuestionLimiter
+import com.oink.app.security.DeviceCredentialAvailability
 import com.oink.app.widget.WidgetUpdater
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -44,8 +51,14 @@ sealed interface PrivateUiState {
     /** Resolving the PIN configuration; shows a neutral placeholder. */
     data object Loading : PrivateUiState
 
-    /** No PIN configured yet; offer to create one. */
-    data object NeedsPinSetup : PrivateUiState
+    /**
+     * No PIN configured yet; offer to create one.
+     *
+     * @param requiresSecurityQuestion whether the device offers no biometric or
+     * lockscreen-credential recovery, so a security question must be captured
+     * alongside the PIN as the only possible recovery path.
+     */
+    data class NeedsPinSetup(val requiresSecurityQuestion: Boolean) : PrivateUiState
 
     /**
      * A PIN is set and the area is locked.
@@ -64,6 +77,38 @@ sealed interface PrivateUiState {
 
     /** Unlocked; shows the private habits (possibly empty). */
     data class Unlocked(val habits: List<HabitCardState>) : PrivateUiState
+}
+
+/**
+ * The forgotten-PIN recovery flow, modelled separately from [PrivateUiState] so
+ * it never touches the gate-mode derivation that guards plausible deniability.
+ * The UI renders recovery as an overlay on the locked screen whenever this is not
+ * [Idle].
+ */
+sealed interface RecoveryUiState {
+    /** Not recovering; the normal locked screen shows. */
+    data object Idle : RecoveryUiState
+
+    /**
+     * Answer the security question to prove ownership (the no-device-auth path).
+     *
+     * @param prompt the user's own question text
+     * @param showError whether the last answer was wrong
+     * @param isLockedOut whether the answer limiter is currently blocking attempts
+     * @param remainingLockoutSeconds seconds left on the lockout (0 when not locked out)
+     */
+    data class SecurityQuestion(
+        val prompt: String,
+        val showError: Boolean = false,
+        val isLockedOut: Boolean = false,
+        val remainingLockoutSeconds: Int = 0
+    ) : RecoveryUiState
+
+    /** Ownership proven (by either path); collect a new PIN. */
+    data object SettingNewPin : RecoveryUiState
+
+    /** No recovery is possible: no device auth and no security question configured. */
+    data object Unavailable : RecoveryUiState
 }
 
 /**
@@ -88,6 +133,8 @@ class PrivateViewModel(
     private val checkInRepository: CheckInRepository,
     private val freezeRepository: FreezeRepository,
     private val cashOutRepository: CashOutRepository,
+    private val deviceCredentialAvailability: DeviceCredentialAvailability,
+    private val securityQuestionLimiter: SecurityQuestionLimiter,
     private val widgetUpdater: WidgetUpdater = WidgetUpdater.NoOp,
     private val defaultDispatcher: CoroutineDispatcher = Dispatchers.Default
 ) : ViewModel() {
@@ -97,6 +144,23 @@ class PrivateViewModel(
      * a plain MutableStateFlow rather than persisted or derived state.
      */
     private val _lastAttemptFailed = MutableStateFlow(false)
+
+    /**
+     * The recovery overlay state. Kept out of [uiState] on purpose: the gate-mode
+     * derivation must stay a pure function of the PIN config and unlock flag.
+     */
+    private val _recovery = MutableStateFlow<RecoveryUiState>(RecoveryUiState.Idle)
+    val recovery: StateFlow<RecoveryUiState> = _recovery.asStateFlow()
+
+    /**
+     * One-shot request to launch the OS identity prompt (biometric / device
+     * credential). It is an event, not state, so it fires exactly once per
+     * "Forgot PIN?" tap and never re-launches the prompt on recomposition. The
+     * prompt itself is Activity-scoped and lives in the UI layer; see
+     * [com.oink.app.ui.security.rememberDeviceAuthLauncher].
+     */
+    private val _launchDeviceAuth = Channel<Unit>(Channel.BUFFERED)
+    val launchDeviceAuth: Flow<Unit> = _launchDeviceAuth.receiveAsFlow()
 
     @OptIn(ExperimentalCoroutinesApi::class)
     val uiState: StateFlow<PrivateUiState> = combine(
@@ -108,7 +172,11 @@ class PrivateViewModel(
         GateInputs(hasPin = hasPin, unlocked = unlocked, attemptFailed = attemptFailed)
     }.flatMapLatest { inputs ->
         when {
-            !inputs.hasPin -> flowOf(PrivateUiState.NeedsPinSetup)
+            !inputs.hasPin -> flowOf(
+                PrivateUiState.NeedsPinSetup(
+                    requiresSecurityQuestion = !deviceCredentialAvailability.canAuthenticate()
+                )
+            )
             !inputs.unlocked -> flowOf(buildLockedState(inputs.attemptFailed))
             else -> privateCardsFlow().map { PrivateUiState.Unlocked(it) }
         }
@@ -121,15 +189,129 @@ class PrivateViewModel(
     /**
      * Create the first PIN and unlock. A no-op for a PIN outside 4-6 digits
      * (the UI gates the button with the same rule).
+     *
+     * On a device with no biometric or lockscreen-credential recovery, a security
+     * question is the only possible recovery path, so [securityQuestion] and
+     * [securityAnswer] are required and stored alongside the PIN; the call no-ops
+     * if either is blank. When device auth is available they are ignored.
      */
-    fun createPin(pin: String) {
+    fun createPin(pin: String, securityQuestion: String? = null, securityAnswer: String? = null) {
         if (!isValidPin(pin)) return
         viewModelScope.launch {
-            val hashed = withContext(defaultDispatcher) { PinHasher.hash(pin) }
-            preferencesRepository.setPin(hashed)
+            val requiresQuestion = !deviceCredentialAvailability.canAuthenticate()
+            val prompt = securityQuestion?.trim().orEmpty()
+            val answer = securityAnswer.orEmpty()
+            if (requiresQuestion && (prompt.isEmpty() || answer.isBlank())) return@launch
+
+            val hashedPin = withContext(defaultDispatcher) { PinHasher.hash(pin) }
+            preferencesRepository.setPin(hashedPin)
+            if (requiresQuestion) {
+                val hashedAnswer = withContext(defaultDispatcher) { SecurityAnswer.hash(answer) }
+                preferencesRepository.setSecurityQuestion(
+                    SecurityQuestion(prompt = prompt, answer = hashedAnswer)
+                )
+            }
             privateGate.recordSuccess()
             privateGate.unlock()
         }
+    }
+
+    /**
+     * Begin recovery from a forgotten PIN. If the device can authenticate the user
+     * (biometric or lockscreen credential), request the OS prompt via a one-shot
+     * event; otherwise fall to the configured security question, or [Unavailable]
+     * if none was set.
+     */
+    fun onForgotPin() {
+        if (_recovery.value != RecoveryUiState.Idle) return
+        if (deviceCredentialAvailability.canAuthenticate()) {
+            viewModelScope.launch { _launchDeviceAuth.send(Unit) }
+        } else {
+            viewModelScope.launch {
+                val question = preferencesRepository.getSecurityQuestion()
+                _recovery.value = if (question == null) {
+                    RecoveryUiState.Unavailable
+                } else {
+                    buildSecurityQuestionState(question.prompt, showError = false)
+                }
+            }
+        }
+    }
+
+    /**
+     * The OS identity prompt succeeded. Ownership is proven, so advance to setting
+     * a new PIN. Invoked from the UI layer once [launchDeviceAuth] resolves.
+     */
+    fun onDeviceAuthSucceeded() {
+        _recovery.value = RecoveryUiState.SettingNewPin
+    }
+
+    /**
+     * Verify a security-question answer. Rejected while rate-limited. A correct
+     * answer clears the limiter and advances to setting a new PIN; a wrong one is
+     * recorded (advancing the persisted limiter) and surfaced as an error.
+     */
+    fun submitSecurityAnswer(answer: String) {
+        val current = _recovery.value
+        if (current !is RecoveryUiState.SecurityQuestion) return
+        viewModelScope.launch {
+            if (securityQuestionLimiter.isLockedOut()) {
+                _recovery.value = buildSecurityQuestionState(current.prompt, showError = false)
+                return@launch
+            }
+            val question = preferencesRepository.getSecurityQuestion() ?: run {
+                _recovery.value = RecoveryUiState.Unavailable
+                return@launch
+            }
+            val matches = withContext(defaultDispatcher) {
+                SecurityAnswer.verify(answer, question.answer)
+            }
+            if (matches) {
+                securityQuestionLimiter.recordSuccess()
+                _recovery.value = RecoveryUiState.SettingNewPin
+            } else {
+                securityQuestionLimiter.recordFailure()
+                _recovery.value = buildSecurityQuestionState(current.prompt, showError = true)
+            }
+        }
+    }
+
+    /**
+     * Finish recovery: set the new PIN, unlock, and clear both limiters. Mirrors
+     * [createPin]'s unlock, so [uiState] derives [PrivateUiState.Unlocked] on its
+     * own. A no-op unless ownership has been proven ([RecoveryUiState.SettingNewPin]).
+     */
+    fun completeRecovery(newPin: String) {
+        if (_recovery.value != RecoveryUiState.SettingNewPin) return
+        if (!isValidPin(newPin)) return
+        viewModelScope.launch {
+            val hashed = withContext(defaultDispatcher) { PinHasher.hash(newPin) }
+            preferencesRepository.setPin(hashed)
+            privateGate.recordSuccess()
+            privateGate.unlock()
+            securityQuestionLimiter.recordSuccess()
+            _recovery.value = RecoveryUiState.Idle
+        }
+    }
+
+    /** Abandon recovery and return to the locked screen. */
+    fun cancelRecovery() {
+        _recovery.value = RecoveryUiState.Idle
+    }
+
+    /** Snapshot the security-question limiter into a recovery state at emission time. */
+    private suspend fun buildSecurityQuestionState(
+        prompt: String,
+        showError: Boolean
+    ): RecoveryUiState.SecurityQuestion {
+        val lockedOut = securityQuestionLimiter.isLockedOut()
+        val remainingMillis = securityQuestionLimiter.remainingLockoutMillis()
+        return RecoveryUiState.SecurityQuestion(
+            prompt = prompt,
+            showError = showError && !lockedOut,
+            isLockedOut = lockedOut,
+            remainingLockoutSeconds = ((remainingMillis + 999) / 1000).toInt()
+        )
     }
 
     /**
@@ -264,6 +446,8 @@ class PrivateViewModel(
                         checkInRepository = container.checkInRepository,
                         freezeRepository = container.freezeRepository,
                         cashOutRepository = container.cashOutRepository,
+                        deviceCredentialAvailability = container.deviceCredentialAvailability,
+                        securityQuestionLimiter = container.securityQuestionLimiter,
                         widgetUpdater = container.widgetUpdater
                     )
                 }

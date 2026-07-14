@@ -26,6 +26,9 @@ class FakePreferencesRepository : PreferencesRepository {
     private val _hasPin = MutableStateFlow(false)
     private var hashedPin: PinHasher.HashedPin? = null
 
+    private var securityQuestion: SecurityQuestion? = null
+    private var securityQuestionLimiterState = SecurityQuestionLimiter.State()
+
     /**
      * Flow of user preferences (mirrors real implementation).
      *
@@ -77,6 +80,23 @@ class FakePreferencesRepository : PreferencesRepository {
     }
 
     // ============================================================
+    // Security-question recovery
+    // ============================================================
+
+    override suspend fun getSecurityQuestion(): SecurityQuestion? = securityQuestion
+
+    override suspend fun setSecurityQuestion(question: SecurityQuestion) {
+        securityQuestion = question
+    }
+
+    override suspend fun getSecurityQuestionLimiterState(): SecurityQuestionLimiter.State =
+        securityQuestionLimiterState
+
+    override suspend fun setSecurityQuestionLimiterState(state: SecurityQuestionLimiter.State) {
+        securityQuestionLimiterState = state
+    }
+
+    // ============================================================
     // Test Helpers
     // ============================================================
 
@@ -89,5 +109,7 @@ class FakePreferencesRepository : PreferencesRepository {
         _reminderMinute.value = 0
         hashedPin = null
         _hasPin.value = false
+        securityQuestion = null
+        securityQuestionLimiterState = SecurityQuestionLimiter.State()
     }
 }
