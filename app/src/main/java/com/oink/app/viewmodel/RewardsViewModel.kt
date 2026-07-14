@@ -168,7 +168,7 @@ class RewardsViewModel(
             return
         }
         if (amount > currentBalance.value) {
-            _error.value = "Not enough in the piggy bank! Keep working out to earn more 💪"
+            _error.value = "Not enough in the piggy bank! Keep showing up to earn more 💪"
             return
         }
 

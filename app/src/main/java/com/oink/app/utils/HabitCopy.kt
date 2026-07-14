@@ -84,6 +84,15 @@ object HabitCopy {
     /** History stat-tile label for completed days (pairs with "Missed\nDays"). */
     const val STAT_DONE_DAYS = "Active\nDays"
 
+    /** Rewards stat-card label for the count of qualifying days. */
+    const val STAT_DAYS = "Days"
+
+    /**
+     * Description of the per-day reward amount. Shared by the add-habit and
+     * settings reward fields so the wording stays identical on both.
+     */
+    const val REWARD_DESCRIPTION = "How much you earn each day you show up"
+
     /** Screen-reader label for a completed day (pairs with "Missed"). */
     const val CONTENT_DESC_DONE = ACTION_DONE
 
@@ -92,6 +101,13 @@ object HabitCopy {
 
     /** Notification body prompt (the piggy-bank charm is kept). */
     const val NOTIFICATION_PROMPT = "Did you check in today? Add to your piggy bank!"
+
+    /**
+     * A count of qualifying days with a correctly pluralized noun.
+     * e.g. 1 -> "1 day", 3 -> "3 days". Meant to be dropped into a surrounding
+     * sentence ("3 days earned this!").
+     */
+    fun dayCount(days: Int): String = "$days ${if (days == 1) "day" else "days"}"
 
     /**
      * Call-to-action text, escalating in urgency as the day goes on.

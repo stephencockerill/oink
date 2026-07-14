@@ -35,7 +35,7 @@ import androidx.compose.material.icons.filled.CardGiftcard
 import androidx.compose.material.icons.filled.Celebration
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.FitnessCenter
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -84,6 +84,7 @@ import com.oink.app.ui.theme.OinkPinkDark
 import com.oink.app.ui.theme.OinkTeal
 import com.oink.app.ui.theme.OinkTealContainer
 import com.oink.app.utils.Formatters
+import com.oink.app.utils.HabitCopy
 import com.oink.app.viewmodel.RewardsViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -95,7 +96,7 @@ import java.util.Locale
  * Rewards screen - where you CASH IN your hard-earned piggy bank funds!
  *
  * This is the celebration zone. The whole vibe should be:
- * "You EARNED this through discipline and sweat. Treat yourself!"
+ * "You EARNED this through discipline and effort. Treat yourself!"
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -332,7 +333,7 @@ private fun BalanceCard(
                 if (balance == 0L) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Work out to earn rewards!",
+                        text = "Show up to earn rewards!",
                         style = MaterialTheme.typography.bodySmall,
                         color = Color.White.copy(alpha = 0.7f)
                     )
@@ -359,8 +360,8 @@ private fun StatsRow(
         )
         StatCard(
             modifier = Modifier.weight(1f),
-            emoji = "🏋️",
-            label = "Workouts",
+            emoji = "📅",
+            label = HabitCopy.STAT_DAYS,
             value = totalWorkouts.toString()
         )
     }
@@ -450,7 +451,7 @@ private fun RewardHistoryItem(
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                 )
                 Text(
-                    text = "${cashOut.workoutsToEarn} workouts earned this!",
+                    text = "${HabitCopy.dayCount(cashOut.workoutsToEarn)} earned this!",
                     style = MaterialTheme.typography.bodySmall,
                     color = OinkTeal
                 )
@@ -484,7 +485,7 @@ private fun EmptyRewardsState() {
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = "Work out consistently to build up your piggy bank, then treat yourself to something nice!",
+            text = "Show up consistently to build up your piggy bank, then treat yourself to something nice!",
             style = MaterialTheme.typography.bodyMedium,
             textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
@@ -727,14 +728,14 @@ private fun CelebrationOverlay(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
-                        imageVector = Icons.Default.FitnessCenter,
+                        imageVector = Icons.Default.CalendarMonth,
                         contentDescription = null,
                         modifier = Modifier.size(16.dp),
                         tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = "${cashOut.workoutsToEarn} workouts made this possible!",
+                        text = "${HabitCopy.dayCount(cashOut.workoutsToEarn)} made this possible!",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                     )

@@ -26,7 +26,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CardGiftcard
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.FitnessCenter
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -289,7 +289,7 @@ private fun EmptyHistoryState() {
             modifier = Modifier.padding(32.dp)
         ) {
             Icon(
-                imageVector = Icons.Default.FitnessCenter,
+                imageVector = Icons.Default.CalendarMonth,
                 contentDescription = null,
                 modifier = Modifier.size(80.dp),
                 tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
@@ -498,7 +498,7 @@ private fun CashOutHistoryItem(cashOut: CashOut) {
                     color = OinkPink
                 )
                 Text(
-                    text = "${cashOut.workoutsToEarn} workouts",
+                    text = HabitCopy.dayCount(cashOut.workoutsToEarn),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
                 )

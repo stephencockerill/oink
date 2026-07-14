@@ -106,6 +106,27 @@ class HabitCopyTest {
     }
 
     @Test
+    fun `rewards stat label is habit-neutral`() {
+        assertEquals("Days", HabitCopy.STAT_DAYS)
+    }
+
+    @Test
+    fun `reward description is habit-neutral`() {
+        assertEquals("How much you earn each day you show up", HabitCopy.REWARD_DESCRIPTION)
+    }
+
+    @Test
+    fun `dayCount is singular for one day`() {
+        assertEquals("1 day", HabitCopy.dayCount(1))
+    }
+
+    @Test
+    fun `dayCount is plural for zero and many days`() {
+        assertEquals("0 days", HabitCopy.dayCount(0))
+        assertEquals("3 days", HabitCopy.dayCount(3))
+    }
+
+    @Test
     fun `empty history prompt is habit-neutral`() {
         assertEquals("Log your first check-in to get started!", HabitCopy.EMPTY_HISTORY)
     }

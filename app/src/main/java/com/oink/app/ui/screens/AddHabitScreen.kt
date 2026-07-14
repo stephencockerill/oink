@@ -51,6 +51,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.oink.app.data.PreferencesRepository
 import com.oink.app.ui.theme.OinkPink
 import com.oink.app.utils.Formatters
+import com.oink.app.utils.HabitCopy
 import com.oink.app.viewmodel.AddHabitUiState
 import com.oink.app.viewmodel.AddHabitViewModel
 
@@ -138,7 +139,7 @@ fun AddHabitScreen(
             FormCard {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
-                        text = "How much you earn each day you show up",
+                        text = HabitCopy.REWARD_DESCRIPTION,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                     )
