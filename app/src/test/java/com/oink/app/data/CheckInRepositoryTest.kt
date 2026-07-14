@@ -446,6 +446,86 @@ class CheckInRepositoryTest {
     }
 
     // =====================================================================
+    // Freeze-candidate search (findMissedDayForFreeze)
+    //
+    // A day is only a valid freeze candidate if the habit was already active on
+    // or before it: the search is floored at the earliest check-in date. A habit
+    // can't miss a day before it had any activity, and a brand-new habit (or one
+    // that has only checked in today) has no streak to protect.
+    // =====================================================================
+
+    @Test
+    fun `no check-ins offers no freeze candidate`() = runTest {
+        assertNull(repository.findMissedDayForFreeze(emptyList()))
+    }
+
+    @Test
+    fun `a habit that only checked in today offers no freeze candidate`() = runTest {
+        // The reported bug: a brand-new habit checked in today. Yesterday is a
+        // gap, but the habit did not exist to miss it, so there is nothing to
+        // freeze.
+        val today = LocalDate.now(fixedClock)
+        val checkIns = listOf(
+            CheckIn(id = 1L, date = today, completed = true, balanceAfter = 500L)
+        )
+
+        assertNull(repository.findMissedDayForFreeze(checkIns))
+    }
+
+    @Test
+    fun `a gap before the first check-in is not a freeze candidate`() = runTest {
+        // Earliest activity was yesterday (a completed day). Two days ago is a
+        // gap, but it predates the habit, so it is not offered.
+        val today = LocalDate.now(fixedClock)
+        val checkIns = listOf(
+            CheckIn(id = 1L, date = today.minusDays(1), completed = true, balanceAfter = 500L)
+        )
+
+        assertNull(repository.findMissedDayForFreeze(checkIns))
+    }
+
+    @Test
+    fun `a genuine interior gap after activity is a freeze candidate`() = runTest {
+        // Active two days ago, then yesterday is a gap (no check-in) - a real
+        // missed day the user can freeze.
+        val today = LocalDate.now(fixedClock)
+        val checkIns = listOf(
+            CheckIn(id = 1L, date = today.minusDays(2), completed = true, balanceAfter = 500L)
+        )
+
+        assertEquals(today.minusDays(1), repository.findMissedDayForFreeze(checkIns))
+    }
+
+    @Test
+    fun `a logged rest day after activity is a freeze candidate`() = runTest {
+        // Checked in day 1, logged a miss yesterday: yesterday can be frozen.
+        val today = LocalDate.now(fixedClock)
+        val checkIns = listOf(
+            CheckIn(id = 1L, date = today.minusDays(1), completed = false, balanceAfter = 250L),
+            CheckIn(id = 2L, date = today.minusDays(2), completed = true, balanceAfter = 500L)
+        )
+
+        assertEquals(today.minusDays(1), repository.findMissedDayForFreeze(checkIns))
+    }
+
+    @Test
+    fun `a migrated habit's interior gap is found even though createdAt is today`() = runTest {
+        // A migrated habit's createdAt is the migration timestamp (today), but its
+        // check-ins predate it. Bounding on the earliest CHECK-IN (not createdAt)
+        // means a real interior gap is still found. Earliest check-in is 4 days
+        // ago; yesterday is a gap.
+        val today = LocalDate.now(fixedClock)
+        val checkIns = listOf(
+            CheckIn(id = 1L, date = today.minusDays(4), completed = true, balanceAfter = 500L),
+            CheckIn(id = 2L, date = today.minusDays(3), completed = true, balanceAfter = 1000L),
+            CheckIn(id = 3L, date = today.minusDays(2), completed = true, balanceAfter = 1500L)
+            // yesterday: gap
+        )
+
+        assertEquals(today.minusDays(1), repository.findMissedDayForFreeze(checkIns))
+    }
+
+    // =====================================================================
     // Preview balance tests
     // =====================================================================
 

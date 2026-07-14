@@ -102,6 +102,9 @@ object ReminderScheduler {
     /**
      * Check if reminders are currently scheduled.
      */
+    // androidx.work.await is the public ktx suspend extension for awaiting a
+    // WorkManager ListenableFuture; its RestrictedApi flag is a known lint bug.
+    @Suppress("RestrictedApi")
     suspend fun isReminderScheduled(context: Context): Boolean {
         val workManager = WorkManager.getInstance(context)
         val workInfos = workManager.getWorkInfosForUniqueWork(ReminderWorker.WORK_NAME).await()

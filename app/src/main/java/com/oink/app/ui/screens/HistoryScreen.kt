@@ -37,6 +37,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -69,8 +70,15 @@ import com.oink.app.viewmodel.MainViewModel
 @Composable
 fun HistoryScreen(
     viewModel: MainViewModel,
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    onPrivateLocked: () -> Unit
 ) {
+    // Leave a private habit's history for the PIN gate when the gate re-locks.
+    val privateLocked by viewModel.privateLocked.collectAsStateWithLifecycle()
+    LaunchedEffect(privateLocked) {
+        if (privateLocked) onPrivateLocked()
+    }
+
     val checkIns by viewModel.allCheckIns.collectAsStateWithLifecycle()
 
     // Check-ins newest first.

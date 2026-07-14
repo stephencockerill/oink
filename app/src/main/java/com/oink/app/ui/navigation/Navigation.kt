@@ -90,6 +90,19 @@ fun OinkNavHost(
         navArgument(Screen.HABIT_ID_ARG) { type = NavType.LongType }
     )
 
+    /**
+     * Leave the private-habit subtree when the gate re-locks. Private habits are
+     * only ever reached under the [Screen.Private] PIN gate, so popping back to it
+     * (in one call, from anywhere in the detail/history/calendar/settings subtree)
+     * lands on the gate, which re-presents the PIN prompt. Falls back to Home if
+     * the gate is somehow not on the back stack.
+     */
+    val popToPrivateGate: () -> Unit = {
+        if (!navController.popBackStack(Screen.Private.route, inclusive = false)) {
+            navController.popBackStack(Screen.Home.route, inclusive = false)
+        }
+    }
+
     NavHost(
         navController = navController,
         startDestination = Screen.Home.route
@@ -169,7 +182,8 @@ fun OinkNavHost(
                 },
                 onNavigateToRewards = {
                     navController.navigate(Screen.Rewards.route)
-                }
+                },
+                onPrivateLocked = popToPrivateGate
             )
         }
 
@@ -181,7 +195,8 @@ fun OinkNavHost(
                 viewModel(factory = MainViewModel.provideFactory(container))
             HistoryScreen(
                 viewModel = mainViewModel,
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateBack = { navController.popBackStack() },
+                onPrivateLocked = popToPrivateGate
             )
         }
 
@@ -193,7 +208,8 @@ fun OinkNavHost(
                 viewModel(factory = MainViewModel.provideFactory(container))
             CalendarScreen(
                 viewModel = mainViewModel,
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateBack = { navController.popBackStack() },
+                onPrivateLocked = popToPrivateGate
             )
         }
 
@@ -205,7 +221,8 @@ fun OinkNavHost(
                 viewModel(factory = SettingsViewModel.provideFactory(container))
             SettingsScreen(
                 settingsViewModel = settingsViewModel,
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateBack = { navController.popBackStack() },
+                onPrivateLocked = popToPrivateGate
             )
         }
 

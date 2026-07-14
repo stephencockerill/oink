@@ -18,6 +18,7 @@ import com.oink.app.data.Habit
 import com.oink.app.data.HabitRepository
 import com.oink.app.data.HabitRewardProvider
 import com.oink.app.data.PreferencesRepository
+import com.oink.app.data.PrivateGate
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
@@ -30,6 +31,7 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -72,6 +74,7 @@ class MainViewModelTest {
     private lateinit var freezeRepository: FreezeRepository
     private lateinit var checkInRepository: CheckInRepository
     private lateinit var cashOutRepository: CashOutRepository
+    private lateinit var privateGate: PrivateGate
     private lateinit var viewModel: MainViewModel
 
     @Before
@@ -85,7 +88,8 @@ class MainViewModelTest {
         fakeHabitDao = FakeHabitDao().apply {
             seed(
                 Habit(id = HABIT_A, name = "Workout"),
-                Habit(id = HABIT_B, name = "Meditate")
+                Habit(id = HABIT_B, name = "Meditate"),
+                Habit(id = HABIT_PRIVATE, name = "Therapy", isPrivate = true)
             )
         }
         fakeFrozenDayDao = FakeFrozenDayDao()
@@ -104,6 +108,9 @@ class MainViewModelTest {
             freezeRepository,
             FakeTransactionRunner()
         )
+        // Fixed clock value keeps the gate's lockout math deterministic; these
+        // tests only exercise the unlock flag.
+        privateGate = PrivateGate(elapsedRealtime = { 0L })
 
         viewModel = viewModelFor(HABIT_A)
     }
@@ -118,6 +125,7 @@ class MainViewModelTest {
         habitRepository = habitRepository,
         cashOutRepository = cashOutRepository,
         freezeRepository = freezeRepository,
+        privateGate = privateGate,
         savedStateHandle = SavedStateHandle(mapOf(MainViewModel.HABIT_ID_KEY to habitId))
     )
 
@@ -324,8 +332,51 @@ class MainViewModelTest {
         assertEquals(0L, vm.currentBalance.value)
     }
 
+    // ============================================================
+    // Private-gate Tests
+    // A per-habit screen for a PRIVATE habit must not stay visible once the
+    // shared gate re-locks (e.g. after backgrounding). privateLocked drives the
+    // screen's pop-back-to-the-PIN-gate. Public habits are never gated.
+    // ============================================================
+
+    @Test
+    fun `privateLocked is false for a public habit regardless of the gate`() = runTest {
+        val vm = viewModelFor(HABIT_A)
+        backgroundScope.launch { vm.privateLocked.collect {} }
+        advanceUntilIdle()
+
+        // Locked gate: a public habit is unaffected.
+        assertFalse(vm.privateLocked.value)
+
+        // Unlocking changes nothing for a public habit.
+        privateGate.unlock()
+        advanceUntilIdle()
+        assertFalse(vm.privateLocked.value)
+    }
+
+    @Test
+    fun `privateLocked is true for a private habit while the gate is locked and clears when unlocked`() = runTest {
+        val vm = viewModelFor(HABIT_PRIVATE)
+        backgroundScope.launch { vm.privateLocked.collect {} }
+        advanceUntilIdle()
+
+        // Gate starts locked: the private habit's screen must leave.
+        assertTrue(vm.privateLocked.value)
+
+        // Unlock (correct PIN entered elsewhere): the screen may render again.
+        privateGate.unlock()
+        advanceUntilIdle()
+        assertFalse(vm.privateLocked.value)
+
+        // Backgrounding re-locks the gate: the screen must leave once more.
+        privateGate.lock()
+        advanceUntilIdle()
+        assertTrue(vm.privateLocked.value)
+    }
+
     private companion object {
         const val HABIT_A = HabitRepository.DEFAULT_HABIT_ID
         const val HABIT_B = 2L
+        const val HABIT_PRIVATE = 3L
     }
 }

@@ -297,6 +297,10 @@ private fun getUrgencyIndicator(urgency: UrgencyLevel): String = when (urgency) 
  * - Streak gets more impressive with longer streaks
  * - Background shifts warmer if not logged as day progresses
  */
+// androidx.glance.unit.ColorProvider(resId) is the documented public way to build
+// a Glance ColorProvider from a color resource; its RestrictedApi flag is a known
+// lint bug.
+@Suppress("RestrictedApi")
 @Composable
 private fun WidgetContent(data: WidgetData) {
     val streakTier = getStreakTier(data.streak)
@@ -440,6 +444,10 @@ private fun WidgetContent(data: WidgetData) {
  * private or deleted habit can never surface here. Tapping opens the app, the
  * same as a populated widget.
  */
+// androidx.glance.unit.ColorProvider(resId) is the documented public way to build
+// a Glance ColorProvider from a color resource; its RestrictedApi flag is a known
+// lint bug.
+@Suppress("RestrictedApi")
 @Composable
 private fun FallbackContent() {
     Box(
