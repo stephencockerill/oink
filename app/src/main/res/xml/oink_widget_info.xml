@@ -20,6 +20,7 @@
     android:maxResizeHeight="100dp"
     android:resizeMode="horizontal|vertical"
     android:updatePeriodMillis="1800000"
+    android:configure="com.oink.app.widget.OinkWidgetConfigActivity"
     android:initialLayout="@layout/widget_loading"
     android:previewImage="@drawable/widget_preview"
     android:previewLayout="@layout/widget_preview"

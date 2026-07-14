@@ -27,6 +27,16 @@
             </intent-filter>
         </activity>
 
+        <!-- Widget per-instance configuration: picks which habit to highlight -->
+        <activity
+            android:name=".widget.OinkWidgetConfigActivity"
+            android:exported="true"
+            android:theme="@style/Theme.Oink">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+
         <!-- Home screen widget -->
         <receiver
             android:name=".widget.OinkWidgetReceiver"
