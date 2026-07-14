@@ -28,6 +28,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -153,6 +154,33 @@ class RewardsViewModelTest {
             setOf(publicClaim.id, mixedClaim.id),
             viewModel.allCashOuts.value.map { it.id }.toSet()
         )
+    }
+
+    @Test
+    fun `unlocked amount edit of a private-funded claim re-splits over public and private`() = runTest {
+        seedHabits(
+            Habit(id = 1L, name = "Workout", sortOrder = 0, isPrivate = false),
+            Habit(id = 2L, name = "Therapy", sortOrder = 1, isPrivate = true)
+        )
+        seedRawBalances(1L to 2000L, 2L to 5000L)
+
+        // Unlocked claim of 4000 drains the higher private habit fully.
+        val claim = cashOutRepository.cashOut("Treat", 4000, includePrivate = true)!!
+
+        val viewModel = createViewModel()
+        backgroundScope.launch { viewModel.currentBalance.collect {} }
+        privateGate.unlock()
+        advanceUntilIdle()
+
+        viewModel.selectCashOut(claim)
+        // Editing up to 6000 while unlocked: re-split pot is 7000, so this is
+        // accepted and split across the private (5000) and public (1000) banks.
+        viewModel.updateSelectedCashOut(name = "Treat", amount = 6000, emoji = "🎁")
+        advanceUntilIdle()
+
+        assertNull(viewModel.error.value)
+        assertEquals(5000L, fakeCashOutAllocationDao.getTotalForHabit(2L))
+        assertEquals(1000L, fakeCashOutAllocationDao.getTotalForHabit(1L))
     }
 
     private fun seedHabits(vararg habits: Habit) {

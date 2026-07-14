@@ -296,7 +296,13 @@ class RewardsViewModel(
                         amount = amount,
                         emoji = emoji
                     )
-                    if (cashOutRepository.updateCashOut(updated)) {
+                    // Amount edits re-split over the pot; unlock state decides
+                    // whether private habits are in it (mirrors cashOut).
+                    if (cashOutRepository.updateCashOut(
+                            updated,
+                            includePrivate = privateGate.isUnlocked.value
+                        )
+                    ) {
                         _selectedCashOut.value = null
                         updateWidget()
                     } else {
