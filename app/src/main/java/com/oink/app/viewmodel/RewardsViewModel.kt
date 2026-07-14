@@ -21,12 +21,14 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -99,18 +101,12 @@ class RewardsViewModel(
     application: Application,
     private val cashOutRepository: CashOutRepository,
     private val checkInRepository: CheckInRepository,
+    private val habitRepository: HabitRepository,
     private val freezeRepository: FreezeRepository,
     private val privateGate: PrivateGate,
     private val preferencesRepository: PreferencesRepository,
     private val defaultDispatcher: CoroutineDispatcher = Dispatchers.Default
 ) : AndroidViewModel(application) {
-
-    /**
-     * The habit the [totalCompletedDays] stat is counted over. The rest of this
-     * screen is pot-level and spans every habit, but that one stat is scoped to
-     * the default habit only.
-     */
-    private val habitId: Long = HabitRepository.DEFAULT_HABIT_ID
 
     /**
      * Current spendable balance: the shared pot. While locked it spans public
@@ -196,24 +192,36 @@ class RewardsViewModel(
     )
 
     /**
-     * Total completed-day count (all completed days logged).
+     * Total completed-day count summed across the same in-scope habit set the
+     * pot spans, so the stat and the balance always agree on which habits count.
+     * While locked it counts public habits only; while unlocked it also counts
+     * private habits. With no habits in scope it is 0. See [CashOutRepository.pot].
      */
-    private val _totalCompletedDays = MutableStateFlow(0)
-    val totalCompletedDays: StateFlow<Int> = _totalCompletedDays.asStateFlow()
-
-    init {
-        // Load total completed-day count on init
-        viewModelScope.launch {
-            refreshStats()
-        }
-    }
+    val totalCompletedDays: StateFlow<Int> = privateGate.isUnlocked
+        .flatMapLatest { unlocked -> completedDaysAcrossPot(includePrivate = unlocked) }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = 0
+        )
 
     /**
-     * Refresh stats that need manual loading.
+     * Completed-day count across the in-scope habit set. Rebuilds whenever the
+     * set of habits changes ([HabitRepository.allHabits]), then combines each
+     * in-scope habit's completed-day flow. Combining over an empty iterable never
+     * emits, so an empty in-scope set is short-circuited to a flow of 0.
      */
-    private suspend fun refreshStats() {
-        _totalCompletedDays.value = checkInRepository.getCompletedDayCount(habitId)
-    }
+    private fun completedDaysAcrossPot(includePrivate: Boolean): Flow<Int> =
+        habitRepository.allHabits.flatMapLatest { habits ->
+            val inScope = if (includePrivate) habits else habits.filter { !it.isPrivate }
+            if (inScope.isEmpty()) {
+                flowOf(0)
+            } else {
+                combine(inScope.map { habit -> checkInRepository.completedDayCount(habit.id) }) { counts ->
+                    counts.sum()
+                }
+            }
+        }
 
     /**
      * Loading state.
@@ -523,6 +531,7 @@ class RewardsViewModel(
                         application = application,
                         cashOutRepository = container.cashOutRepository,
                         checkInRepository = container.checkInRepository,
+                        habitRepository = container.habitRepository,
                         freezeRepository = container.freezeRepository,
                         privateGate = container.privateGate,
                         preferencesRepository = container.preferencesRepository
