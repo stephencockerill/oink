@@ -1,6 +1,8 @@
 package com.oink.app.utils
 
+import com.oink.app.data.HabitType
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Test
 
 /**
@@ -134,5 +136,82 @@ class HabitCopyTest {
     @Test
     fun `notification prompt keeps the piggy-bank charm`() {
         assertEquals("Did you check in today? Add to your piggy bank!", HabitCopy.NOTIFICATION_PROMPT)
+    }
+
+    // =====================================================================
+    // Type-branched copy - build arms must equal the existing build consts so
+    // build habits read exactly as before; quit arms carry the new wording.
+    // =====================================================================
+
+    @Test
+    fun `build arms return the original build copy verbatim`() {
+        assertEquals(HabitCopy.CHECK_IN_PROMPT, HabitCopy.checkInPrompt(HabitType.BUILD))
+        assertEquals(HabitCopy.CHECK_IN_PROMPT_PAST, HabitCopy.checkInPromptPast(HabitType.BUILD))
+        assertEquals(HabitCopy.DONE, HabitCopy.successStatus(HabitType.BUILD))
+        assertEquals(HabitCopy.REST, HabitCopy.failureStatus(HabitType.BUILD))
+        assertEquals(HabitCopy.DONE_SUBTITLE, HabitCopy.successSubtitle(HabitType.BUILD))
+        assertEquals(HabitCopy.REST_SUBTITLE, HabitCopy.failureSubtitle(HabitType.BUILD))
+        assertEquals(HabitCopy.HISTORY_DONE, HabitCopy.historySuccess(HabitType.BUILD))
+        assertEquals(HabitCopy.HISTORY_REST, HabitCopy.historyFailure(HabitType.BUILD))
+        assertEquals(HabitCopy.LOGGED_DONE, HabitCopy.loggedSuccess(HabitType.BUILD))
+        assertEquals(HabitCopy.LOGGED_REST, HabitCopy.loggedFailure(HabitType.BUILD))
+        assertEquals(HabitCopy.LEGEND_DONE, HabitCopy.legendSuccess(HabitType.BUILD))
+        assertEquals("Missed", HabitCopy.legendFailure(HabitType.BUILD))
+        assertEquals(HabitCopy.STAT_DONE_DAYS, HabitCopy.statSuccessDays(HabitType.BUILD))
+        assertEquals("Missed\nDays", HabitCopy.statFailureDays(HabitType.BUILD))
+        assertEquals("🐷 Piggy Bank", HabitCopy.balanceLabel(HabitType.BUILD))
+        assertEquals("Streak in danger!", HabitCopy.freezePromptTitle(HabitType.BUILD))
+        assertEquals(
+            "You missed Yesterday. Use a freeze to save your streak!",
+            HabitCopy.freezePromptBody(HabitType.BUILD, "Yesterday")
+        )
+        assertEquals("Yes!", HabitCopy.confirmSuccess(HabitType.BUILD))
+        assertEquals("No", HabitCopy.confirmFailure(HabitType.BUILD))
+    }
+
+    @Test
+    fun `quit arms are clean-slip framed and never cue the behavior`() {
+        assertEquals("Staying clean", HabitCopy.checkInPrompt(HabitType.QUIT))
+        assertEquals("How did this day go?", HabitCopy.checkInPromptPast(HabitType.QUIT))
+        assertEquals("✅ Stayed clean", HabitCopy.successStatus(HabitType.QUIT))
+        assertEquals("🫂 Slipped", HabitCopy.failureStatus(HabitType.QUIT))
+        assertEquals("You stayed clean today", HabitCopy.successSubtitle(HabitType.QUIT))
+        assertEquals("Slips happen - protect your clean streak", HabitCopy.failureSubtitle(HabitType.QUIT))
+        assertEquals("Clean 💪", HabitCopy.historySuccess(HabitType.QUIT))
+        assertEquals("Slip", HabitCopy.historyFailure(HabitType.QUIT))
+        assertEquals("You logged this as a clean day ✓", HabitCopy.loggedSuccess(HabitType.QUIT))
+        assertEquals("You logged a slip on this day", HabitCopy.loggedFailure(HabitType.QUIT))
+        assertEquals("Clean", HabitCopy.legendSuccess(HabitType.QUIT))
+        assertEquals("Slip", HabitCopy.legendFailure(HabitType.QUIT))
+        assertEquals("Clean\nDays", HabitCopy.statSuccessDays(HabitType.QUIT))
+        assertEquals("Slips", HabitCopy.statFailureDays(HabitType.QUIT))
+        assertEquals("🐷 Protected balance", HabitCopy.balanceLabel(HabitType.QUIT))
+        assertEquals("Slips happen", HabitCopy.freezePromptTitle(HabitType.QUIT))
+        assertEquals(
+            "You slipped Yesterday. Spend a freeze to protect your clean streak.",
+            HabitCopy.freezePromptBody(HabitType.QUIT, "Yesterday")
+        )
+        assertEquals("Clean", HabitCopy.confirmSuccess(HabitType.QUIT))
+        assertEquals("Slipped", HabitCopy.confirmFailure(HabitType.QUIT))
+        assertEquals("I slipped", HabitCopy.SLIP_ACTION)
+        assertEquals("Actually, I didn't slip", HabitCopy.UNDO_SLIP)
+    }
+
+    @Test
+    fun `quit celebration is streak-framed and pluralizes cleanly`() {
+        assertEquals("Look at you go! 🐷", HabitCopy.QUIT_CELEBRATION_TITLE)
+        assertEquals("1 clean day and counting - keep it going!", HabitCopy.quitCelebrationBody(1))
+        assertEquals("12 clean days and counting - keep it going!", HabitCopy.quitCelebrationBody(12))
+    }
+
+    @Test
+    fun `quit celebration body never names a behavior - only the streak`() {
+        // The body must carry only the streak number, so it can never become a
+        // craving cue. Assert it is exactly the streak-count sentence.
+        for (streak in intArrayOf(1, 3, 40)) {
+            val body = HabitCopy.quitCelebrationBody(streak)
+            assertEquals("$streak clean day${if (streak == 1) "" else "s"} and counting - keep it going!", body)
+        }
+        assertFalse(HabitCopy.QUIT_CELEBRATION_TITLE.isBlank())
     }
 }

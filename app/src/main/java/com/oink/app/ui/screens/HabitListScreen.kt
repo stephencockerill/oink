@@ -433,6 +433,7 @@ private fun HabitCard(
             // Inline quick check-in - logs today without leaving the list.
             TodayCheckInControl(
                 todayCompleted = card.todayCompleted,
+                habitType = card.habitType,
                 onCheckIn = onCheckIn
             )
         }

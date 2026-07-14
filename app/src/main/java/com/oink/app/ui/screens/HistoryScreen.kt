@@ -51,6 +51,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.oink.app.data.CheckIn
+import com.oink.app.data.HabitType
 import com.oink.app.ui.theme.OinkPink
 import com.oink.app.ui.theme.OinkTeal
 import com.oink.app.ui.theme.OinkTealContainer
@@ -80,6 +81,7 @@ fun HistoryScreen(
     }
 
     val checkIns by viewModel.allCheckIns.collectAsStateWithLifecycle()
+    val habitType by viewModel.habitType.collectAsStateWithLifecycle()
 
     // Check-ins newest first.
     val sortedCheckIns by remember(checkIns) {
@@ -132,6 +134,7 @@ fun HistoryScreen(
             if (checkIns.isNotEmpty()) {
                 StatsCard(
                     stats = stats,
+                    habitType = habitType,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                 )
             }
@@ -150,7 +153,7 @@ fun HistoryScreen(
                 enter = fadeIn(),
                 exit = fadeOut()
             ) {
-                CheckInList(checkIns = sortedCheckIns)
+                CheckInList(checkIns = sortedCheckIns, habitType = habitType)
             }
         }
     }
@@ -172,6 +175,7 @@ private data class HistoryStats(
 @Composable
 private fun StatsCard(
     stats: HistoryStats,
+    habitType: HabitType,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -193,17 +197,17 @@ private fun StatsCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                // Completed days
+                // Positive days (done / clean)
                 StatItem(
                     value = stats.completedDays.toString(),
-                    label = HabitCopy.STAT_DONE_DAYS,
+                    label = HabitCopy.statSuccessDays(habitType),
                     color = OinkTeal
                 )
 
-                // Missed days
+                // Negative days (missed / slips)
                 StatItem(
                     value = stats.missedDays.toString(),
-                    label = "Missed\nDays",
+                    label = HabitCopy.statFailureDays(habitType),
                     color = OinkWarning
                 )
 
@@ -290,7 +294,7 @@ private fun EmptyHistoryState() {
  * Scrollable list of this habit's check-ins, newest first.
  */
 @Composable
-private fun CheckInList(checkIns: List<CheckIn>) {
+private fun CheckInList(checkIns: List<CheckIn>, habitType: HabitType) {
     val listState = rememberLazyListState()
 
     LazyColumn(
@@ -303,7 +307,7 @@ private fun CheckInList(checkIns: List<CheckIn>) {
             items = checkIns,
             key = { checkIn -> checkIn.id }
         ) { checkIn ->
-            CheckInItem(checkIn = checkIn)
+            CheckInItem(checkIn = checkIn, habitType = habitType)
         }
 
         // Bottom spacer for nice padding
@@ -317,7 +321,7 @@ private fun CheckInList(checkIns: List<CheckIn>) {
  * Individual check-in item in the list.
  */
 @Composable
-private fun CheckInItem(checkIn: CheckIn) {
+private fun CheckInItem(checkIn: CheckIn, habitType: HabitType) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
@@ -348,7 +352,11 @@ private fun CheckInItem(checkIn: CheckIn) {
             ) {
                 Icon(
                     imageVector = if (checkIn.didSucceed) Icons.Default.Check else Icons.Default.Close,
-                    contentDescription = if (checkIn.didSucceed) HabitCopy.CONTENT_DESC_DONE else "Missed",
+                    contentDescription = if (checkIn.didSucceed) {
+                        HabitCopy.legendSuccess(habitType)
+                    } else {
+                        HabitCopy.legendFailure(habitType)
+                    },
                     modifier = Modifier.size(24.dp),
                     tint = if (checkIn.didSucceed) {
                         OinkTeal
@@ -370,7 +378,11 @@ private fun CheckInItem(checkIn: CheckIn) {
                     fontWeight = FontWeight.SemiBold
                 )
                 Text(
-                    text = if (checkIn.didSucceed) HabitCopy.HISTORY_DONE else HabitCopy.HISTORY_REST,
+                    text = if (checkIn.didSucceed) {
+                        HabitCopy.historySuccess(habitType)
+                    } else {
+                        HabitCopy.historyFailure(habitType)
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                 )

@@ -7,6 +7,7 @@ import androidx.lifecycle.ProcessLifecycleOwner
 import com.oink.app.data.AppDatabase
 import com.oink.app.data.PrefsToHabitMigrator
 import com.oink.app.data.dataStore
+import com.oink.app.notifications.DayCloseScheduler
 import com.oink.app.notifications.NotificationHelper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -40,6 +41,21 @@ class OinkApplication : Application() {
 
         migratePreferencesToHabit()
         relockPrivateAreaWhenBackgrounded()
+        scheduleDayCloseResolve()
+    }
+
+    /**
+     * Arm the day-close auto-resolve worker for the next local midnight.
+     *
+     * Enqueued unconditionally on every launch (unlike the reminder, which the
+     * user gates in settings): quit habits accrue money by materializing passive
+     * clean days at day-close, so the chain must be live for every user with any
+     * quit habit, whether or not reminders are on. It is unique work, so relaunch
+     * never stacks duplicates, and [com.oink.app.notifications.DayCloseWorker]
+     * re-arms it after each run. See [DayCloseScheduler].
+     */
+    private fun scheduleDayCloseResolve() {
+        DayCloseScheduler.scheduleNextMidnight(this)
     }
 
     /**

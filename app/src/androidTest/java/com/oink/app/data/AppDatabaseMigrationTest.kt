@@ -338,6 +338,41 @@ class AppDatabaseMigrationTest {
         }
     }
 
+    /**
+     * v6 -> v7: habits gains habitType.
+     *
+     * Seeds a v6 database with two habit rows (no habitType column yet), runs
+     * [AppDatabase.MIGRATION_6_7], validates the v7 schema, and asserts both rows
+     * backfill to the 'BUILD' default so existing habits read as build habits.
+     */
+    @Test
+    @Throws(IOException::class)
+    fun migrate6To7_addsHabitTypeDefaultingBuild() {
+        helper.createDatabase(TEST_DB, 6).apply {
+            execSQL(
+                "INSERT INTO habits " +
+                    "(id, name, emoji, rewardValue, availableFreezes, " +
+                    "totalFreezeSpending, isPrivate, sortOrder, createdAt) " +
+                    "VALUES (1, 'Workout', '🏋️', 500, 0, 0, 0, 0, 1700000000000), " +
+                    "(2, 'Read', '📚', 200, 1, 0, 0, 1, 1700000100000)"
+            )
+            close()
+        }
+
+        val db = helper.runMigrationsAndValidate(TEST_DB, 7, true, AppDatabase.MIGRATION_6_7)
+
+        // Every existing habit backfills to the BUILD default.
+        db.query("SELECT id, habitType FROM habits ORDER BY id").use { cursor ->
+            assertEquals(2, cursor.getCount())
+            assertTrue(cursor.moveToFirst())
+            assertEquals(1L, cursor.getLong(0))
+            assertEquals("BUILD", cursor.getString(1))
+            assertTrue(cursor.moveToNext())
+            assertEquals(2L, cursor.getLong(0))
+            assertEquals("BUILD", cursor.getString(1))
+        }
+    }
+
     companion object {
         private const val TEST_DB = "migration-test"
     }

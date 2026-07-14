@@ -35,6 +35,11 @@ import androidx.sqlite.db.SupportSQLiteDatabase
  *       is not "completed") as well as build habits. [MIGRATION_5_6] renames it
  *       by rebuilding check_ins, since SQLite before 3.25 (Android API < 30)
  *       has no ALTER TABLE RENAME COLUMN.
+ * - v7: Quit (negative) habits. habits gains a habitType column (the HabitType
+ *       enum stored as TEXT) distinguishing build habits from quit habits.
+ *       [MIGRATION_6_7] is a plain additive ALTER TABLE with SQL default 'BUILD',
+ *       so every existing habit backfills to a build habit and the change is
+ *       zero-risk for current users.
  *
  * IMPORTANT: When bumping the version, add a migration!
  * Never use fallbackToDestructiveMigration() in production - it wipes user data.
@@ -47,7 +52,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         FrozenDay::class,
         CashOutAllocation::class
     ],
-    version = 6,
+    version = 7,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -82,7 +87,8 @@ abstract class AppDatabase : RoomDatabase() {
                         MIGRATION_2_3,
                         MIGRATION_3_4,
                         MIGRATION_4_5,
-                        MIGRATION_5_6
+                        MIGRATION_5_6,
+                        MIGRATION_6_7
                     )
                     .build()
                 INSTANCE = instance
@@ -446,6 +452,24 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL(
                     "CREATE UNIQUE INDEX IF NOT EXISTS `index_check_ins_habitId_date` " +
                         "ON `check_ins` (`habitId`, `date`)"
+                )
+            }
+        }
+
+        /**
+         * v6 -> v7: quit (negative) habits.
+         *
+         * Adds `habits.habitType`, the [HabitType] enum stored as TEXT. A plain
+         * additive column, so a single ALTER TABLE suffices - no table rebuild.
+         * Existing rows predate quit habits and backfill to the SQL default
+         * 'BUILD', so every current habit reads as a build habit. This matches
+         * the [Habit.habitType] `@ColumnInfo(defaultValue = "BUILD")` Room expects
+         * in the v7 schema.
+         */
+        val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE `habits` ADD COLUMN `habitType` TEXT NOT NULL DEFAULT 'BUILD'"
                 )
             }
         }

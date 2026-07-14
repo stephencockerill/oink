@@ -525,6 +525,75 @@ class CheckInRepositoryTest {
         assertEquals(today.minusDays(1), repository.findMissedDayForFreeze(checkIns))
     }
 
+    // ---------------------------------------------------------------------
+    // gapCountsAsMiss = false (quit habits)
+    //
+    // For a quit habit an unlogged past day is a pending-clean day that the
+    // day-close resolver banks clean at midnight, NOT a slip. Freeze forgiveness
+    // applies only after a LOGGED slip, so a gap must never be offered - only a
+    // didSucceed = false day is a candidate.
+    // ---------------------------------------------------------------------
+
+    @Test
+    fun `quit habit does not offer an unlogged gap as a freeze candidate`() = runTest {
+        // The E2E bug: clean days, then yesterday is a gap (not yet materialized).
+        // For a quit habit this is pending-clean, not a slip - offer nothing.
+        val today = LocalDate.now(fixedClock)
+        val checkIns = listOf(
+            CheckIn(id = 1L, date = today.minusDays(3), didSucceed = true, balanceAfter = 500L),
+            CheckIn(id = 2L, date = today.minusDays(2), didSucceed = true, balanceAfter = 1000L)
+            // yesterday: gap (pending clean)
+        )
+
+        assertNull(repository.findMissedDayForFreeze(checkIns, gapCountsAsMiss = false))
+    }
+
+    @Test
+    fun `quit habit offers a logged slip as a freeze candidate`() = runTest {
+        // A genuine logged slip yesterday still surfaces so the user can protect
+        // their clean streak with a freeze.
+        val today = LocalDate.now(fixedClock)
+        val checkIns = listOf(
+            CheckIn(id = 1L, date = today.minusDays(2), didSucceed = true, balanceAfter = 500L),
+            CheckIn(id = 2L, date = today.minusDays(1), didSucceed = false, balanceAfter = 250L)
+        )
+
+        assertEquals(
+            today.minusDays(1),
+            repository.findMissedDayForFreeze(checkIns, gapCountsAsMiss = false)
+        )
+    }
+
+    @Test
+    fun `quit habit skips a gap and finds an earlier logged slip in the window`() = runTest {
+        // Yesterday is a gap (pending clean, skipped); the slip two days ago is
+        // the real candidate. Confirms the search keeps looking back past a gap.
+        val today = LocalDate.now(fixedClock)
+        val checkIns = listOf(
+            CheckIn(id = 1L, date = today.minusDays(3), didSucceed = true, balanceAfter = 500L),
+            CheckIn(id = 2L, date = today.minusDays(2), didSucceed = false, balanceAfter = 250L)
+            // yesterday: gap (pending clean)
+        )
+
+        assertEquals(
+            today.minusDays(2),
+            repository.findMissedDayForFreeze(checkIns, gapCountsAsMiss = false)
+        )
+    }
+
+    @Test
+    fun `build habit still offers an unlogged gap (default gapCountsAsMiss)`() = runTest {
+        // Regression guard: the build path is unchanged - a gap yesterday is a
+        // valid freeze candidate.
+        val today = LocalDate.now(fixedClock)
+        val checkIns = listOf(
+            CheckIn(id = 1L, date = today.minusDays(2), didSucceed = true, balanceAfter = 500L)
+            // yesterday: gap
+        )
+
+        assertEquals(today.minusDays(1), repository.findMissedDayForFreeze(checkIns))
+    }
+
     // =====================================================================
     // Preview balance tests
     // =====================================================================

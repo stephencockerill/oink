@@ -17,6 +17,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import com.oink.app.data.HabitType
 import com.oink.app.ui.theme.OinkTeal
 import com.oink.app.ui.theme.OinkWarning
 import com.oink.app.utils.HabitCopy
@@ -41,12 +42,30 @@ import com.oink.app.utils.HabitCopy
  *
  * Every control is a 48dp [IconButton], satisfying the minimum touch-target size,
  * and carries a spoken [contentDescription] for TalkBack.
+ *
+ * A quit habit reads the same [todayCompleted] differently: a clean day is the
+ * passive default and the one affirmative action is reporting a slip, so instead
+ * of two buttons it shows a single destructive "I slipped" control. Tapping a
+ * logged slip undoes it (back to clean); success is never a routine tap.
  */
 @Composable
 fun TodayCheckInControl(
     todayCompleted: Boolean?,
+    habitType: HabitType,
     onCheckIn: (Boolean) -> Unit,
     modifier: Modifier = Modifier
+) {
+    when (habitType) {
+        HabitType.BUILD -> BuildCheckInControl(todayCompleted, onCheckIn, modifier)
+        HabitType.QUIT -> QuitCheckInControl(todayCompleted, onCheckIn, modifier)
+    }
+}
+
+@Composable
+private fun BuildCheckInControl(
+    todayCompleted: Boolean?,
+    onCheckIn: (Boolean) -> Unit,
+    modifier: Modifier
 ) {
     if (todayCompleted == null) {
         Row(
@@ -73,6 +92,40 @@ fun TodayCheckInControl(
             tint = tint,
             contentDescription = HabitCopy.CHECK_IN_CHANGE_ACTION,
             onClick = { onCheckIn(!todayCompleted) },
+            modifier = modifier
+        )
+    }
+}
+
+@Composable
+private fun QuitCheckInControl(
+    todayCompleted: Boolean?,
+    onCheckIn: (Boolean) -> Unit,
+    modifier: Modifier
+) {
+    when (todayCompleted) {
+        // Clean-so-far: the only control is the destructive "I slipped".
+        null -> CheckInIconButton(
+            icon = Icons.Default.Close,
+            tint = OinkWarning,
+            contentDescription = HabitCopy.CHECK_IN_SLIP_ACTION,
+            onClick = { onCheckIn(false) },
+            modifier = modifier
+        )
+        // A slip is logged: tapping undoes it back to clean.
+        false -> CheckInIconButton(
+            icon = Icons.Default.Close,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            contentDescription = HabitCopy.CHECK_IN_SLIP_CHANGE_ACTION,
+            onClick = { onCheckIn(true) },
+            modifier = modifier
+        )
+        // Marked clean (e.g. via undo): tapping corrects it back to a slip.
+        true -> CheckInIconButton(
+            icon = Icons.Default.Check,
+            tint = OinkTeal,
+            contentDescription = HabitCopy.CHECK_IN_SLIP_CHANGE_ACTION,
+            onClick = { onCheckIn(false) },
             modifier = modifier
         )
     }

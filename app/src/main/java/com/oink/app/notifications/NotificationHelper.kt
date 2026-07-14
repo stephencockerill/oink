@@ -72,13 +72,42 @@ object NotificationHelper {
     }
 
     /**
-     * Show the daily reminder notification.
+     * Show the daily reminder notification: the actionable build-habit nudge.
+     */
+    fun showDailyReminder(context: Context) {
+        showNotification(
+            context,
+            title = "Time to feed the pig! 🐷",
+            text = HabitCopy.NOTIFICATION_PROMPT
+        )
+    }
+
+    /**
+     * Show the quit-habit celebration notification.
+     *
+     * Pride- and streak-framed, never a cue about the avoided behavior: the copy
+     * carries only the clean-streak number (see [HabitCopy.quitCelebrationBody]),
+     * so it reinforces the win without triggering a craving.
+     */
+    fun showQuitCelebration(context: Context, cleanStreak: Int) {
+        showNotification(
+            context,
+            title = HabitCopy.QUIT_CELEBRATION_TITLE,
+            text = HabitCopy.quitCelebrationBody(cleanStreak)
+        )
+    }
+
+    /**
+     * Build and post the single daily notification with the given [title] and
+     * [text]. Both the build nudge and the quit celebration route through here,
+     * sharing the channel, tap intent, and notification id (they are mutually
+     * exclusive per run, so reusing the id is correct).
      */
     // The notify() call is guarded by the hasNotificationPermission() early return
     // below (a real POST_NOTIFICATIONS checkSelfPermission on API 33+); lint cannot
     // follow the cross-function guard.
     @Suppress("MissingPermission")
-    fun showDailyReminder(context: Context) {
+    private fun showNotification(context: Context, title: String, text: String) {
         if (!hasNotificationPermission(context)) {
             // Can't show notification without permission
             return
@@ -98,17 +127,15 @@ object NotificationHelper {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        // Build the notification
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle("Time to feed the pig! 🐷")
-            .setContentText(HabitCopy.NOTIFICATION_PROMPT)
+            .setContentTitle(title)
+            .setContentText(text)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setContentIntent(pendingIntent)
             .setAutoCancel(true) // Dismiss when tapped
             .build()
 
-        // Show it
         NotificationManagerCompat.from(context).notify(
             NOTIFICATION_ID_DAILY_REMINDER,
             notification

@@ -11,6 +11,7 @@ import com.oink.app.data.CheckInRepository
 import com.oink.app.data.FreezeRepository
 import com.oink.app.data.Habit
 import com.oink.app.data.HabitRepository
+import com.oink.app.data.HabitType
 import com.oink.app.widget.WidgetUpdater
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -35,12 +36,14 @@ data class HabitCardState(
     val id: Long,
     val emoji: String,
     val name: String,
+    val habitType: HabitType,
     val streak: Int,
     val availableFreezes: Int,
     val spendable: Long,
     /**
-     * Today's check-in outcome: `true` done, `false` missed, `null` not logged
-     * yet. Drives the inline quick check-in control on the card.
+     * Today's check-in outcome: `true` done/clean, `false` missed/slipped,
+     * `null` not logged yet. Drives the inline quick check-in control on the
+     * card, which reads this differently per [habitType].
      */
     val todayCompleted: Boolean?
 )
@@ -150,6 +153,7 @@ class HabitListViewModel(
             id = habit.id,
             emoji = habit.emoji,
             name = habit.name,
+            habitType = habit.habitType,
             streak = streak,
             availableFreezes = freezes,
             spendable = spendable,

@@ -75,6 +75,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.oink.app.data.CheckIn
+import com.oink.app.data.HabitType
 import com.oink.app.ui.theme.OinkPink
 import com.oink.app.ui.theme.OinkPinkDark
 import com.oink.app.ui.theme.OinkTeal
@@ -116,6 +117,7 @@ fun CalendarScreen(
     val checkIns by viewModel.allCheckIns.collectAsStateWithLifecycle()
     val streak by viewModel.streak.collectAsStateWithLifecycle()
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
+    val habitType by viewModel.habitType.collectAsStateWithLifecycle()
 
     // Current month being displayed
     var currentYearMonth by remember { mutableStateOf(YearMonth.now()) }
@@ -215,6 +217,7 @@ fun CalendarScreen(
             ) {
                 BulkActionBar(
                     selectedCount = selectedDates.size,
+                    habitType = habitType,
                     onMarkCompleted = {
                         viewModel.bulkRecordCheckIns(selectedDates, true)
                         exitSelectionMode()
@@ -332,7 +335,7 @@ fun CalendarScreen(
             Spacer(modifier = Modifier.height(24.dp))
 
             // Legend
-            CalendarLegend()
+            CalendarLegend(habitType = habitType)
         }
     }
 
@@ -341,6 +344,7 @@ fun CalendarScreen(
         LogDayDialog(
             date = date,
             existingCheckIn = checkInMap[date],
+            habitType = habitType,
             isLoading = isLoading,
             onDismiss = { selectedDate = null },
             onLog = { didSucceed ->
@@ -673,7 +677,7 @@ private fun CalendarDay(
  * Legend explaining the colors.
  */
 @Composable
-private fun CalendarLegend() {
+private fun CalendarLegend(habitType: HabitType) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
@@ -691,13 +695,13 @@ private fun CalendarLegend() {
                 color = OinkTealContainer,
                 iconColor = OinkTeal,
                 icon = Icons.Default.Check,
-                label = HabitCopy.LEGEND_DONE
+                label = HabitCopy.legendSuccess(habitType)
             )
             LegendItem(
                 color = MaterialTheme.colorScheme.errorContainer,
                 iconColor = MaterialTheme.colorScheme.error,
                 icon = Icons.Default.Close,
-                label = "Missed"
+                label = HabitCopy.legendFailure(habitType)
             )
             LegendItem(
                 color = Color.Transparent,
@@ -756,6 +760,7 @@ private fun LegendItem(
 private fun LogDayDialog(
     date: LocalDate,
     existingCheckIn: CheckIn?,
+    habitType: HabitType,
     isLoading: Boolean,
     onDismiss: () -> Unit,
     onLog: (Boolean) -> Unit
@@ -777,9 +782,9 @@ private fun LogDayDialog(
                 if (existingCheckIn != null) {
                     Text(
                         text = if (existingCheckIn.didSucceed) {
-                            HabitCopy.LOGGED_DONE
+                            HabitCopy.loggedSuccess(habitType)
                         } else {
-                            HabitCopy.LOGGED_REST
+                            HabitCopy.loggedFailure(habitType)
                         },
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
@@ -791,7 +796,7 @@ private fun LogDayDialog(
                     )
                 } else {
                     Text(
-                        text = HabitCopy.CHECK_IN_PROMPT_PAST,
+                        text = HabitCopy.checkInPromptPast(habitType),
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }
@@ -811,7 +816,7 @@ private fun LogDayDialog(
                     modifier = Modifier.size(18.dp)
                 )
                 Spacer(modifier = Modifier.width(4.dp))
-                Text("Yes!")
+                Text(HabitCopy.confirmSuccess(habitType))
             }
         },
         dismissButton = {
@@ -830,7 +835,7 @@ private fun LogDayDialog(
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("No")
+                    Text(HabitCopy.confirmFailure(habitType))
                 }
             }
         }
@@ -843,6 +848,7 @@ private fun LogDayDialog(
 @Composable
 private fun BulkActionBar(
     selectedCount: Int,
+    habitType: HabitType,
     onMarkCompleted: () -> Unit,
     onMarkMissed: () -> Unit,
     isLoading: Boolean
@@ -887,7 +893,7 @@ private fun BulkActionBar(
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Missed")
+                    Text(HabitCopy.legendFailure(habitType))
                 }
 
                 // Mark as Completed button
@@ -905,7 +911,7 @@ private fun BulkActionBar(
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text(HabitCopy.CONFIRM_DONE)
+                    Text(HabitCopy.legendSuccess(habitType))
                 }
             }
 

@@ -119,6 +119,15 @@ class CheckInRepository(
     }
 
     /**
+     * Get a habit's most recent check-in (one-time query, not a Flow), or null
+     * when the habit has none. Used by the day-close resolver to find the day
+     * after which clean days still need materializing.
+     */
+    suspend fun getLatestCheckInOnce(habitId: Long = HabitRepository.DEFAULT_HABIT_ID): CheckIn? {
+        return checkInDao.getLatestCheckIn(habitId)
+    }
+
+    /**
      * Get a habit's check-in for a specific date.
      */
     suspend fun getCheckInForDate(
@@ -435,17 +444,24 @@ class CheckInRepository(
      * Returns null if no streak-breaking gap exists.
      *
      * A "missed day" is either:
-     * - A gap in dates (no check-in)
-     * - A logged "rest day" (didSucceed = false)
+     * - A gap in dates (no check-in) - only when [gapCountsAsMiss] is true
+     * - A logged failure (didSucceed = false)
      *
      * @param habitId The habit to search
      * @param frozenDates Dates already frozen (to exclude)
+     * @param gapCountsAsMiss Whether an unlogged day counts as a miss. True for
+     *   build habits, where a gap IS a miss. False for quit habits, where an
+     *   unlogged past day is a pending-clean day the day-close resolver banks at
+     *   midnight, not a slip - freeze forgiveness applies only "after a logged
+     *   slip" (docs/negative-habits.md), so only a `didSucceed = false` day is a
+     *   candidate.
      */
     suspend fun findMissedDayForFreeze(
         habitId: Long = HabitRepository.DEFAULT_HABIT_ID,
-        frozenDates: Set<LocalDate> = emptySet()
+        frozenDates: Set<LocalDate> = emptySet(),
+        gapCountsAsMiss: Boolean = true
     ): LocalDate? =
-        findMissedDayForFreeze(checkInDao.getAllCheckInsAsc(habitId), frozenDates)
+        findMissedDayForFreeze(checkInDao.getAllCheckInsAsc(habitId), frozenDates, gapCountsAsMiss)
 
     /**
      * Pure freeze-candidate search over an already-loaded list of check-ins.
@@ -460,10 +476,20 @@ class CheckInRepository(
      * migrated habit's createdAt is the migration timestamp yet its check-ins
      * predate it, so the earliest check-in is the correct floor.
      *
+     * When [gapCountsAsMiss] is false (a quit habit) an unlogged day is skipped
+     * rather than returned: it is a pending-clean day, not a slip, so the search
+     * keeps looking back within the 7-day window for an actual logged slip.
+     *
      * @param checkIns All check-ins (order irrelevant; keyed by date internally)
      * @param frozenDates Dates to skip over (already frozen, or dismissed by the user)
+     * @param gapCountsAsMiss Whether an unlogged day counts as a miss (see the
+     *   suspend overload).
      */
-    fun findMissedDayForFreeze(checkIns: List<CheckIn>, frozenDates: Set<LocalDate> = emptySet()): LocalDate? {
+    fun findMissedDayForFreeze(
+        checkIns: List<CheckIn>,
+        frozenDates: Set<LocalDate> = emptySet(),
+        gapCountsAsMiss: Boolean = true
+    ): LocalDate? {
         // No activity yet - nothing to protect.
         val earliestCheckIn = checkIns.minByOrNull { it.date }?.date ?: return null
 
@@ -487,16 +513,22 @@ class CheckInRepository(
             val checkIn = checkInMap[currentDate]
 
             if (checkIn == null) {
-                // Gap after the habit was active - a missed day.
-                return currentDate
+                if (gapCountsAsMiss) {
+                    // Build habit: a gap after the habit was active is a miss.
+                    return currentDate
+                }
+                // Quit habit: an unlogged day is a pending-clean day, not a slip.
+                // Skip it and keep looking back for an actual logged slip.
+                currentDate = currentDate.minusDays(1)
+                return@repeat
             }
 
             if (!checkIn.didSucceed) {
-                // Logged as a rest day - this could be frozen too.
+                // Logged as a miss / slip - this could be frozen.
                 return currentDate
             }
 
-            // Completed day - continue looking back.
+            // Completed / clean day - continue looking back.
             currentDate = currentDate.minusDays(1)
         }
 

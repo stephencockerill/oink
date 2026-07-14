@@ -1,5 +1,6 @@
 package com.oink.app.data
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
@@ -48,6 +49,15 @@ data class Habit(
      * Whether this habit is hidden from shared or public surfaces.
      */
     val isPrivate: Boolean = false,
+
+    /**
+     * Whether this is a build habit (start a behavior) or a quit habit (stop
+     * one). See [HabitType]. Stored as its name string; the column defaults to
+     * "BUILD" at the SQL level so every habit created before quit habits existed
+     * reads as a build habit.
+     */
+    @ColumnInfo(defaultValue = "BUILD")
+    val habitType: HabitType = HabitType.BUILD,
 
     /**
      * Manual ordering position for display; lower sorts first.
