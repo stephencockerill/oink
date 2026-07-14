@@ -148,7 +148,7 @@ class BalanceCalculatorTest {
 
     @Test
     fun `handles typical user scenario - earned then cashed out`() {
-        // User earned $130 (26 workouts at $5)
+        // User earned $130 (26 completed days at $5)
         // Cashed out $50 for darts
         // No freezes used
         val result = BalanceCalculator.calculateActualBalance(

@@ -27,7 +27,7 @@ import org.robolectric.annotation.Config
 import java.time.LocalDate
 
 /**
- * Exercises [PrefsToHabitMigrator] against a real (in-memory) Room database and
+ * Runs [PrefsToHabitMigrator] against a real (in-memory) Room database and
  * a real file-backed DataStore, proving the one-time copy is applied once and is
  * idempotent under re-runs and partial-failure retries.
  *
@@ -80,7 +80,7 @@ class PrefsToHabitMigratorTest {
 
     private suspend fun seedLegacyPreferences() {
         dataStore.edit { prefs ->
-            prefs[OinkPreferenceKeys.EXERCISE_REWARD] = 1000L
+            prefs[OinkPreferenceKeys.DAILY_REWARD] = 1000L
             prefs[PrefsToHabitMigrator.LEGACY_AVAILABLE_FREEZES] = 2
             prefs[PrefsToHabitMigrator.LEGACY_TOTAL_FREEZE_SPENDING] = 1500L
             prefs[PrefsToHabitMigrator.LEGACY_FROZEN_DATES] = setOf(
@@ -120,7 +120,7 @@ class PrefsToHabitMigratorTest {
         // flag is set, a second run must bail and NOT re-copy these onto the
         // habit - proving the guard, not merely the absolute-write idempotency.
         dataStore.edit { prefs ->
-            prefs[OinkPreferenceKeys.EXERCISE_REWARD] = 9999L
+            prefs[OinkPreferenceKeys.DAILY_REWARD] = 9999L
             prefs[PrefsToHabitMigrator.LEGACY_AVAILABLE_FREEZES] = 0
             prefs[PrefsToHabitMigrator.LEGACY_TOTAL_FREEZE_SPENDING] = 8888L
             prefs[PrefsToHabitMigrator.LEGACY_FROZEN_DATES] = setOf(

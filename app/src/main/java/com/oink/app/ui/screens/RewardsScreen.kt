@@ -107,7 +107,7 @@ fun RewardsScreen(
     val balance by viewModel.currentBalance.collectAsStateWithLifecycle()
     val cashOuts by viewModel.allCashOuts.collectAsStateWithLifecycle()
     val totalCashedOut by viewModel.totalCashedOut.collectAsStateWithLifecycle()
-    val totalWorkouts by viewModel.totalWorkouts.collectAsStateWithLifecycle()
+    val totalCompletedDays by viewModel.totalCompletedDays.collectAsStateWithLifecycle()
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
     val error by viewModel.error.collectAsStateWithLifecycle()
     val cashOutSuccess by viewModel.cashOutSuccess.collectAsStateWithLifecycle()
@@ -176,7 +176,7 @@ fun RewardsScreen(
                 item {
                     StatsRow(
                         rewardCount = cashOuts.size,
-                        totalWorkouts = totalWorkouts
+                        totalCompletedDays = totalCompletedDays
                     )
                 }
 
@@ -346,7 +346,7 @@ private fun BalanceCard(
 @Composable
 private fun StatsRow(
     rewardCount: Int,
-    totalWorkouts: Int
+    totalCompletedDays: Int
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -362,7 +362,7 @@ private fun StatsRow(
             modifier = Modifier.weight(1f),
             emoji = "📅",
             label = HabitCopy.STAT_DAYS,
-            value = totalWorkouts.toString()
+            value = totalCompletedDays.toString()
         )
     }
 }
@@ -451,7 +451,7 @@ private fun RewardHistoryItem(
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                 )
                 Text(
-                    text = "${HabitCopy.dayCount(cashOut.workoutsToEarn)} earned this!",
+                    text = "${HabitCopy.dayCount(cashOut.daysToEarn)} earned this!",
                     style = MaterialTheme.typography.bodySmall,
                     color = OinkTeal
                 )
@@ -735,7 +735,7 @@ private fun CelebrationOverlay(
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = "${HabitCopy.dayCount(cashOut.workoutsToEarn)} made this possible!",
+                        text = "${HabitCopy.dayCount(cashOut.daysToEarn)} made this possible!",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                     )

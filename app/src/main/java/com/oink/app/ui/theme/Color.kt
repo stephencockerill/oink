@@ -57,7 +57,7 @@ val OnOinkPurpleDark = Color(0xFF2E1065)
 val OnOinkPurpleContainerDark = Color(0xFFEDE9FE)
 
 // =============================================================================
-// SUCCESS - Green (Gains, positive feedback, +$5, exercise logged)
+// SUCCESS - Green (Gains, positive feedback, +$5, day completed)
 // =============================================================================
 val OinkSuccess = Color(0xFF10B981)        // Vibrant success green
 val OinkSuccessLight = Color(0xFF34D399)   // Lighter
@@ -127,7 +127,7 @@ val OinkOutlineDark = Color(0xFF475569)
 // =============================================================================
 val MoneyGreen = OinkSuccess              // Use for cash-related success
 val MoneyGreenDark = OinkSuccessDark
-val SuccessLight = OinkSuccess            // Exercise logged
+val SuccessLight = OinkSuccess            // Day completed
 val SuccessDark = OinkSuccessDark
 val SuccessContainerLight = OinkSuccessContainer
 val SuccessContainerDark = OinkSuccessContainerDark

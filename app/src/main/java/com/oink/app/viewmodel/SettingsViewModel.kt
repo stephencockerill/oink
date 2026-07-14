@@ -68,12 +68,12 @@ class SettingsViewModel(
      * the single source of truth, so the chip selection reflects the stored
      * habit and edits round-trip through it.
      */
-    val exerciseReward: StateFlow<Long> = habitRepository.habit(habitId)
-        .map { it?.rewardValue ?: PreferencesRepository.DEFAULT_EXERCISE_REWARD }
+    val dailyReward: StateFlow<Long> = habitRepository.habit(habitId)
+        .map { it?.rewardValue ?: PreferencesRepository.DEFAULT_DAILY_REWARD }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
-            initialValue = PreferencesRepository.DEFAULT_EXERCISE_REWARD
+            initialValue = PreferencesRepository.DEFAULT_DAILY_REWARD
         )
 
     /**
@@ -152,9 +152,9 @@ class SettingsViewModel(
     /**
      * Set this habit's per-day reward, in cents, on [Habit.rewardValue] - the
      * single source of truth. No-op when the habit does not exist. The
-     * [exerciseReward] flow re-emits so the UI reflects the change.
+     * [dailyReward] flow re-emits so the UI reflects the change.
      */
-    fun setExerciseReward(amount: Long) {
+    fun setDailyReward(amount: Long) {
         viewModelScope.launch {
             val habit = habitRepository.getHabit(habitId) ?: return@launch
             habitRepository.updateHabit(habit.copy(rewardValue = amount.coerceAtLeast(1L)))

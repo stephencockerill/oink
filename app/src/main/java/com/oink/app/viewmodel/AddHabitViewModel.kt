@@ -27,7 +27,7 @@ import kotlinx.coroutines.launch
 data class AddHabitUiState(
     val name: String = "",
     val emoji: String = DEFAULT_EMOJI,
-    val rewardValue: Long = PreferencesRepository.DEFAULT_EXERCISE_REWARD,
+    val rewardValue: Long = PreferencesRepository.DEFAULT_DAILY_REWARD,
     val freezesEnabled: Boolean = false,
     val isPrivate: Boolean = false,
     val isSaving: Boolean = false

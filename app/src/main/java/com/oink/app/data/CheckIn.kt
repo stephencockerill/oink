@@ -11,7 +11,7 @@ import java.time.LocalDate
 /**
  * Entity representing a daily check-in record.
  *
- * Each check-in tracks whether the user exercised on a given date
+ * Each check-in tracks whether the habit was completed on a given date
  * and what their balance was after the check-in was recorded.
  *
  * A check-in belongs to one habit. At most one check-in per (habit, date),
@@ -43,11 +43,11 @@ data class CheckIn(
     val date: LocalDate,
 
     /**
-     * Whether the user exercised on this date.
-     * true = exercised (+$5.00)
+     * Whether the habit was completed on this date.
+     * true = completed (+$5.00)
      * false = missed (balance / 2)
      */
-    val didExercise: Boolean,
+    val completed: Boolean,
 
     /**
      * The user's balance AFTER this check-in was recorded, in cents.
@@ -60,17 +60,17 @@ data class CheckIn(
     val balanceAfter: Long,
 
     /**
-     * The exercise reward in force when this check-in was recorded, in cents.
+     * The daily reward in force when this check-in was recorded, in cents.
      *
      * We store it per check-in so that recalculating historical balances uses
      * the reward that actually applied on each day, not whatever the user has
      * their reward set to today. Without this, changing the reward setting and
      * then editing a past day would silently rewrite history with the new rate.
-     * This mirrors [CashOut.exerciseRewardAtTime].
+     * This mirrors [CashOutAllocation.rewardAtTime].
      *
      * Money is stored as Long minor units (cents), e.g. $5.00 is 500.
      */
-    val exerciseRewardAtTime: Long = 500L,
+    val rewardAtTime: Long = 500L,
 
     /**
      * The habit this check-in belongs to.

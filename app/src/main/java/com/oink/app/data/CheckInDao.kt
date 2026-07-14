@@ -81,11 +81,11 @@ interface CheckInDao {
     suspend fun deleteAll(habitId: Long)
 
     /**
-     * Get a habit's total count of workout days (days where the user exercised).
-     * Used for stats and calculating workout counts.
+     * Get a habit's total count of completed days (days marked done).
+     * Used for stats and calculating completed-day counts.
      */
-    @Query("SELECT COUNT(*) FROM check_ins WHERE habitId = :habitId AND didExercise = 1")
-    suspend fun getTotalWorkoutCount(habitId: Long): Int
+    @Query("SELECT COUNT(*) FROM check_ins WHERE habitId = :habitId AND completed = 1")
+    suspend fun getCompletedDayCount(habitId: Long): Int
 
     /**
      * Get a habit's check-in immediately before a given date.

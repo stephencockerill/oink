@@ -11,22 +11,21 @@ package com.oink.app.data
  * source of truth for a habit's reward.
  * In tests: a simple fake implements this.
  */
-fun interface ExerciseRewardProvider {
+fun interface DailyRewardProvider {
     /** The habit's per-day reward amount, in cents. */
-    suspend fun getExerciseReward(habitId: Long): Long
+    suspend fun getDailyReward(habitId: Long): Long
 }
 
 /**
- * Production [ExerciseRewardProvider] sourcing the reward from the habit row.
+ * Production [DailyRewardProvider] sourcing the reward from the habit row.
  *
  * [Habit.rewardValue] is the single source of truth for a habit's per-day
- * reward. Falls back to [PreferencesRepository.DEFAULT_EXERCISE_REWARD] when the
+ * reward. Falls back to [PreferencesRepository.DEFAULT_DAILY_REWARD] when the
  * habit is absent so a missing row never zeroes out earnings.
  */
 class HabitRewardProvider(
     private val habitDao: HabitDao
-) : ExerciseRewardProvider {
-    override suspend fun getExerciseReward(habitId: Long): Long =
-        habitDao.getById(habitId)?.rewardValue ?: PreferencesRepository.DEFAULT_EXERCISE_REWARD
+) : DailyRewardProvider {
+    override suspend fun getDailyReward(habitId: Long): Long =
+        habitDao.getById(habitId)?.rewardValue ?: PreferencesRepository.DEFAULT_DAILY_REWARD
 }
-

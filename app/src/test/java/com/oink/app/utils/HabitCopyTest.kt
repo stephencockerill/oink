@@ -8,7 +8,7 @@ import org.junit.Test
  *
  * Pure string mappings with no dependencies. The point of these tests is to pin
  * the approved copy so a well-meaning edit can't silently reintroduce
- * habit-specific ("workout") vocabulary or drop an urgency level.
+ * habit-specific vocabulary (a single habit's verb) or drop an urgency level.
  */
 class HabitCopyTest {
 

@@ -99,13 +99,13 @@ class RewardsViewModel(
         )
 
     /**
-     * Total workout count (all exercise days logged).
+     * Total completed-day count (all completed days logged).
      */
-    private val _totalWorkouts = MutableStateFlow(0)
-    val totalWorkouts: StateFlow<Int> = _totalWorkouts.asStateFlow()
+    private val _totalCompletedDays = MutableStateFlow(0)
+    val totalCompletedDays: StateFlow<Int> = _totalCompletedDays.asStateFlow()
 
     init {
-        // Load total workout count on init
+        // Load total completed-day count on init
         viewModelScope.launch {
             refreshStats()
         }
@@ -115,7 +115,7 @@ class RewardsViewModel(
      * Refresh stats that need manual loading.
      */
     private suspend fun refreshStats() {
-        _totalWorkouts.value = checkInRepository.getTotalWorkoutCount(habitId)
+        _totalCompletedDays.value = checkInRepository.getCompletedDayCount(habitId)
     }
 
     /**

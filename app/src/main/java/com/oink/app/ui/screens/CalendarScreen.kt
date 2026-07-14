@@ -93,12 +93,12 @@ import java.util.Locale
  * Calendar screen showing a monthly view of all check-ins.
  *
  * This is where users can:
- * - See their exercise history at a glance
- * - Tap on past days to log retroactive workouts
+ * - See their check-in history at a glance
+ * - Tap on past days to log retroactive days
  * - Visualize streaks and patterns
  *
  * The calendar makes missed days painfully obvious (red) and
- * exercise days satisfying (green). Psychological warfare, baby.
+ * completed days satisfying (green). Psychological warfare, baby.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -221,7 +221,7 @@ fun CalendarScreen(
             ) {
                 BulkActionBar(
                     selectedCount = selectedDates.size,
-                    onMarkExercised = {
+                    onMarkCompleted = {
                         viewModel.bulkRecordCheckIns(selectedDates, true)
                         exitSelectionMode()
                     },
@@ -350,8 +350,8 @@ fun CalendarScreen(
             existingCheckIn = checkInMap[date],
             isLoading = isLoading,
             onDismiss = { selectedDate = null },
-            onLog = { didExercise ->
-                viewModel.recordCheckIn(date, didExercise)
+            onLog = { completed ->
+                viewModel.recordCheckIn(date, completed)
                 selectedDate = null
             }
         )
@@ -599,16 +599,16 @@ private fun CalendarDay(
     val backgroundColor = when {
         isFuture -> Color.Transparent
         isSelected -> MaterialTheme.colorScheme.primaryContainer
-        checkIn?.didExercise == true -> OinkTealContainer
-        checkIn?.didExercise == false -> MaterialTheme.colorScheme.errorContainer
+        checkIn?.completed == true -> OinkTealContainer
+        checkIn?.completed == false -> MaterialTheme.colorScheme.errorContainer
         else -> Color.Transparent
     }
 
     val textColor = when {
         isFuture -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
         isSelected -> MaterialTheme.colorScheme.onPrimaryContainer
-        checkIn?.didExercise == true -> OinkTeal
-        checkIn?.didExercise == false -> OinkWarning
+        checkIn?.completed == true -> OinkTeal
+        checkIn?.completed == false -> OinkWarning
         else -> MaterialTheme.colorScheme.onSurface
     }
 
@@ -678,7 +678,7 @@ private fun CalendarDay(
                 }
                 checkIn != null -> {
                     Icon(
-                        imageVector = if (checkIn.didExercise) Icons.Default.Check else Icons.Default.Close,
+                        imageVector = if (checkIn.completed) Icons.Default.Check else Icons.Default.Close,
                         contentDescription = null,
                         modifier = Modifier.size(12.dp),
                         tint = textColor
@@ -812,7 +812,7 @@ private fun LogDayDialog(
             Column {
                 if (existingCheckIn != null) {
                     Text(
-                        text = if (existingCheckIn.didExercise) {
+                        text = if (existingCheckIn.completed) {
                             HabitCopy.LOGGED_DONE
                         } else {
                             HabitCopy.LOGGED_REST
@@ -879,7 +879,7 @@ private fun LogDayDialog(
 @Composable
 private fun BulkActionBar(
     selectedCount: Int,
-    onMarkExercised: () -> Unit,
+    onMarkCompleted: () -> Unit,
     onMarkMissed: () -> Unit,
     isLoading: Boolean
 ) {
@@ -926,9 +926,9 @@ private fun BulkActionBar(
                     Text("Missed")
                 }
 
-                // Mark as Exercised button
+                // Mark as Completed button
                 Button(
-                    onClick = onMarkExercised,
+                    onClick = onMarkCompleted,
                     enabled = !isLoading,
                     modifier = Modifier.weight(1f),
                     colors = ButtonDefaults.buttonColors(

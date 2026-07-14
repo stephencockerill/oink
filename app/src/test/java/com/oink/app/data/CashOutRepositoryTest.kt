@@ -254,34 +254,34 @@ class CashOutRepositoryTest {
     }
 
     // =====================================================================
-    // Workout Count Tests
+    // Completed-day Count Tests
     // =====================================================================
 
     @Test
-    fun `getTotalWorkoutsRewarded should sum workouts from all cashOuts`() = runTest {
-        // Workouts-to-earn divides each allocation by the habit's captured reward.
+    fun `getTotalDaysRewarded should sum days from all cashOuts`() = runTest {
+        // Days-to-earn divides each allocation by the habit's captured reward.
         setupBalance(10000)
 
-        // Cash out $25 (5 workouts worth) and $15 (3 workouts worth)
+        // Cash out $25 (5 days worth) and $15 (3 days worth)
         repository.cashOut("First", 2500, "🎁")
         repository.cashOut("Second", 1500, "🎁")
 
         // Assert
-        assertEquals(8, repository.getTotalWorkoutsRewarded())
+        assertEquals(8, repository.getTotalDaysRewarded())
     }
 
     @Test
-    fun `getTotalWorkoutsRewarded divides each allocation by its captured reward`() = runTest {
+    fun `getTotalDaysRewarded divides each allocation by its captured reward`() = runTest {
         // Allocations captured at different reward rates each count on their own
         // rate; a non-positive captured reward contributes zero, not a crash.
         fakeCashOutAllocationDao.seed(
-            CashOutAllocation(id = 1, cashOutId = 1, habitId = 1, amount = 2000, exerciseRewardAtTime = 500),
-            CashOutAllocation(id = 2, cashOutId = 2, habitId = 2, amount = 3000, exerciseRewardAtTime = 1000),
-            CashOutAllocation(id = 3, cashOutId = 3, habitId = 3, amount = 1000, exerciseRewardAtTime = 0)
+            CashOutAllocation(id = 1, cashOutId = 1, habitId = 1, amount = 2000, rewardAtTime = 500),
+            CashOutAllocation(id = 2, cashOutId = 2, habitId = 2, amount = 3000, rewardAtTime = 1000),
+            CashOutAllocation(id = 3, cashOutId = 3, habitId = 3, amount = 1000, rewardAtTime = 0)
         )
 
         // 2000/500 = 4, 3000/1000 = 3, 1000/0 guarded to 0 → total 7.
-        assertEquals(7, repository.getTotalWorkoutsRewarded())
+        assertEquals(7, repository.getTotalDaysRewarded())
     }
 
     // =====================================================================
@@ -619,7 +619,7 @@ class CashOutRepositoryTest {
         val checkIn = CheckIn(
             id = 1L,
             date = LocalDate.now().minusDays(1),
-            didExercise = true,
+            completed = true,
             balanceAfter = balance
         )
         fakeCheckInDao.setCheckIns(listOf(checkIn))
@@ -661,7 +661,7 @@ class CashOutRepositoryTest {
             CheckIn(
                 id = (index + 1).toLong(),
                 date = LocalDate.now().minusDays(1),
-                didExercise = true,
+                completed = true,
                 balanceAfter = balance,
                 habitId = habitId
             )

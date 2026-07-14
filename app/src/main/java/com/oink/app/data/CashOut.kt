@@ -7,10 +7,10 @@ import androidx.room.PrimaryKey
  * Record of cashing out from the piggy bank.
  *
  * This is the REWARD for all your hard work! When you've earned enough
- * through consistent exercise, you can treat yourself to something nice.
+ * through consistent check-ins, you can treat yourself to something nice.
  *
  * The key psychological insight: this should feel like a CELEBRATION,
- * not a loss. You EARNED this reward through sweat and discipline.
+ * not a loss. You EARNED this reward through effort and discipline.
  */
 @Entity(tableName = "cash_outs")
 data class CashOut(
@@ -51,16 +51,16 @@ data class CashOut(
     val balanceAfter: Long
 ) {
     /**
-     * Approximate how many workouts it took to earn this reward.
+     * Approximate how many completed days it took to earn this reward.
      *
      * A cash-out is pot-level; the per-habit reward rate that funded it lives
-     * in [CashOutAllocation.exerciseRewardAtTime]. Until allocation-aware reads
-     * land, this display divides by the default per-workout reward
-     * ([PreferencesRepository.DEFAULT_EXERCISE_REWARD]), which is exact for
-     * every user whose reward has only ever been the default.
+     * in [CashOutAllocation.rewardAtTime]. Until allocation-aware reads land,
+     * this display divides by the default per-day reward
+     * ([PreferencesRepository.DEFAULT_DAILY_REWARD]), which is exact for every
+     * user whose reward has only ever been the default.
      */
-    val workoutsToEarn: Int
-        get() = (amount / PreferencesRepository.DEFAULT_EXERCISE_REWARD).toInt()
+    val daysToEarn: Int
+        get() = (amount / PreferencesRepository.DEFAULT_DAILY_REWARD).toInt()
 }
 
 /**

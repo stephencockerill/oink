@@ -15,7 +15,7 @@ import java.time.LocalDate
  *
  * A Room migration cannot read DataStore, so this runs from startup code rather
  * than as an [androidx.room.migration.Migration]. It copies, exactly once:
- * - exercise reward -> `habits.rewardValue`
+ * - daily reward -> `habits.rewardValue`
  * - available freezes -> `habits.availableFreezes`
  * - total freeze spending -> `habits.totalFreezeSpending`
  * - each frozen date -> one `frozen_days` row
@@ -50,8 +50,8 @@ class PrefsToHabitMigrator(
                 return@edit
             }
 
-            val reward = prefs[OinkPreferenceKeys.EXERCISE_REWARD]
-                ?: PreferencesRepository.DEFAULT_EXERCISE_REWARD
+            val reward = prefs[OinkPreferenceKeys.DAILY_REWARD]
+                ?: PreferencesRepository.DEFAULT_DAILY_REWARD
             val availableFreezes = prefs[LEGACY_AVAILABLE_FREEZES] ?: 0
             val totalFreezeSpending = prefs[LEGACY_TOTAL_FREEZE_SPENDING] ?: 0L
             val frozenEpochDays = prefs[LEGACY_FROZEN_DATES] ?: emptySet()

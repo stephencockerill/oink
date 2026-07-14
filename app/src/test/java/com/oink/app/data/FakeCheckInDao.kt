@@ -98,8 +98,8 @@ class FakeCheckInDao : CheckInDao {
         checkIns.value = checkIns.value.filterNot { it.habitId == habitId }
     }
 
-    override suspend fun getTotalWorkoutCount(habitId: Long): Int {
-        return checkIns.value.count { it.habitId == habitId && it.didExercise }
+    override suspend fun getCompletedDayCount(habitId: Long): Int {
+        return checkIns.value.count { it.habitId == habitId && it.completed }
     }
 
     override suspend fun getCheckInBefore(habitId: Long, epochDay: Long): CheckIn? {

@@ -65,5 +65,5 @@ data class CashOutAllocation(
      * in cents. Captured so "days earned" stays accurate even after the
      * habit's reward setting changes.
      */
-    val exerciseRewardAtTime: Long
+    val rewardAtTime: Long
 )

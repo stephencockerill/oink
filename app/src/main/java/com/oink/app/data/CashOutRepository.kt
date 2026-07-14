@@ -11,12 +11,12 @@ import kotlinx.coroutines.flow.map
  * Repository for managing cash-out operations.
  *
  * This is where the REWARD magic happens! When a user has earned
- * enough through consistent exercise, they can treat themselves.
+ * enough through consistent check-ins, they can treat themselves.
  *
  * Key psychological framing:
  * - Cash-outs are CELEBRATIONS, not losses
  * - "You EARNED this!" energy
- * - Show how many workouts it took to earn this reward
+ * - Show how many completed days it took to earn this reward
  *
  * IMPORTANT: Cash-outs are tracked separately from check-in balances.
  * We do NOT modify check-in records when cashing out. Instead we record the
@@ -24,7 +24,7 @@ import kotlinx.coroutines.flow.map
  * derived as:
  *   (raw check-in balance) - (that habit's cash-out allocations) - (that habit's freeze spending)
  *
- * This prevents the nasty bug where toggling a check-in between "exercised" and
+ * This prevents the nasty bug where toggling a check-in between "completed" and
  * "didn't" would lose track of cash-outs.
  *
  * A cash-out is drawn from a shared POT: the sum of every in-scope habit's
@@ -226,20 +226,20 @@ class CashOutRepository(
     }
 
     /**
-     * Calculate total workouts represented by all cash-outs.
+     * Calculate total completed days represented by all cash-outs.
      *
      * Sums per allocation: each allocation's cents divided by the habit's reward
-     * rate captured when the allocation was written ([CashOutAllocation.exerciseRewardAtTime]),
+     * rate captured when the allocation was written ([CashOutAllocation.rewardAtTime]),
      * so habits with different reward rates each count correctly. Allocations
      * whose captured reward is non-positive contribute zero rather than dividing
      * by zero.
      */
-    suspend fun getTotalWorkoutsRewarded(): Int {
+    suspend fun getTotalDaysRewarded(): Int {
         return cashOutAllocationDao.getAll().sumOf { allocation ->
-            if (allocation.exerciseRewardAtTime <= 0L) {
+            if (allocation.rewardAtTime <= 0L) {
                 0
             } else {
-                (allocation.amount / allocation.exerciseRewardAtTime).toInt()
+                (allocation.amount / allocation.rewardAtTime).toInt()
             }
         }
     }
@@ -427,7 +427,7 @@ class CashOutRepository(
                     cashOutId = cashOutId,
                     habitId = share.habit.id,
                     amount = share.amount,
-                    exerciseRewardAtTime = share.habit.rewardValue
+                    rewardAtTime = share.habit.rewardValue
                 )
             )
         }

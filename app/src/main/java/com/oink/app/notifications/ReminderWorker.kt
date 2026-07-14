@@ -32,15 +32,15 @@ class ReminderWorker(
 ) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
-        // Check if user already logged exercise today
+        // Check if the user already completed the day
         val database = AppDatabase.getDatabase(applicationContext)
         val todayCheckIn = database.checkInDao()
             .getCheckInForDate(HabitRepository.DEFAULT_HABIT_ID, LocalDate.now().toEpochDay())
 
         // Only show notification if:
         // - No check-in for today, OR
-        // - Check-in exists but user marked it as "didn't exercise" (rest day)
-        if (todayCheckIn == null || todayCheckIn.didExercise == false) {
+        // - Check-in exists but the user marked the day as not completed (off day)
+        if (todayCheckIn == null || todayCheckIn.completed == false) {
             NotificationHelper.showDailyReminder(applicationContext)
         }
 

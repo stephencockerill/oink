@@ -67,7 +67,7 @@ import com.oink.app.viewmodel.MainViewModel
  *
  * This screen displays a scrollable list of all past check-ins,
  * ordered by date (newest first). Each item shows the date,
- * whether the user exercised, and the balance after that check-in.
+ * whether the day was completed, and the balance after that check-in.
  *
  * We'll enhance this later with editing capabilities, but for now
  * it's a simple read-only list.
@@ -111,11 +111,11 @@ fun HistoryScreen(
     val stats by remember(checkIns, cashOuts) {
         derivedStateOf {
             val totalDays = checkIns.size
-            val exerciseDays = checkIns.count { it.didExercise }
-            val missedDays = totalDays - exerciseDays
-            val percentage = if (totalDays > 0) (exerciseDays * 100) / totalDays else 0
+            val completedDays = checkIns.count { it.completed }
+            val missedDays = totalDays - completedDays
+            val percentage = if (totalDays > 0) (completedDays * 100) / totalDays else 0
             val rewardsCount = cashOuts.size
-            HistoryStats(totalDays, exerciseDays, missedDays, percentage, rewardsCount)
+            HistoryStats(totalDays, completedDays, missedDays, percentage, rewardsCount)
         }
     }
 
@@ -181,9 +181,9 @@ fun HistoryScreen(
  */
 private data class HistoryStats(
     val totalDays: Int,
-    val exerciseDays: Int,
+    val completedDays: Int,
     val missedDays: Int,
-    val exercisePercentage: Int,
+    val completionRate: Int,
     val rewardsCount: Int = 0
 )
 
@@ -214,9 +214,9 @@ private fun StatsCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                // Exercise days
+                // Completed days
                 StatItem(
-                    value = stats.exerciseDays.toString(),
+                    value = stats.completedDays.toString(),
                     label = HabitCopy.STAT_DONE_DAYS,
                     color = OinkTeal
                 )
@@ -230,7 +230,7 @@ private fun StatsCard(
 
                 // Success rate
                 StatItem(
-                    value = "${stats.exercisePercentage}%",
+                    value = "${stats.completionRate}%",
                     label = "Success\nRate",
                     color = OinkPink
                 )
@@ -376,7 +376,7 @@ private fun CheckInItem(checkIn: CheckIn) {
                     .size(44.dp)
                     .clip(CircleShape)
                     .background(
-                        if (checkIn.didExercise) {
+                        if (checkIn.completed) {
                             OinkTealContainer
                         } else {
                             MaterialTheme.colorScheme.errorContainer
@@ -385,10 +385,10 @@ private fun CheckInItem(checkIn: CheckIn) {
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = if (checkIn.didExercise) Icons.Default.Check else Icons.Default.Close,
-                    contentDescription = if (checkIn.didExercise) HabitCopy.CONTENT_DESC_DONE else "Missed",
+                    imageVector = if (checkIn.completed) Icons.Default.Check else Icons.Default.Close,
+                    contentDescription = if (checkIn.completed) HabitCopy.CONTENT_DESC_DONE else "Missed",
                     modifier = Modifier.size(24.dp),
-                    tint = if (checkIn.didExercise) {
+                    tint = if (checkIn.completed) {
                         OinkTeal
                     } else {
                         OinkWarning
@@ -408,7 +408,7 @@ private fun CheckInItem(checkIn: CheckIn) {
                     fontWeight = FontWeight.SemiBold
                 )
                 Text(
-                    text = if (checkIn.didExercise) HabitCopy.HISTORY_DONE else HabitCopy.HISTORY_REST,
+                    text = if (checkIn.completed) HabitCopy.HISTORY_DONE else HabitCopy.HISTORY_REST,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                 )
@@ -498,7 +498,7 @@ private fun CashOutHistoryItem(cashOut: CashOut) {
                     color = OinkPink
                 )
                 Text(
-                    text = HabitCopy.dayCount(cashOut.workoutsToEarn),
+                    text = HabitCopy.dayCount(cashOut.daysToEarn),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
                 )

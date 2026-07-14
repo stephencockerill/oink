@@ -9,7 +9,7 @@ import androidx.room.withTransaction
  * [CashOutRepository] writes a cash-out and its allocations together; wrapping
  * them in a single transaction keeps the two in step even if the process dies
  * mid-write. The abstraction lets tests supply an implementation that just runs
- * the block, so repository logic is exercised without a real database.
+ * the block, so repository logic is run without a real database.
  *
  * This is a plain interface rather than a `fun interface`: Kotlin forbids a
  * functional interface whose abstract method carries its own type parameter

@@ -16,7 +16,7 @@ package com.oink.app.utils
  * of the app calculate balance differently.
  *
  * WHY THIS FORMULA?
- * - Check-in balance = Total accumulated through exercise/miss calculations
+ * - Check-in balance = Total accumulated through completed/miss calculations
  * - Cash-outs and freeze costs are tracked SEPARATELY, not baked into check-ins
  * - This prevents the bug where toggling a check-in would lose track of spending
  */
@@ -25,7 +25,7 @@ object BalanceCalculator {
     /**
      * Calculate the actual spendable balance.
      *
-     * @param checkInBalance The raw balance from check-ins (result of exercise/miss calculations), in cents
+     * @param checkInBalance The raw balance from check-ins (result of completed/miss calculations), in cents
      * @param totalCashedOut Sum of all cash-out amounts, in cents
      * @param totalFreezeSpending Sum of all freeze costs paid, in cents
      * @return The actual balance in cents, minimum 0

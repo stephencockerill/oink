@@ -1,6 +1,7 @@
 package com.oink.app.data
 
 import android.content.Context
+import androidx.datastore.core.DataMigration
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
@@ -16,9 +17,13 @@ import androidx.datastore.preferences.preferencesDataStore
  * this extension is declared exactly once for the whole process and shared by
  * every consumer - [DataStorePreferencesRepository] and [PrefsToHabitMigrator] -
  * rather than each declaring its own.
+ *
+ * [DailyRewardKeyMigration] runs before any read, so consumers only ever see
+ * the current [OinkPreferenceKeys.DAILY_REWARD] key.
  */
 internal val Context.dataStore: DataStore<Preferences> by preferencesDataStore(
-    name = "oink_preferences"
+    name = "oink_preferences",
+    produceMigrations = { listOf(DailyRewardKeyMigration) }
 )
 
 /**
@@ -29,7 +34,7 @@ internal object OinkPreferenceKeys {
     val REMINDERS_ENABLED = booleanPreferencesKey("reminders_enabled")
     val REMINDER_HOUR = intPreferencesKey("reminder_hour")
     val REMINDER_MINUTE = intPreferencesKey("reminder_minute")
-    val EXERCISE_REWARD = longPreferencesKey("exercise_reward")
+    val DAILY_REWARD = longPreferencesKey("daily_reward")
 
     /**
      * Run-once guard for the one-time copy of per-habit preferences onto the
@@ -45,4 +50,36 @@ internal object OinkPreferenceKeys {
     val PIN_HASH = stringPreferencesKey("pin_hash")
     val PIN_SALT = stringPreferencesKey("pin_salt")
     val PIN_ITERATIONS = intPreferencesKey("pin_iterations")
+}
+
+/**
+ * The daily-reward preference key string as it was originally written. Its value
+ * is copied onto [OinkPreferenceKeys.DAILY_REWARD] and the old key dropped, so
+ * an existing user's configured reward survives the rename with no data loss.
+ */
+private val LEGACY_DAILY_REWARD = longPreferencesKey("exercise_reward")
+
+/**
+ * Copies the legacy reward value onto [OinkPreferenceKeys.DAILY_REWARD] and
+ * removes the old key.
+ *
+ * Idempotent: it runs whenever the legacy key is still present, only writes the
+ * new key when it is not already set (so a value written under the new key is
+ * never clobbered), and always drops the legacy key.
+ */
+internal val DailyRewardKeyMigration = object : DataMigration<Preferences> {
+    override suspend fun shouldMigrate(currentData: Preferences): Boolean =
+        currentData.contains(LEGACY_DAILY_REWARD)
+
+    override suspend fun migrate(currentData: Preferences): Preferences {
+        val mutablePrefs = currentData.toMutablePreferences()
+        val legacyValue = currentData[LEGACY_DAILY_REWARD]
+        if (legacyValue != null && !currentData.contains(OinkPreferenceKeys.DAILY_REWARD)) {
+            mutablePrefs[OinkPreferenceKeys.DAILY_REWARD] = legacyValue
+        }
+        mutablePrefs.remove(LEGACY_DAILY_REWARD)
+        return mutablePrefs.toPreferences()
+    }
+
+    override suspend fun cleanUp() {}
 }

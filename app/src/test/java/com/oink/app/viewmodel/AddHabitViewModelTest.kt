@@ -104,7 +104,7 @@ class AddHabitViewModelTest {
         assertEquals(0, created.availableFreezes)
         assertFalse(created.isPrivate)
         // Default reward is applied and remains positive.
-        assertEquals(PreferencesRepository.DEFAULT_EXERCISE_REWARD, created.rewardValue)
+        assertEquals(PreferencesRepository.DEFAULT_DAILY_REWARD, created.rewardValue)
     }
 
     @Test
