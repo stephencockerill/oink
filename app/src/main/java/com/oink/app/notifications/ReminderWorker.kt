@@ -29,13 +29,22 @@ class ReminderWorker(
 ) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
-        // Fire the single global reminder if any non-private habit still has
-        // outstanding work today. The aggregate decision lives in ReminderDecider
-        // so it is unit-testable without a WorkManager harness.
+        // Fire the single global notification per the aggregate decision: a build
+        // nudge when a build habit is still pending, else a pride-framed quit
+        // celebration, else nothing. The decision lives in ReminderDecider so it
+        // is unit-testable without a WorkManager harness.
         val container = (applicationContext as OinkApplication).container
-        val decider = ReminderDecider(container.habitRepository, container.checkInRepository)
-        if (decider.shouldRemind()) {
-            NotificationHelper.showDailyReminder(applicationContext)
+        val decider = ReminderDecider(
+            container.habitRepository,
+            container.checkInRepository,
+            container.freezeRepository
+        )
+        when (val decision = decider.decide()) {
+            ReminderDecision.BuildNudge ->
+                NotificationHelper.showDailyReminder(applicationContext)
+            is ReminderDecision.QuitCelebration ->
+                NotificationHelper.showQuitCelebration(applicationContext, decision.cleanStreak)
+            ReminderDecision.None -> Unit
         }
 
         // Always refresh the widget so urgency state is current

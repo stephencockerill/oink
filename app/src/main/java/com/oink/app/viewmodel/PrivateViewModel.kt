@@ -194,6 +194,7 @@ class PrivateViewModel(
             id = habit.id,
             emoji = habit.emoji,
             name = habit.name,
+            habitType = habit.habitType,
             streak = streak,
             availableFreezes = freezes,
             spendable = spendable,

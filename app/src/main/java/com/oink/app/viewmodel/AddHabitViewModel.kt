@@ -10,6 +10,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.oink.app.AppContainer
 import com.oink.app.data.Habit
 import com.oink.app.data.HabitRepository
+import com.oink.app.data.HabitType
 import com.oink.app.data.PreferencesRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -28,6 +29,7 @@ data class AddHabitUiState(
     val name: String = "",
     val emoji: String = DEFAULT_EMOJI,
     val rewardValue: Long = PreferencesRepository.DEFAULT_DAILY_REWARD,
+    val habitType: HabitType = HabitType.BUILD,
     val freezesEnabled: Boolean = false,
     val isPrivate: Boolean = false,
     val isSaving: Boolean = false
@@ -86,6 +88,10 @@ class AddHabitViewModel(
         _uiState.update { it.copy(rewardValue = rewardValue) }
     }
 
+    fun onHabitTypeSelect(habitType: HabitType) {
+        _uiState.update { it.copy(habitType = habitType) }
+    }
+
     fun onFreezesToggle(enabled: Boolean) {
         _uiState.update { it.copy(freezesEnabled = enabled) }
     }
@@ -115,6 +121,7 @@ class AddHabitViewModel(
                 name = current.name.trim(),
                 emoji = current.emoji,
                 rewardValue = current.rewardValue,
+                habitType = current.habitType,
                 availableFreezes = if (current.freezesEnabled) PreferencesRepository.MAX_FREEZES else 0,
                 isPrivate = current.isPrivate,
                 sortOrder = nextSortOrder

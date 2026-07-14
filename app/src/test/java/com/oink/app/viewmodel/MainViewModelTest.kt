@@ -5,6 +5,7 @@ import androidx.arch.core.executor.testing.InstantTaskExecutorRule
 import androidx.lifecycle.SavedStateHandle
 import androidx.test.core.app.ApplicationProvider
 import com.oink.app.data.CashOutRepository
+import com.oink.app.data.CheckIn
 import com.oink.app.data.DefaultDeductionProvider
 import com.oink.app.data.CheckInRepository
 import com.oink.app.data.FakeCashOutAllocationDao
@@ -17,6 +18,7 @@ import com.oink.app.data.FreezeRepository
 import com.oink.app.data.Habit
 import com.oink.app.data.HabitRepository
 import com.oink.app.data.HabitRewardProvider
+import com.oink.app.data.HabitType
 import com.oink.app.data.PreferencesRepository
 import com.oink.app.data.PrivateGate
 import kotlinx.coroutines.Dispatchers
@@ -214,6 +216,42 @@ class MainViewModelTest {
     }
 
     @Test
+    fun `quit habit does not surface the freeze prompt for an unlogged gap`() = runTest {
+        // Regression (E2E bug): a quit habit with clean days then an unlogged gap
+        // yesterday - a pending-clean day the day-close resolver banks at midnight,
+        // NOT a slip - must not show the freeze-forgiveness prompt.
+        fakeHabitDao.seed(Habit(id = HABIT_QUIT, name = "No scrolling", habitType = HabitType.QUIT))
+        val today = java.time.LocalDate.now()
+        fakeCheckInDao.seed(
+            CheckIn(id = 1L, date = today.minusDays(3), didSucceed = true, balanceAfter = 500L, habitId = HABIT_QUIT),
+            CheckIn(id = 2L, date = today.minusDays(2), didSucceed = true, balanceAfter = 1000L, habitId = HABIT_QUIT)
+            // yesterday: gap (pending clean)
+        )
+        val vm = viewModelFor(HABIT_QUIT)
+        backgroundScope.launch { vm.missedDayForFreeze.collect {} }
+        advanceUntilIdle()
+
+        assertNull(vm.missedDayForFreeze.value)
+    }
+
+    @Test
+    fun `quit habit surfaces the freeze prompt for a logged slip`() = runTest {
+        // The forgiveness path still works: a genuine logged slip yesterday
+        // surfaces so the user can protect their clean streak.
+        fakeHabitDao.seed(Habit(id = HABIT_QUIT, name = "No scrolling", habitType = HabitType.QUIT))
+        val today = java.time.LocalDate.now()
+        fakeCheckInDao.seed(
+            CheckIn(id = 1L, date = today.minusDays(2), didSucceed = true, balanceAfter = 500L, habitId = HABIT_QUIT),
+            CheckIn(id = 2L, date = today.minusDays(1), didSucceed = false, balanceAfter = 250L, habitId = HABIT_QUIT)
+        )
+        val vm = viewModelFor(HABIT_QUIT)
+        backgroundScope.launch { vm.missedDayForFreeze.collect {} }
+        advanceUntilIdle()
+
+        assertEquals(today.minusDays(1), vm.missedDayForFreeze.value)
+    }
+
+    @Test
     fun `useFreeze without sufficient balance should set error`() = runTest {
         advanceUntilIdle()
 
@@ -378,5 +416,6 @@ class MainViewModelTest {
         const val HABIT_A = HabitRepository.DEFAULT_HABIT_ID
         const val HABIT_B = 2L
         const val HABIT_PRIVATE = 3L
+        const val HABIT_QUIT = 4L
     }
 }

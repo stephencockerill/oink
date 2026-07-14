@@ -404,6 +404,7 @@ private fun PrivateHabitCard(
 
             TodayCheckInControl(
                 todayCompleted = card.todayCompleted,
+                habitType = card.habitType,
                 onCheckIn = onCheckIn
             )
         }

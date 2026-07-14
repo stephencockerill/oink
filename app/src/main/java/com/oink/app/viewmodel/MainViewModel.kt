@@ -15,6 +15,7 @@ import com.oink.app.data.CheckIn
 import com.oink.app.data.CheckInRepository
 import com.oink.app.data.FreezeRepository
 import com.oink.app.data.HabitRepository
+import com.oink.app.data.HabitType
 import com.oink.app.data.PreferencesRepository
 import com.oink.app.data.PrivateGate
 import com.oink.app.utils.Formatters
@@ -87,6 +88,20 @@ class MainViewModel(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = ""
+        )
+
+    /**
+     * This habit's type, which every check-in-facing surface (detail, calendar,
+     * history) branches its prompts, labels, and actions on. Defaults to
+     * [HabitType.BUILD] until the habit row loads so the UI never flashes quit
+     * wording for a build habit.
+     */
+    val habitType: StateFlow<HabitType> = habitRepository.habit(habitId)
+        .map { it?.habitType ?: HabitType.BUILD }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = HabitType.BUILD
         )
 
     /**
@@ -274,9 +289,16 @@ class MainViewModel(
     val missedDayForFreeze: StateFlow<LocalDate?> = combine(
         repository.allCheckIns(habitId),
         frozenDates,
-        _dismissedFreezeDates
-    ) { checkIns, frozen, dismissed ->
-        repository.findMissedDayForFreeze(checkIns, frozen + dismissed)
+        _dismissedFreezeDates,
+        habitType
+    ) { checkIns, frozen, dismissed, type ->
+        // For a quit habit an unlogged day is a pending-clean day, not a slip, so
+        // a gap must not surface the freeze prompt - only a logged slip does.
+        repository.findMissedDayForFreeze(
+            checkIns,
+            frozen + dismissed,
+            gapCountsAsMiss = type == HabitType.BUILD
+        )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),

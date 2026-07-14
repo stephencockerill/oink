@@ -84,8 +84,11 @@ data class CheckIn(
 )
 
 /**
- * Type converters for Room to handle LocalDate serialization.
- * We store dates as epoch day (Long) in the database.
+ * Type converters for Room.
+ *
+ * [LocalDate] is stored as its epoch day (Long); [HabitType] is stored as its
+ * `name` string so the column stays human-readable and a new enum constant never
+ * silently reuses an ordinal.
  */
 class Converters {
     @TypeConverter
@@ -96,6 +99,16 @@ class Converters {
     @TypeConverter
     fun toLocalDate(epochDay: Long?): LocalDate? {
         return epochDay?.let { LocalDate.ofEpochDay(it) }
+    }
+
+    @TypeConverter
+    fun fromHabitType(type: HabitType?): String? {
+        return type?.name
+    }
+
+    @TypeConverter
+    fun toHabitType(name: String?): HabitType? {
+        return name?.let { HabitType.valueOf(it) }
     }
 }
 

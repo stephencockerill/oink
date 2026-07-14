@@ -38,6 +38,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.oink.app.data.HabitType
 import com.oink.app.data.PreferencesRepository
 import com.oink.app.ui.components.EmojiPickerField
 import com.oink.app.ui.theme.OinkPink
@@ -110,6 +111,42 @@ fun AddHabitScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
+            // Type
+            SectionHeader(title = "Type")
+            Spacer(modifier = Modifier.height(8.dp))
+            FormCard {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        HabitTypeChip(
+                            label = "Build",
+                            selected = uiState.habitType == HabitType.BUILD,
+                            onClick = { viewModel.onHabitTypeSelect(HabitType.BUILD) },
+                            modifier = Modifier.weight(1f)
+                        )
+                        HabitTypeChip(
+                            label = "Quit",
+                            selected = uiState.habitType == HabitType.QUIT,
+                            onClick = { viewModel.onHabitTypeSelect(HabitType.QUIT) },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = when (uiState.habitType) {
+                            HabitType.BUILD -> "A habit you want to start. You earn each day you show up."
+                            HabitType.QUIT -> "A habit you want to stop. Every clean day earns automatically; you only log a slip."
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
             // Emoji
             SectionHeader(title = "Icon")
             Spacer(modifier = Modifier.height(8.dp))
@@ -172,8 +209,12 @@ fun AddHabitScreen(
                         }
                     }
                     Spacer(modifier = Modifier.height(8.dp))
+                    val lossLabel = when (uiState.habitType) {
+                        HabitType.BUILD -> "Miss a day"
+                        HabitType.QUIT -> "Slip"
+                    }
                     Text(
-                        text = "Miss a day = balance halved. Freeze cost = 2× reward (${Formatters.formatCurrency(uiState.rewardValue * 2)}).",
+                        text = "$lossLabel = balance halved. Freeze cost = 2× reward (${Formatters.formatCurrency(uiState.rewardValue * 2)}).",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                     )
@@ -224,6 +265,26 @@ fun AddHabitScreen(
             }
         }
     }
+}
+
+@Composable
+private fun HabitTypeChip(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    FilterChip(
+        selected = selected,
+        onClick = onClick,
+        modifier = modifier,
+        label = {
+            Text(
+                text = label,
+                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
+            )
+        }
+    )
 }
 
 @Composable
