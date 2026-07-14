@@ -46,6 +46,22 @@ data class HabitCardState(
 )
 
 /**
+ * Whether the home list has any public habit to show.
+ *
+ * [Loading] is the pre-resolution state before [HabitRepository.allHabits] has
+ * emitted. The screen shows neither the list nor the empty state while loading,
+ * so a populated database never flashes the empty state on open. [Empty] and
+ * [HasHabits] are decided straight off the habit set rather than off
+ * [HabitListViewModel.habitCards], so the decision is exact and not subject to
+ * the per-card combine latency.
+ */
+sealed interface HomeListState {
+    data object Loading : HomeListState
+    data object Empty : HomeListState
+    data object HasHabits : HomeListState
+}
+
+/**
  * ViewModel for the home habit list.
  *
  * Exposes the public (non-private) habits as [HabitCardState]s and the shared
@@ -86,6 +102,22 @@ class HabitListViewModel(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = emptyList()
+        )
+
+    /**
+     * Whether there is any public habit to render, held separately from
+     * [habitCards] so the home screen can tell "still loading" apart from
+     * "loaded and genuinely empty" and only show the empty state once the habit
+     * set has actually resolved.
+     */
+    val homeListState: StateFlow<HomeListState> = habitRepository.allHabits
+        .map { habits ->
+            if (habits.any { !it.isPrivate }) HomeListState.HasHabits else HomeListState.Empty
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = HomeListState.Loading
         )
 
     /**
