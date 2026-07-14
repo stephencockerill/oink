@@ -39,15 +39,11 @@ data class AddHabitUiState(
         get() = name.trim().isNotEmpty() && rewardValue > 0 && !isSaving
 
     companion object {
-        const val DEFAULT_EMOJI = "⭐"
-
         /**
-         * Curated single-select emoji palette for the picker. The default
-         * [DEFAULT_EMOJI] leads; the rest span common habit categories.
+         * Emoji a new habit starts with until the user picks their own from the
+         * full picker.
          */
-        val EMOJI_OPTIONS: List<String> = listOf(
-            DEFAULT_EMOJI, "🏋️", "🏃", "🧘", "📚", "💧", "🥗", "😴", "🧹", "💰", "🎨", "🎸", "🚭"
-        )
+        const val DEFAULT_EMOJI = "⭐"
     }
 }
 

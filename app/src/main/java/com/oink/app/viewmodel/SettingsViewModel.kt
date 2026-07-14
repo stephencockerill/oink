@@ -99,6 +99,20 @@ class SettingsViewModel(
         )
 
     /**
+     * This habit's icon emoji. Sourced from [Habit.emoji], the single source of
+     * truth, so the picker reflects the stored habit and edits round-trip through
+     * it. Falls back to [AddHabitUiState.DEFAULT_EMOJI] while the habit loads or
+     * when it is absent.
+     */
+    val emoji: StateFlow<String> = habitRepository.habit(habitId)
+        .map { it?.emoji ?: AddHabitUiState.DEFAULT_EMOJI }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = AddHabitUiState.DEFAULT_EMOJI
+        )
+
+    /**
      * Streak freezes banked for this habit.
      */
     val availableFreezes: StateFlow<Int> = freezeRepository.availableFreezes(habitId)
@@ -180,6 +194,19 @@ class SettingsViewModel(
         viewModelScope.launch {
             val habit = habitRepository.getHabit(habitId) ?: return@launch
             habitRepository.updateHabit(habit.copy(rewardValue = amount.coerceAtLeast(1L)))
+        }
+    }
+
+    /**
+     * Set this habit's icon [emoji] on [Habit.emoji] - the single source of
+     * truth. Stored verbatim as an opaque string, so multi-codepoint emoji
+     * round-trip intact. No-op when the habit does not exist. The [emoji] flow
+     * re-emits so the UI reflects the change.
+     */
+    fun setEmoji(emoji: String) {
+        viewModelScope.launch {
+            val habit = habitRepository.getHabit(habitId) ?: return@launch
+            habitRepository.updateHabit(habit.copy(emoji = emoji))
         }
     }
 

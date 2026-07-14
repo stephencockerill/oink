@@ -1,24 +1,16 @@
 package com.oink.app.ui.screens
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -42,17 +34,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.oink.app.data.PreferencesRepository
+import com.oink.app.ui.components.EmojiPickerField
 import com.oink.app.ui.theme.OinkPink
 import com.oink.app.utils.Formatters
 import com.oink.app.utils.HabitCopy
-import com.oink.app.viewmodel.AddHabitUiState
 import com.oink.app.viewmodel.AddHabitViewModel
 
 /**
@@ -124,11 +114,30 @@ fun AddHabitScreen(
             SectionHeader(title = "Icon")
             Spacer(modifier = Modifier.height(8.dp))
             FormCard {
-                EmojiPicker(
-                    options = AddHabitUiState.EMOJI_OPTIONS,
-                    selected = uiState.emoji,
-                    onSelect = viewModel::onEmojiSelect
-                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Emoji",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Text(
+                            text = "Pick any emoji to represent this habit.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(16.dp))
+                    EmojiPickerField(
+                        emoji = uiState.emoji,
+                        onEmojiSelected = viewModel::onEmojiSelect
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -212,49 +221,6 @@ fun AddHabitScreen(
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
-            }
-        }
-    }
-}
-
-/**
- * Single-select emoji row. The selected chip is ringed and tinted with
- * [OinkPink] so the current choice reads at a glance.
- */
-@Composable
-private fun EmojiPicker(
-    options: List<String>,
-    selected: String,
-    onSelect: (String) -> Unit
-) {
-    LazyRow(
-        modifier = Modifier.padding(vertical = 12.dp),
-        contentPadding = PaddingValues(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        items(
-            items = options,
-            key = { it }
-        ) { emoji ->
-            val isSelected = emoji == selected
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-                    .background(
-                        if (isSelected) OinkPink.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant
-                    )
-                    .then(
-                        if (isSelected) {
-                            Modifier.border(2.dp, OinkPink, CircleShape)
-                        } else {
-                            Modifier
-                        }
-                    )
-                    .clickable { onSelect(emoji) },
-                contentAlignment = Alignment.Center
-            ) {
-                Text(text = emoji, fontSize = 24.sp)
             }
         }
     }
