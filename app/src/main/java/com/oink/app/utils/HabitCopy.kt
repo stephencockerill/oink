@@ -96,6 +96,18 @@ object HabitCopy {
     /** Screen-reader label for a completed day (pairs with "Missed"). */
     const val CONTENT_DESC_DONE = ACTION_DONE
 
+    /** Accessibility label for the inline "log done today" control on a habit card. */
+    const val CHECK_IN_DONE_ACTION = "Mark done today"
+
+    /** Accessibility label for the inline "log missed today" control on a habit card. */
+    const val CHECK_IN_MISSED_ACTION = "Mark missed today"
+
+    /**
+     * Accessibility label for the inline today-status control on a habit card,
+     * which is tappable to flip today's outcome (the in-card undo path).
+     */
+    const val CHECK_IN_CHANGE_ACTION = "Change today's check-in"
+
     /** History empty-state prompt. */
     const val EMPTY_HISTORY = "Log your first check-in to get started!"
 
