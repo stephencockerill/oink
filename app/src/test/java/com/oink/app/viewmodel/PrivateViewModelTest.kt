@@ -16,6 +16,7 @@ import com.oink.app.data.Habit
 import com.oink.app.data.HabitRepository
 import com.oink.app.data.HabitRewardProvider
 import com.oink.app.data.PinHasher
+import com.oink.app.data.PreferencesRepository
 import com.oink.app.data.PrivateGate
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -29,6 +30,7 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -208,6 +210,52 @@ class PrivateViewModelTest {
         assertTrue(state is PrivateUiState.Unlocked)
         val ids = (state as PrivateUiState.Unlocked).habits.map { it.id }
         assertEquals("Only the private habit is shown", listOf(2L), ids)
+    }
+
+    @Test
+    fun `recordCheckIn on a private habit credits, halves, and restores in the unlocked list`() = runTest {
+        fakeHabitDao.seed(
+            Habit(id = 1L, name = "Workout", sortOrder = 0, isPrivate = false),
+            Habit(id = 2L, name = "Therapy", sortOrder = 1, isPrivate = true)
+        )
+        fakePreferencesRepository.setPin(PinHasher.hash("4321"))
+        // A completed day yesterday for the private habit to build on.
+        checkInRepository.recordCheckIn(checkInRepository.today().minusDays(1), didSucceed = true, habitId = 2L)
+
+        val viewModel = createViewModel()
+        backgroundScope.launch { viewModel.uiState.collect {} }
+        advanceUntilIdle()
+
+        viewModel.submitPin("4321")
+        advanceUntilIdle()
+
+        val reward = PreferencesRepository.DEFAULT_DAILY_REWARD
+
+        fun privateCard() =
+            (viewModel.uiState.value as PrivateUiState.Unlocked).habits.first { it.id == 2L }
+
+        // Not logged today yet.
+        assertNull(privateCard().todayCompleted)
+
+        // Done today: +reward, streak 2.
+        viewModel.recordCheckIn(2L, didSucceed = true)
+        advanceUntilIdle()
+        assertEquals(true, privateCard().todayCompleted)
+        assertEquals(reward * 2, privateCard().spendable)
+        assertEquals(2, privateCard().streak)
+
+        // Miss today: spendable halves and streak breaks.
+        viewModel.recordCheckIn(2L, didSucceed = false)
+        advanceUntilIdle()
+        assertEquals(false, privateCard().todayCompleted)
+        assertEquals(reward / 2, privateCard().spendable)
+        assertEquals(0, privateCard().streak)
+
+        // Undo the miss (miss -> done): fully reversed.
+        viewModel.recordCheckIn(2L, didSucceed = true)
+        advanceUntilIdle()
+        assertEquals(reward * 2, privateCard().spendable)
+        assertEquals(2, privateCard().streak)
     }
 
     @Test

@@ -12,6 +12,8 @@ import com.oink.app.data.HabitRewardProvider
 import com.oink.app.data.PreferencesRepository
 import com.oink.app.data.PrivateGate
 import com.oink.app.data.RoomTransactionRunner
+import com.oink.app.widget.OinkWidget
+import com.oink.app.widget.WidgetUpdater
 
 /**
  * Application-wide dependency graph for Oink.
@@ -26,6 +28,13 @@ import com.oink.app.data.RoomTransactionRunner
  * built eagerly when the container is created.
  */
 class AppContainer(context: Context) {
+
+    /**
+     * Application context, held so the widget updater can refresh Glance widgets
+     * long after the constructing Activity is gone. Application (not Activity)
+     * context avoids leaking a UI lifecycle.
+     */
+    private val appContext: Context = context.applicationContext
 
     private val database: AppDatabase = AppDatabase.getDatabase(context)
 
@@ -63,4 +72,11 @@ class AppContainer(context: Context) {
         freezeRepository,
         RoomTransactionRunner(database)
     )
+
+    /**
+     * Refreshes the home-screen widget after a data change. Closes over the
+     * Application context so plain ViewModels can trigger a refresh without
+     * holding Android context themselves.
+     */
+    val widgetUpdater: WidgetUpdater = WidgetUpdater { OinkWidget.updateAllWidgets(appContext) }
 }

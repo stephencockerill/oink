@@ -11,6 +11,8 @@ import com.oink.app.data.CheckInRepository
 import com.oink.app.data.FreezeRepository
 import com.oink.app.data.Habit
 import com.oink.app.data.HabitRepository
+import com.oink.app.widget.WidgetUpdater
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
@@ -18,7 +20,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * Immutable per-habit card state for the home list.
@@ -32,7 +37,12 @@ data class HabitCardState(
     val name: String,
     val streak: Int,
     val availableFreezes: Int,
-    val spendable: Long
+    val spendable: Long,
+    /**
+     * Today's check-in outcome: `true` done, `false` missed, `null` not logged
+     * yet. Drives the inline quick check-in control on the card.
+     */
+    val todayCompleted: Boolean?
 )
 
 /**
@@ -50,7 +60,8 @@ class HabitListViewModel(
     private val habitRepository: HabitRepository,
     private val checkInRepository: CheckInRepository,
     private val freezeRepository: FreezeRepository,
-    private val cashOutRepository: CashOutRepository
+    private val cashOutRepository: CashOutRepository,
+    private val widgetUpdater: WidgetUpdater = WidgetUpdater.NoOp
 ) : ViewModel() {
 
     /**
@@ -100,16 +111,55 @@ class HabitListViewModel(
     private fun cardStateFlow(habit: Habit): Flow<HabitCardState> = combine(
         cashOutRepository.spendable(habit.id),
         freezeRepository.availableFreezes(habit.id),
-        streakFlow(habit.id)
-    ) { spendable, freezes, streak ->
+        streakFlow(habit.id),
+        todayCompletedFlow(habit.id)
+    ) { spendable, freezes, streak, todayCompleted ->
         HabitCardState(
             id = habit.id,
             emoji = habit.emoji,
             name = habit.name,
             streak = streak,
             availableFreezes = freezes,
-            spendable = spendable
+            spendable = spendable,
+            todayCompleted = todayCompleted
         )
+    }
+
+    /**
+     * Today's check-in outcome for a habit (`true`/`false`/`null`), derived from
+     * the same [CheckInRepository.allCheckIns] flow the streak uses rather than
+     * [CheckInRepository.getTodayCheckIn].
+     *
+     * Deliberate: `getTodayCheckIn` runs a perpetual until-midnight timer to
+     * auto-roll "today", but [streakFlow] evaluates `today()` off `allCheckIns`
+     * and does not roll at midnight. Sourcing both from `allCheckIns` keeps the
+     * card internally consistent (status and streak roll together on the next
+     * data change) and avoids a forever-scheduled coroutine per card.
+     */
+    private fun todayCompletedFlow(habitId: Long): Flow<Boolean?> =
+        checkInRepository.allCheckIns(habitId).map { checkIns ->
+            val today = checkInRepository.today()
+            checkIns.find { it.date == today }?.didSucceed
+        }
+
+    /**
+     * Log (or change) today's check-in for a habit straight from its card.
+     *
+     * Mirrors [com.oink.app.viewmodel.MainViewModel.recordCheckIn]: the write and
+     * widget refresh run under [NonCancellable] so a fast home-press can't orphan
+     * them mid-write. Streak, spendable balance, and today's status all update
+     * reactively through the card's flows - no manual refresh. A miss halves the
+     * spendable balance immediately; re-logging done reverses it exactly, because
+     * the balance is computed from the previous day's balance and replayed by
+     * [CheckInRepository.recordCheckIn], not from the halved value.
+     */
+    fun recordCheckIn(habitId: Long, didSucceed: Boolean) {
+        viewModelScope.launch {
+            withContext(NonCancellable) {
+                checkInRepository.recordCheckIn(checkInRepository.today(), didSucceed, habitId)
+                widgetUpdater.update()
+            }
+        }
     }
 
     /**
@@ -136,7 +186,8 @@ class HabitListViewModel(
                         habitRepository = container.habitRepository,
                         checkInRepository = container.checkInRepository,
                         freezeRepository = container.freezeRepository,
-                        cashOutRepository = container.cashOutRepository
+                        cashOutRepository = container.cashOutRepository,
+                        widgetUpdater = container.widgetUpdater
                     )
                 }
             }

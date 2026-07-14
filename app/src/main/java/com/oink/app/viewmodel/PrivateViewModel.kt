@@ -14,8 +14,10 @@ import com.oink.app.data.HabitRepository
 import com.oink.app.data.PinHasher
 import com.oink.app.data.PreferencesRepository
 import com.oink.app.data.PrivateGate
+import com.oink.app.widget.WidgetUpdater
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -86,6 +88,7 @@ class PrivateViewModel(
     private val checkInRepository: CheckInRepository,
     private val freezeRepository: FreezeRepository,
     private val cashOutRepository: CashOutRepository,
+    private val widgetUpdater: WidgetUpdater = WidgetUpdater.NoOp,
     private val defaultDispatcher: CoroutineDispatcher = Dispatchers.Default
 ) : ViewModel() {
 
@@ -184,16 +187,49 @@ class PrivateViewModel(
     private fun cardStateFlow(habit: Habit): Flow<HabitCardState> = combine(
         cashOutRepository.spendable(habit.id),
         freezeRepository.availableFreezes(habit.id),
-        streakFlow(habit.id)
-    ) { spendable, freezes, streak ->
+        streakFlow(habit.id),
+        todayCompletedFlow(habit.id)
+    ) { spendable, freezes, streak, todayCompleted ->
         HabitCardState(
             id = habit.id,
             emoji = habit.emoji,
             name = habit.name,
             streak = streak,
             availableFreezes = freezes,
-            spendable = spendable
+            spendable = spendable,
+            todayCompleted = todayCompleted
         )
+    }
+
+    /**
+     * Today's check-in outcome for a habit (`true`/`false`/`null`), derived from
+     * the same [CheckInRepository.allCheckIns] flow the streak uses (not
+     * [CheckInRepository.getTodayCheckIn]) so the card's status and streak stay
+     * consistent and no perpetual until-midnight timer is subscribed per card.
+     * See [com.oink.app.viewmodel.HabitListViewModel] for the rationale.
+     */
+    private fun todayCompletedFlow(habitId: Long): Flow<Boolean?> =
+        checkInRepository.allCheckIns(habitId).map { checkIns ->
+            val today = checkInRepository.today()
+            checkIns.find { it.date == today }?.didSucceed
+        }
+
+    /**
+     * Log (or change) today's check-in for a private habit from its card.
+     *
+     * Behaves exactly like the home list's action (see
+     * [com.oink.app.viewmodel.HabitListViewModel.recordCheckIn]); it is only ever
+     * invoked from the unlocked private list. Private-habit widgets never render
+     * (the widget loader returns null for private habits), but the refresh is
+     * harmless and keeps the two surfaces' behaviour uniform.
+     */
+    fun recordCheckIn(habitId: Long, didSucceed: Boolean) {
+        viewModelScope.launch {
+            withContext(NonCancellable) {
+                checkInRepository.recordCheckIn(checkInRepository.today(), didSucceed, habitId)
+                widgetUpdater.update()
+            }
+        }
     }
 
     private fun streakFlow(habitId: Long): Flow<Int> = combine(
@@ -227,7 +263,8 @@ class PrivateViewModel(
                         habitRepository = container.habitRepository,
                         checkInRepository = container.checkInRepository,
                         freezeRepository = container.freezeRepository,
-                        cashOutRepository = container.cashOutRepository
+                        cashOutRepository = container.cashOutRepository,
+                        widgetUpdater = container.widgetUpdater
                     )
                 }
             }

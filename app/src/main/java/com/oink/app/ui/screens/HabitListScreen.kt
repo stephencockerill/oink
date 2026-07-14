@@ -43,8 +43,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.oink.app.ui.components.TodayCheckInControl
 import com.oink.app.ui.theme.OinkPink
 import com.oink.app.ui.theme.OinkPinkDark
 import com.oink.app.ui.theme.OinkTeal
@@ -125,7 +127,8 @@ fun HabitListScreen(
             ) { card ->
                 HabitCard(
                     card = card,
-                    onClick = { onHabitClick(card.id) }
+                    onClick = { onHabitClick(card.id) },
+                    onCheckIn = { completed -> viewModel.recordCheckIn(card.id, completed) }
                 )
             }
         }
@@ -261,13 +264,16 @@ private fun PrivateTile(onClick: () -> Unit) {
 }
 
 /**
- * A single habit card: emoji, name, streak/freeze meta, and this habit's own
- * spendable balance. Tapping it opens the habit detail.
+ * A single habit card: emoji, name, streak/freeze meta, this habit's own
+ * spendable balance, and an inline quick check-in control. Tapping the card body
+ * opens the habit detail; tapping the check-in control logs today (and never
+ * navigates - see [TodayCheckInControl]).
  */
 @Composable
 private fun HabitCard(
     card: HabitCardState,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onCheckIn: (Boolean) -> Unit
 ) {
     Card(
         modifier = Modifier
@@ -308,7 +314,9 @@ private fun HabitCard(
                     text = card.name,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 HabitMeta(streak = card.streak, availableFreezes = card.availableFreezes)
@@ -316,7 +324,7 @@ private fun HabitCard(
 
             Spacer(modifier = Modifier.width(12.dp))
 
-            // Per-habit spendable balance
+            // Per-habit spendable balance (visual hierarchy #1).
             Text(
                 text = Formatters.formatCurrency(card.spendable),
                 style = MaterialTheme.typography.titleLarge,
@@ -324,10 +332,12 @@ private fun HabitCard(
                 color = OinkTeal
             )
 
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+            Spacer(modifier = Modifier.width(8.dp))
+
+            // Inline quick check-in - logs today without leaving the list.
+            TodayCheckInControl(
+                todayCompleted = card.todayCompleted,
+                onCheckIn = onCheckIn
             )
         }
     }
