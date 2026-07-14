@@ -5,10 +5,8 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.oink.app.data.AppDatabase
 import com.oink.app.data.DataStorePreferencesRepository
-import com.oink.app.data.HabitRepository
 import com.oink.app.widget.OinkWidget
 import kotlinx.coroutines.flow.first
-import java.time.LocalDate
 
 /**
  * Worker that shows the daily reminder notification.
@@ -32,15 +30,12 @@ class ReminderWorker(
 ) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
-        // Check if the user already completed the day
+        // Fire the single global reminder if any non-private habit still has
+        // outstanding work today. The aggregate decision lives in ReminderDecider
+        // so it is unit-testable without a WorkManager harness.
         val database = AppDatabase.getDatabase(applicationContext)
-        val todayCheckIn = database.checkInDao()
-            .getCheckInForDate(HabitRepository.DEFAULT_HABIT_ID, LocalDate.now().toEpochDay())
-
-        // Only show notification if:
-        // - No check-in for today, OR
-        // - Check-in exists but the user marked the day as not completed (off day)
-        if (todayCheckIn == null || todayCheckIn.completed == false) {
+        val decider = ReminderDecider(database.habitDao(), database.checkInDao())
+        if (decider.shouldRemind()) {
             NotificationHelper.showDailyReminder(applicationContext)
         }
 
