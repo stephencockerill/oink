@@ -445,6 +445,55 @@ class CashOutRepositoryTest {
         assertEquals(6000L, repository.getCashOutById(original.id)?.amount)
     }
 
+    @Test
+    fun `unlocked amount edit re-splits a private-funded claim over public and private`() = runTest {
+        seedHabits(
+            HabitSeed(id = 1, sortOrder = 0, isPrivate = false),
+            HabitSeed(id = 2, sortOrder = 1, isPrivate = true)
+        )
+        seedRawBalances(1L to 2000L, 2L to 5000L)
+
+        // Unlocked claim of 4000 drains the higher private habit 2 fully.
+        val original = repository.cashOut("Treat", 4000, includePrivate = true)!!
+        assertEquals(4000L, fakeCashOutAllocationDao.getTotalForHabit(2L))
+        assertEquals(0L, fakeCashOutAllocationDao.getTotalForHabit(1L))
+
+        // Editing up to 6000 while unlocked: re-split pot is 7000 (its own
+        // allocations added back), highest-first drains private 2 (5000) then
+        // public 1 (1000). The edit must be accepted and split across both.
+        val success = repository.updateCashOut(original.copy(amount = 6000), includePrivate = true)
+
+        assertTrue(success)
+        assertEquals(5000L, fakeCashOutAllocationDao.getTotalForHabit(2L))
+        assertEquals(1000L, fakeCashOutAllocationDao.getTotalForHabit(1L))
+        assertEquals(6000L, allocationsFor(original.id).sumOf { it.amount })
+        assertEquals(7000L, repository.getCashOutById(original.id)?.balanceBefore)
+    }
+
+    @Test
+    fun `locked amount edit re-splits over the public pot only`() = runTest {
+        seedHabits(
+            HabitSeed(id = 1, sortOrder = 0, isPrivate = false),
+            HabitSeed(id = 2, sortOrder = 1, isPrivate = true)
+        )
+        seedRawBalances(1L to 5000L, 2L to 5000L)
+
+        // Public claim of 3000 while locked.
+        val original = repository.cashOut("Treat", 3000, includePrivate = false)!!
+        assertEquals(3000L, fakeCashOutAllocationDao.getTotalForHabit(1L))
+
+        // Locked re-split pot is the public habit's 5000 only, so 6000 is
+        // rejected and nothing is mutated - the private bank is out of scope.
+        assertFalse(repository.updateCashOut(original.copy(amount = 6000), includePrivate = false))
+        assertEquals(3000L, fakeCashOutAllocationDao.getTotalForHabit(1L))
+        assertEquals(0L, fakeCashOutAllocationDao.getTotalForHabit(2L))
+
+        // A within-public edit re-splits over the public habit only.
+        assertTrue(repository.updateCashOut(original.copy(amount = 4000), includePrivate = false))
+        assertEquals(4000L, fakeCashOutAllocationDao.getTotalForHabit(1L))
+        assertEquals(0L, fakeCashOutAllocationDao.getTotalForHabit(2L))
+    }
+
     // =====================================================================
     // Unlock-gated Pot Scope Tests (MH-9)
     // =====================================================================

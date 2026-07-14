@@ -255,18 +255,28 @@ class CashOutRepository(
      * Update an existing cash-out.
      *
      * A name/emoji-only edit leaves the amount and its allocations untouched. An
-     * amount edit re-runs the waterfall at CURRENT balances over all public
+     * amount edit re-runs the waterfall at CURRENT balances over the in-scope
      * habits: the cash-out's own allocations are added back to availability
      * first (they are about to be replaced), the new split is validated against
      * that pot, and only then is anything mutated. Validating before mutating
      * means the operation is safe even against the in-memory fakes, which do not
      * roll back.
      *
+     * Scope tracks the private-area unlock state, mirroring [cashOut]: while
+     * locked ([includePrivate] false) the re-split spans public habits only;
+     * while unlocked ([includePrivate] true) it also spans private habits, so
+     * editing the amount of a private- or mixed-funded claim re-splits over the
+     * banks that funded it rather than shifting a private debit onto public
+     * habits.
+     *
      * @param cashOut The updated cash-out record
+     * @param includePrivate On an amount edit, whether private habits join the
+     *   re-split pot. False (locked) re-splits over public habits only; true
+     *   (unlocked) re-splits over public and private habits.
      * @return true if the update was applied; false for a non-existent id or an
      *   amount edit that does not fit the pot (`newAmount` outside `0 < x <= pot`)
      */
-    suspend fun updateCashOut(cashOut: CashOut): Boolean {
+    suspend fun updateCashOut(cashOut: CashOut, includePrivate: Boolean = false): Boolean {
         val existing = cashOutDao.getById(cashOut.id) ?: return false
 
         if (existing.amount == cashOut.amount) {
@@ -275,12 +285,11 @@ class CashOutRepository(
             return true
         }
 
-        // Amount changed: re-split at current balances over all public habits,
-        // treating this cash-out's own allocations as available again. The edit
-        // re-splits over the public pot only; unlock-scoped re-splitting of a
-        // private-funded cash-out is not yet wired (see MH-9 follow-up note).
+        // Amount changed: re-split at current balances over the in-scope habits,
+        // treating this cash-out's own allocations as available again. Unlock
+        // state decides whether private habits are in scope.
         val spendables = spendablesFor(
-            resolveScope(emptySet(), includePrivate = false),
+            resolveScope(emptySet(), includePrivate),
             excludeCashOutId = cashOut.id
         )
         val potForEdit = spendables.sumOf { it.spendable }
