@@ -11,7 +11,6 @@ import com.oink.app.AppContainer
 import com.oink.app.data.CashOut
 import com.oink.app.data.CashOutRepository
 import com.oink.app.data.CheckInRepository
-import com.oink.app.data.FreezeRepository
 import com.oink.app.data.HabitRepository
 import com.oink.app.data.PinHasher
 import com.oink.app.data.PreferencesRepository
@@ -102,7 +101,6 @@ class RewardsViewModel(
     private val cashOutRepository: CashOutRepository,
     private val checkInRepository: CheckInRepository,
     private val habitRepository: HabitRepository,
-    private val freezeRepository: FreezeRepository,
     private val privateGate: PrivateGate,
     private val preferencesRepository: PreferencesRepository,
     private val defaultDispatcher: CoroutineDispatcher = Dispatchers.Default
@@ -532,7 +530,6 @@ class RewardsViewModel(
                         cashOutRepository = container.cashOutRepository,
                         checkInRepository = container.checkInRepository,
                         habitRepository = container.habitRepository,
-                        freezeRepository = container.freezeRepository,
                         privateGate = container.privateGate,
                         preferencesRepository = container.preferencesRepository
                     )

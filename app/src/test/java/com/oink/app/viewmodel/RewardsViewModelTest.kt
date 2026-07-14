@@ -111,7 +111,6 @@ class RewardsViewModelTest {
         cashOutRepository = cashOutRepository,
         checkInRepository = checkInRepository,
         habitRepository = habitRepository,
-        freezeRepository = freezeRepository,
         privateGate = privateGate,
         preferencesRepository = fakePreferencesRepository,
         defaultDispatcher = testDispatcher
