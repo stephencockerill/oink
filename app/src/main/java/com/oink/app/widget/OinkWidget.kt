@@ -19,6 +19,7 @@ import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
 import androidx.glance.appwidget.provideContent
+import androidx.glance.appwidget.state.getAppWidgetState
 import androidx.glance.appwidget.state.updateAppWidgetState
 import androidx.glance.appwidget.updateAll
 import androidx.glance.background
@@ -40,32 +41,29 @@ import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import com.oink.app.BuildConfig
 import com.oink.app.MainActivity
+import com.oink.app.OinkApplication
 import com.oink.app.R
-import com.oink.app.data.AppDatabase
-import com.oink.app.data.CashOutRepository
-import com.oink.app.data.CheckInRepository
-import com.oink.app.data.DefaultDeductionProvider
-import com.oink.app.data.FreezeRepository
-import com.oink.app.data.HabitRepository
-import com.oink.app.data.HabitRewardProvider
-import com.oink.app.data.RoomTransactionRunner
 import com.oink.app.utils.Formatters
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.time.LocalTime
 
 /**
  * Home screen widget for Oink.
  *
+ * Each widget instance highlights ONE non-private habit, chosen in
+ * [OinkWidgetConfigActivity] and stored as a `habitId` in this instance's Glance
+ * state. It shows that habit's own balance and streak - not the global pot.
+ *
  * Shows:
- * - Current balance (your piggy bank!)
- * - Current streak with escalating intensity
+ * - The habit's emoji + name
+ * - Its spendable balance
+ * - Its streak with escalating intensity
  * - Today's status with time-based urgency
  *
- * Features:
- * - Streak display gets more impressive as streak grows
- * - Background urgency increases throughout the day if not logged
- * - Tapping anywhere opens the app
+ * Safety: [provideGlance] re-validates the stored habit on every render via
+ * [WidgetDataLoader]. If the habit is missing, deleted, or since-toggled
+ * private, it renders a neutral fallback instead, so a private or deleted habit
+ * can never leak onto the launcher.
  *
  * Uses Glance (Jetpack's Compose for widgets) because:
  * 1. Consistent with our Compose-based UI
@@ -83,12 +81,16 @@ class OinkWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         logd { "provideGlance called for widget $id" }
 
-        // Fetch data from database
+        // Read this instance's chosen habit from its own Glance state, then
+        // re-validate + load off the main thread. A null result (no habit chosen,
+        // or the habit is missing/deleted/private) means render the neutral
+        // fallback rather than any habit data.
         val widgetData = withContext(Dispatchers.IO) {
-            getWidgetData(context)
+            val habitId = getAppWidgetState(context, PreferencesGlanceStateDefinition, id)[HABIT_ID_KEY]
+            habitId?.let { loaderFor(context).resolveWidgetData(it) }
         }
 
-        logd { "Widget data: balance=${widgetData.balance}, streak=${widgetData.streak}, exercisedToday=${widgetData.exercisedToday}" }
+        logd { "Widget data: $widgetData" }
 
         provideContent {
             // Read state to establish dependency (forces re-render when state changes)
@@ -97,52 +99,27 @@ class OinkWidget : GlanceAppWidget() {
             logd { "Widget rendering with lastUpdate=$lastUpdate" }
 
             GlanceTheme {
-                WidgetContent(data = widgetData)
+                if (widgetData != null) {
+                    WidgetContent(data = widgetData)
+                } else {
+                    FallbackContent()
+                }
             }
         }
     }
 
-    private suspend fun getWidgetData(context: Context): WidgetData {
-        val database = AppDatabase.getDatabase(context)
-        val habitId = HabitRepository.DEFAULT_HABIT_ID
-        val freezeRepository = FreezeRepository(database.habitDao(), database.frozenDayDao())
-        val habitRepository = HabitRepository(database.habitDao())
-        val checkInRepository = CheckInRepository(
-            database.checkInDao(),
-            HabitRewardProvider(database.habitDao()),
-            DefaultDeductionProvider(
-                database.cashOutDao(),
-                database.cashOutAllocationDao(),
-                freezeRepository
-            )
-        )
-        val cashOutRepository = CashOutRepository(
-            database.cashOutDao(),
-            database.cashOutAllocationDao(),
-            checkInRepository,
-            habitRepository,
-            freezeRepository,
-            RoomTransactionRunner(database)
-        )
-
-        val todayCheckIn = database.checkInDao().getCheckInForDate(habitId, checkInRepository.today().toEpochDay())
-        val streak = checkInRepository.calculateStreak(habitId)
-
-        // The widget lives outside the PIN gate, so it always shows the locked
-        // public pot: the sum of every public habit's spendable balance. This
-        // never leaks a private or mixed claim, and stays correct for a mixed
-        // claim because each public habit's spendable already nets off the public
-        // portion it funded.
-        val actualBalance = cashOutRepository.potOnce(includePrivate = false)
-
-        logd { "getWidgetData: publicPot=$actualBalance, streak=$streak" }
-
-        return WidgetData(
-            balance = actualBalance,
-            streak = streak,
-            checkedInToday = todayCheckIn != null,
-            exercisedToday = todayCheckIn?.didExercise,
-            currentHour = LocalTime.now().hour
+    /**
+     * Build a [WidgetDataLoader] backed by the shared repository graph.
+     *
+     * The widget runs in the app process, so it reuses the singletons from
+     * [AppContainer] rather than constructing its own database and repositories.
+     */
+    private fun loaderFor(context: Context): WidgetDataLoader {
+        val container = (context.applicationContext as OinkApplication).container
+        return WidgetDataLoader(
+            container.habitRepository,
+            container.checkInRepository,
+            container.cashOutRepository
         )
     }
 
@@ -151,6 +128,12 @@ class OinkWidget : GlanceAppWidget() {
 
         // Key for tracking updates - changing this value forces Glance to re-render
         private val LAST_UPDATE_KEY = longPreferencesKey("last_update")
+
+        /**
+         * Per-instance key holding the habit this widget highlights. Written by
+         * [OinkWidgetConfigActivity]; read back in [provideGlance].
+         */
+        internal val HABIT_ID_KEY = longPreferencesKey("habit_id")
 
         /**
          * Log a debug message only in debug builds.
@@ -208,9 +191,11 @@ class OinkWidget : GlanceAppWidget() {
 }
 
 /**
- * Data class for widget display.
+ * Data class for widget display, scoped to the one habit this instance shows.
  */
 data class WidgetData(
+    val habitName: String,
+    val habitEmoji: String,
     val balance: Long,
     val streak: Int,
     val checkedInToday: Boolean,
@@ -354,7 +339,8 @@ private fun WidgetContent(data: WidgetData) {
                 horizontalAlignment = Alignment.Start
             ) {
                 Text(
-                    text = "🐷 Oink",
+                    text = "${data.habitEmoji} ${data.habitName}",
+                    maxLines = 1,
                     style = TextStyle(
                         color = ColorProvider(R.color.widget_text_secondary),
                         fontSize = 11.sp,
@@ -461,6 +447,44 @@ private fun WidgetContent(data: WidgetData) {
                     )
                 }
             }
+        }
+    }
+}
+
+/**
+ * Neutral fallback shown when the widget has no valid habit to display.
+ *
+ * Rendered whenever no habit is chosen yet, or the chosen habit is missing,
+ * deleted, or private. It carries NO habit data - just a neutral prompt - so a
+ * private or deleted habit can never surface here. Tapping opens the app, the
+ * same as a populated widget.
+ */
+@Composable
+private fun FallbackContent() {
+    Box(
+        modifier = GlanceModifier
+            .fillMaxSize()
+            .background(ColorProvider(R.color.widget_urgency_calm))
+            .clickable(actionStartActivity<MainActivity>())
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = "🐷 Oink",
+                style = TextStyle(
+                    color = ColorProvider(R.color.widget_text_secondary),
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            )
+            Text(
+                text = "Tap to choose a habit",
+                style = TextStyle(
+                    color = ColorProvider(R.color.widget_text_secondary),
+                    fontSize = 12.sp
+                )
+            )
         }
     }
 }
