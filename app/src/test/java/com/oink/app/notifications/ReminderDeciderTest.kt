@@ -1,9 +1,17 @@
 package com.oink.app.notifications
 
 import com.oink.app.data.CheckIn
+import com.oink.app.data.CheckInRepository
+import com.oink.app.data.DefaultDeductionProvider
+import com.oink.app.data.FakeCashOutAllocationDao
+import com.oink.app.data.FakeCashOutDao
 import com.oink.app.data.FakeCheckInDao
+import com.oink.app.data.FakeFrozenDayDao
 import com.oink.app.data.FakeHabitDao
+import com.oink.app.data.FreezeRepository
 import com.oink.app.data.Habit
+import com.oink.app.data.HabitRepository
+import com.oink.app.data.HabitRewardProvider
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -39,7 +47,20 @@ class ReminderDeciderTest {
     fun setup() {
         fakeHabitDao = FakeHabitDao()
         fakeCheckInDao = FakeCheckInDao()
-        decider = ReminderDecider(fakeHabitDao, fakeCheckInDao, fixedClock)
+
+        val habitRepository = HabitRepository(fakeHabitDao)
+        val freezeRepository = FreezeRepository(fakeHabitDao, FakeFrozenDayDao())
+        val checkInRepository = CheckInRepository(
+            fakeCheckInDao,
+            HabitRewardProvider(fakeHabitDao),
+            DefaultDeductionProvider(
+                FakeCashOutDao(),
+                FakeCashOutAllocationDao(),
+                freezeRepository
+            ),
+            fixedClock
+        )
+        decider = ReminderDecider(habitRepository, checkInRepository)
     }
 
     private fun completedToday(habitId: Long) = CheckIn(

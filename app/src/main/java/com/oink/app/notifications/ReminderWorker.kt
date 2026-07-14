@@ -3,8 +3,7 @@ package com.oink.app.notifications
 import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.oink.app.data.AppDatabase
-import com.oink.app.data.DataStorePreferencesRepository
+import com.oink.app.OinkApplication
 import com.oink.app.widget.OinkWidget
 import kotlinx.coroutines.flow.first
 
@@ -33,8 +32,8 @@ class ReminderWorker(
         // Fire the single global reminder if any non-private habit still has
         // outstanding work today. The aggregate decision lives in ReminderDecider
         // so it is unit-testable without a WorkManager harness.
-        val database = AppDatabase.getDatabase(applicationContext)
-        val decider = ReminderDecider(database.habitDao(), database.checkInDao())
+        val container = (applicationContext as OinkApplication).container
+        val decider = ReminderDecider(container.habitRepository, container.checkInRepository)
         if (decider.shouldRemind()) {
             NotificationHelper.showDailyReminder(applicationContext)
         }
@@ -45,7 +44,7 @@ class ReminderWorker(
         // Reschedule the next day's run anchored to the wall-clock target time.
         // Reading preferences here keeps them the single source of truth: if the
         // user disabled reminders, we stop; if they changed the time, we honor it.
-        val prefs = DataStorePreferencesRepository(applicationContext).userPreferences.first()
+        val prefs = container.preferencesRepository.userPreferences.first()
         if (prefs.remindersEnabled) {
             ReminderScheduler.scheduleDailyReminder(
                 applicationContext,

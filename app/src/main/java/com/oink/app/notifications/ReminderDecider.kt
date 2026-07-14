@@ -1,9 +1,7 @@
 package com.oink.app.notifications
 
-import com.oink.app.data.CheckInDao
-import com.oink.app.data.HabitDao
-import java.time.Clock
-import java.time.LocalDate
+import com.oink.app.data.CheckInRepository
+import com.oink.app.data.HabitRepository
 
 /**
  * Decides whether the single global daily reminder should fire.
@@ -19,14 +17,16 @@ import java.time.LocalDate
  * rule 4), and this global nudge is a public surface, so a pending private habit
  * must never be the reason a reminder fires.
  *
+ * "Today" comes from [CheckInRepository.today] so there is one authoritative
+ * source of the current date across the app.
+ *
  * This lives outside [ReminderWorker] so the decision is a plain suspend function,
- * unit-testable with the DAO fakes and no WorkManager harness - mirroring
+ * unit-testable with the repository fakes and no WorkManager harness - mirroring
  * [com.oink.app.widget.WidgetDataLoader].
  */
 class ReminderDecider(
-    private val habitDao: HabitDao,
-    private val checkInDao: CheckInDao,
-    private val clock: Clock = Clock.systemDefaultZone()
+    private val habitRepository: HabitRepository,
+    private val checkInRepository: CheckInRepository
 ) {
 
     /**
@@ -37,11 +37,11 @@ class ReminderDecider(
      * when there are no non-private habits.
      */
     suspend fun shouldRemind(): Boolean {
-        val todayEpochDay = LocalDate.now(clock).toEpochDay()
-        return habitDao.getAllHabits()
+        val today = checkInRepository.today()
+        return habitRepository.getAllHabits()
             .filter { !it.isPrivate }
             .any { habit ->
-                val checkIn = checkInDao.getCheckInForDate(habit.id, todayEpochDay)
+                val checkIn = checkInRepository.getCheckInForDate(today, habit.id)
                 checkIn == null || !checkIn.didSucceed
             }
     }
