@@ -162,15 +162,15 @@ class MainViewModelTest {
     }
 
     @Test
-    fun `initial exerciseReward should be default`() = runTest {
+    fun `initial dailyReward should be default`() = runTest {
         advanceUntilIdle()
-        assertEquals(PreferencesRepository.DEFAULT_EXERCISE_REWARD, viewModel.exerciseReward.value)
+        assertEquals(PreferencesRepository.DEFAULT_DAILY_REWARD, viewModel.dailyReward.value)
     }
 
     @Test
     fun `initial freezeCost should be 2x default reward`() = runTest {
         advanceUntilIdle()
-        assertEquals(PreferencesRepository.DEFAULT_EXERCISE_REWARD * 2, viewModel.freezeCost.value)
+        assertEquals(PreferencesRepository.DEFAULT_DAILY_REWARD * 2, viewModel.freezeCost.value)
     }
 
     @Test
@@ -238,7 +238,7 @@ class MainViewModelTest {
         advanceUntilIdle()
         assertEquals(0, viewModel.streak.value)
 
-        viewModel.recordTodayCheckIn(didExercise = true)
+        viewModel.recordTodayCheckIn(completed = true)
         advanceUntilIdle()
 
         assertEquals(1, viewModel.streak.value)
@@ -257,17 +257,17 @@ class MainViewModelTest {
     }
 
     @Test
-    fun `exercisePreview updates reactively after a check-in raises balance`() = runTest {
-        backgroundScope.launch { viewModel.exercisePreview.collect {} }
+    fun `completedPreview updates reactively after a check-in raises balance`() = runTest {
+        backgroundScope.launch { viewModel.completedPreview.collect {} }
         advanceUntilIdle()
-        // From a zero balance, exercising today would reach one reward.
-        assertEquals(PreferencesRepository.DEFAULT_EXERCISE_REWARD, viewModel.exercisePreview.value)
+        // From a zero balance, completing today would reach one reward.
+        assertEquals(PreferencesRepository.DEFAULT_DAILY_REWARD, viewModel.completedPreview.value)
 
-        viewModel.recordTodayCheckIn(didExercise = true)
+        viewModel.recordTodayCheckIn(completed = true)
         advanceUntilIdle()
 
-        // Balance is now one reward, so exercising again previews two rewards.
-        assertEquals(PreferencesRepository.DEFAULT_EXERCISE_REWARD * 2, viewModel.exercisePreview.value)
+        // Balance is now one reward, so completing again previews two rewards.
+        assertEquals(PreferencesRepository.DEFAULT_DAILY_REWARD * 2, viewModel.completedPreview.value)
     }
 
     // ============================================================
@@ -283,11 +283,11 @@ class MainViewModelTest {
         backgroundScope.launch { vmA.currentBalance.collect {} }
         advanceUntilIdle()
 
-        vmA.recordTodayCheckIn(didExercise = true)
+        vmA.recordTodayCheckIn(completed = true)
         advanceUntilIdle()
 
         // Habit A earned one reward; its spendable balance reflects only itself.
-        assertEquals(PreferencesRepository.DEFAULT_EXERCISE_REWARD, vmA.currentBalance.value)
+        assertEquals(PreferencesRepository.DEFAULT_DAILY_REWARD, vmA.currentBalance.value)
     }
 
     @Test
@@ -300,11 +300,11 @@ class MainViewModelTest {
         backgroundScope.launch { vmB.streak.collect {} }
         advanceUntilIdle()
 
-        vmA.recordTodayCheckIn(didExercise = true)
+        vmA.recordTodayCheckIn(completed = true)
         advanceUntilIdle()
 
         // Habit A moved...
-        assertEquals(PreferencesRepository.DEFAULT_EXERCISE_REWARD, vmA.currentBalance.value)
+        assertEquals(PreferencesRepository.DEFAULT_DAILY_REWARD, vmA.currentBalance.value)
         assertEquals(1, vmA.streak.value)
         // ...habit B did not.
         assertEquals(0L, vmB.currentBalance.value)

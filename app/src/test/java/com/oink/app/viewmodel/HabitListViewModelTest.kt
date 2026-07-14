@@ -107,13 +107,13 @@ class HabitListViewModelTest {
             Habit(id = 2L, name = "Meditate", emoji = "🧘", sortOrder = 1),
             Habit(id = 3L, name = "Secret", emoji = "🤫", isPrivate = true, sortOrder = 2)
         )
-        // Habit 1: one workout today -> spendable = one reward, streak 1.
-        checkInRepository.recordCheckIn(checkInRepository.today(), didExercise = true, habitId = 1L)
-        // Habit 2: two workouts (yesterday + today) -> spendable = two rewards, streak 2.
-        checkInRepository.recordCheckIn(checkInRepository.today().minusDays(1), didExercise = true, habitId = 2L)
-        checkInRepository.recordCheckIn(checkInRepository.today(), didExercise = true, habitId = 2L)
+        // Habit 1: one completed day today -> spendable = one reward, streak 1.
+        checkInRepository.recordCheckIn(checkInRepository.today(), completed = true, habitId = 1L)
+        // Habit 2: two completed days (yesterday + today) -> spendable = two rewards, streak 2.
+        checkInRepository.recordCheckIn(checkInRepository.today().minusDays(1), completed = true, habitId = 2L)
+        checkInRepository.recordCheckIn(checkInRepository.today(), completed = true, habitId = 2L)
         // Private habit has a balance too, but must be excluded from the list.
-        checkInRepository.recordCheckIn(checkInRepository.today(), didExercise = true, habitId = 3L)
+        checkInRepository.recordCheckIn(checkInRepository.today(), completed = true, habitId = 3L)
 
         val viewModel = createViewModel()
         backgroundScope.launch { viewModel.habitCards.collect {} }
@@ -122,13 +122,13 @@ class HabitListViewModelTest {
         val cards = viewModel.habitCards.value
         assertEquals(listOf(1L, 2L), cards.map { it.id })
 
-        val workout = cards.first { it.id == 1L }
-        assertEquals(PreferencesRepository.DEFAULT_EXERCISE_REWARD, workout.spendable)
-        assertEquals(1, workout.streak)
-        assertEquals("Workout", workout.name)
+        val firstHabit = cards.first { it.id == 1L }
+        assertEquals(PreferencesRepository.DEFAULT_DAILY_REWARD, firstHabit.spendable)
+        assertEquals(1, firstHabit.streak)
+        assertEquals("Workout", firstHabit.name)
 
         val meditate = cards.first { it.id == 2L }
-        assertEquals(PreferencesRepository.DEFAULT_EXERCISE_REWARD * 2, meditate.spendable)
+        assertEquals(PreferencesRepository.DEFAULT_DAILY_REWARD * 2, meditate.spendable)
         assertEquals(2, meditate.streak)
     }
 
@@ -139,17 +139,17 @@ class HabitListViewModelTest {
             Habit(id = 2L, name = "Meditate", sortOrder = 1),
             Habit(id = 3L, name = "Secret", isPrivate = true, sortOrder = 2)
         )
-        checkInRepository.recordCheckIn(checkInRepository.today(), didExercise = true, habitId = 1L)
-        checkInRepository.recordCheckIn(checkInRepository.today(), didExercise = true, habitId = 2L)
+        checkInRepository.recordCheckIn(checkInRepository.today(), completed = true, habitId = 1L)
+        checkInRepository.recordCheckIn(checkInRepository.today(), completed = true, habitId = 2L)
         // Private habit funds nothing that should appear in the shared bank.
-        checkInRepository.recordCheckIn(checkInRepository.today(), didExercise = true, habitId = 3L)
+        checkInRepository.recordCheckIn(checkInRepository.today(), completed = true, habitId = 3L)
 
         val viewModel = createViewModel()
         backgroundScope.launch { viewModel.overallBank.collect {} }
         advanceUntilIdle()
 
         // Two public habits at one reward each; the private habit is excluded.
-        assertEquals(PreferencesRepository.DEFAULT_EXERCISE_REWARD * 2, viewModel.overallBank.value)
+        assertEquals(PreferencesRepository.DEFAULT_DAILY_REWARD * 2, viewModel.overallBank.value)
     }
 
     @Test

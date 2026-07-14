@@ -75,6 +75,7 @@ import com.oink.app.ui.theme.OinkTeal
 import com.oink.app.ui.theme.OinkTealContainer
 import com.oink.app.ui.theme.OinkWarning
 import com.oink.app.utils.Formatters
+import com.oink.app.utils.HabitCopy
 import com.oink.app.viewmodel.MainViewModel
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -102,7 +103,7 @@ fun HabitDetailScreen(
     val balance by viewModel.currentBalance.collectAsStateWithLifecycle()
     val todayCheckIn by viewModel.todayCheckIn.collectAsStateWithLifecycle()
     val streak by viewModel.streak.collectAsStateWithLifecycle()
-    val exercisePreview by viewModel.exercisePreview.collectAsStateWithLifecycle()
+    val completedPreview by viewModel.completedPreview.collectAsStateWithLifecycle()
     val missPreview by viewModel.missPreview.collectAsStateWithLifecycle()
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
     val error by viewModel.error.collectAsStateWithLifecycle()
@@ -211,11 +212,11 @@ fun HabitDetailScreen(
             // Check-in section
             CheckInSection(
                 todayCheckIn = todayCheckIn,
-                exercisePreview = exercisePreview,
+                completedPreview = completedPreview,
                 missPreview = missPreview,
                 isLoading = isLoading,
-                onCheckIn = { didExercise ->
-                    viewModel.recordTodayCheckIn(didExercise)
+                onCheckIn = { completed ->
+                    viewModel.recordTodayCheckIn(completed)
                 }
             )
 
@@ -476,7 +477,7 @@ private fun FreezePromptCard(
 @Composable
 private fun CheckInSection(
     todayCheckIn: com.oink.app.data.CheckIn?,
-    exercisePreview: Long,
+    completedPreview: Long,
     missPreview: Long,
     isLoading: Boolean,
     onCheckIn: (Boolean) -> Unit
@@ -498,7 +499,7 @@ private fun CheckInSection(
             if (todayCheckIn == null) {
                 // Not checked in yet - show question and buttons
                 Text(
-                    text = "Did you exercise today?",
+                    text = HabitCopy.CHECK_IN_PROMPT,
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Medium,
                     textAlign = TextAlign.Center
@@ -508,7 +509,7 @@ private fun CheckInSection(
 
                 // Preview what happens with each choice
                 PreviewSection(
-                    exercisePreview = exercisePreview,
+                    completedPreview = completedPreview,
                     missPreview = missPreview
                 )
 
@@ -572,7 +573,7 @@ private fun CheckInSection(
                 }
             } else {
                 // Already checked in - show status
-                CheckInStatus(didExercise = todayCheckIn.didExercise)
+                CheckInStatus(completed = todayCheckIn.completed)
 
                 Spacer(modifier = Modifier.height(16.dp))
 
@@ -586,12 +587,12 @@ private fun CheckInSection(
 
                 // Show change button
                 OutlinedButton(
-                    onClick = { onCheckIn(!todayCheckIn.didExercise) },
+                    onClick = { onCheckIn(!todayCheckIn.completed) },
                     enabled = !isLoading,
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Text(
-                        text = if (todayCheckIn.didExercise) "Actually, I didn't exercise" else "Wait, I did exercise!",
+                        text = if (todayCheckIn.completed) HabitCopy.UNDO_DONE else HabitCopy.UNDO_REST,
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }
@@ -606,14 +607,14 @@ private fun CheckInSection(
  */
 @Composable
 private fun PreviewSection(
-    exercisePreview: Long,
+    completedPreview: Long,
     missPreview: Long
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceEvenly
     ) {
-        // Exercise preview - teal to match YES button
+        // Completed preview - teal to match YES button
         Column(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -628,13 +629,13 @@ private fun PreviewSection(
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
-                    text = "Exercise",
+                    text = HabitCopy.PREVIEW_DONE,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                 )
             }
             Text(
-                text = Formatters.formatCurrency(exercisePreview),
+                text = Formatters.formatCurrency(completedPreview),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = OinkTeal
@@ -681,12 +682,12 @@ private fun PreviewSection(
 
 /**
  * Status display for when user has already checked in.
- * Teal for exercise, subtle gray for rest day.
+ * Teal for a completed day, subtle gray for an off day.
  */
 @Composable
-private fun CheckInStatus(didExercise: Boolean) {
+private fun CheckInStatus(completed: Boolean) {
     val backgroundColor by animateColorAsState(
-        targetValue = if (didExercise) {
+        targetValue = if (completed) {
             OinkTealContainer
         } else {
             MaterialTheme.colorScheme.surfaceVariant
@@ -694,7 +695,7 @@ private fun CheckInStatus(didExercise: Boolean) {
         label = "status_bg_color"
     )
 
-    val contentColor = if (didExercise) {
+    val contentColor = if (completed) {
         OinkTeal
     } else {
         MaterialTheme.colorScheme.onSurfaceVariant
@@ -718,7 +719,7 @@ private fun CheckInStatus(didExercise: Boolean) {
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = if (didExercise) Icons.Default.Check else Icons.Default.Close,
+                    imageVector = if (completed) Icons.Default.Check else Icons.Default.Close,
                     contentDescription = null,
                     modifier = Modifier.size(28.dp),
                     tint = contentColor
@@ -729,13 +730,13 @@ private fun CheckInStatus(didExercise: Boolean) {
 
             Column {
                 Text(
-                    text = if (didExercise) "Crushed it! 💪" else "Rest day",
+                    text = if (completed) HabitCopy.DONE else HabitCopy.REST,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = contentColor
                 )
                 Text(
-                    text = if (didExercise) "You exercised today" else "Tomorrow's another chance",
+                    text = if (completed) HabitCopy.DONE_SUBTITLE else HabitCopy.REST_SUBTITLE,
                     style = MaterialTheme.typography.bodyMedium,
                     color = contentColor.copy(alpha = 0.8f)
                 )

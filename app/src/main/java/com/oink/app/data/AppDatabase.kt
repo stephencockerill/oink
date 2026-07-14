@@ -25,6 +25,11 @@ import androidx.sqlite.db.SupportSQLiteDatabase
  *       drops its per-cash-out exerciseRewardAtTime, which is captured into one
  *       CashOutAllocation per legacy cash-out. [MIGRATION_3_4] seeds the single
  *       default habit (id = 1, "Workout") and migrates all existing rows under it.
+ * - v5: Neutral column names. check_ins.didExercise -> completed and
+ *       check_ins.exerciseRewardAtTime -> rewardAtTime;
+ *       cash_out_allocations.exerciseRewardAtTime -> rewardAtTime.
+ *       [MIGRATION_4_5] renames them by rebuilding each table, since SQLite
+ *       before 3.25 (Android API < 30) has no ALTER TABLE RENAME COLUMN.
  *
  * IMPORTANT: When bumping the version, add a migration!
  * Never use fallbackToDestructiveMigration() in production - it wipes user data.
@@ -37,7 +42,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         FrozenDay::class,
         CashOutAllocation::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -67,7 +72,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "oink_database"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                     .build()
                 INSTANCE = instance
                 instance
@@ -299,6 +304,90 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL(
                     "CREATE UNIQUE INDEX IF NOT EXISTS `index_frozen_days_habitId_date` " +
                         "ON `frozen_days` (`habitId`, `date`)"
+                )
+            }
+        }
+
+        /**
+         * v4 -> v5: neutral column names.
+         *
+         * Renames `check_ins.didExercise` -> `completed`,
+         * `check_ins.exerciseRewardAtTime` -> `rewardAtTime`, and
+         * `cash_out_allocations.exerciseRewardAtTime` -> `rewardAtTime`.
+         *
+         * SQLite gained `ALTER TABLE ... RENAME COLUMN` only in 3.25 (Android
+         * API 30), so on the app's `minSdk` 26 - and on Room's bundled framework
+         * SQLite - a RENAME COLUMN would crash. Each table is therefore renamed
+         * by rebuilding it with the create-`_new` / copy / drop / rename idiom
+         * used by [MIGRATION_1_2], preserving primary keys, indices, foreign
+         * keys (with CASCADE), the `habitId` default, and every value - the
+         * money columns copy across faithfully.
+         *
+         * Neither table is referenced by another, so dropping each cannot
+         * cascade, and rebuilt rows keep their original ids so the
+         * `cash_out_allocations` foreign keys into `cash_outs` and `habits` stay
+         * satisfied.
+         */
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // check_ins: didExercise -> completed, exerciseRewardAtTime ->
+                // rewardAtTime. Nothing references check_ins, so the drop cannot
+                // cascade.
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `check_ins_new` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`date` INTEGER NOT NULL, " +
+                        "`completed` INTEGER NOT NULL, " +
+                        "`balanceAfter` INTEGER NOT NULL, " +
+                        "`rewardAtTime` INTEGER NOT NULL, " +
+                        "`habitId` INTEGER NOT NULL DEFAULT 1, " +
+                        "FOREIGN KEY(`habitId`) REFERENCES `habits`(`id`) " +
+                        "ON UPDATE NO ACTION ON DELETE CASCADE)"
+                )
+                db.execSQL(
+                    "INSERT INTO `check_ins_new` " +
+                        "(`id`, `date`, `completed`, `balanceAfter`, `rewardAtTime`, `habitId`) " +
+                        "SELECT `id`, `date`, `didExercise`, `balanceAfter`, `exerciseRewardAtTime`, `habitId` " +
+                        "FROM `check_ins`"
+                )
+                db.execSQL("DROP TABLE `check_ins`")
+                db.execSQL("ALTER TABLE `check_ins_new` RENAME TO `check_ins`")
+                db.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS `index_check_ins_habitId_date` " +
+                        "ON `check_ins` (`habitId`, `date`)"
+                )
+
+                // cash_out_allocations: exerciseRewardAtTime -> rewardAtTime.
+                // Nothing references it, so the drop cannot cascade; ids are
+                // preserved so its foreign keys stay satisfied.
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `cash_out_allocations_new` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`cashOutId` INTEGER NOT NULL, " +
+                        "`habitId` INTEGER NOT NULL, " +
+                        "`amount` INTEGER NOT NULL, " +
+                        "`rewardAtTime` INTEGER NOT NULL, " +
+                        "FOREIGN KEY(`cashOutId`) REFERENCES `cash_outs`(`id`) " +
+                        "ON UPDATE NO ACTION ON DELETE CASCADE, " +
+                        "FOREIGN KEY(`habitId`) REFERENCES `habits`(`id`) " +
+                        "ON UPDATE NO ACTION ON DELETE CASCADE)"
+                )
+                db.execSQL(
+                    "INSERT INTO `cash_out_allocations_new` " +
+                        "(`id`, `cashOutId`, `habitId`, `amount`, `rewardAtTime`) " +
+                        "SELECT `id`, `cashOutId`, `habitId`, `amount`, `exerciseRewardAtTime` " +
+                        "FROM `cash_out_allocations`"
+                )
+                db.execSQL("DROP TABLE `cash_out_allocations`")
+                db.execSQL("ALTER TABLE `cash_out_allocations_new` RENAME TO `cash_out_allocations`")
+                db.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS " +
+                        "`index_cash_out_allocations_cashOutId_habitId` " +
+                        "ON `cash_out_allocations` (`cashOutId`, `habitId`)"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_cash_out_allocations_habitId` " +
+                        "ON `cash_out_allocations` (`habitId`)"
                 )
             }
         }

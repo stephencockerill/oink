@@ -31,7 +31,7 @@ interface PreferencesRepository {
 
     companion object {
         const val MAX_FREEZES = 2
-        const val DEFAULT_EXERCISE_REWARD = 500L // cents ($5.00)
+        const val DEFAULT_DAILY_REWARD = 500L // cents ($5.00)
 
         // Common reward amount options for the settings UI, in cents
         val REWARD_OPTIONS = listOf(100L, 200L, 500L, 1000L, 2000L)

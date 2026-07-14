@@ -140,23 +140,23 @@ class MainViewModel(
      * This habit's per-day reward, in cents. Sourced from [Habit.rewardValue],
      * the single source of truth, so a settings edit flows straight through.
      */
-    val exerciseReward: StateFlow<Long> = habitRepository.habit(habitId)
-        .map { it?.rewardValue ?: PreferencesRepository.DEFAULT_EXERCISE_REWARD }
+    val dailyReward: StateFlow<Long> = habitRepository.habit(habitId)
+        .map { it?.rewardValue ?: PreferencesRepository.DEFAULT_DAILY_REWARD }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
-            initialValue = PreferencesRepository.DEFAULT_EXERCISE_REWARD
+            initialValue = PreferencesRepository.DEFAULT_DAILY_REWARD
         )
 
     /**
      * Freeze cost (2x this habit's reward), in cents.
      */
     val freezeCost: StateFlow<Long> = habitRepository.habit(habitId)
-        .map { (it?.rewardValue ?: PreferencesRepository.DEFAULT_EXERCISE_REWARD) * 2 }
+        .map { (it?.rewardValue ?: PreferencesRepository.DEFAULT_DAILY_REWARD) * 2 }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
-            initialValue = PreferencesRepository.DEFAULT_EXERCISE_REWARD * 2
+            initialValue = PreferencesRepository.DEFAULT_DAILY_REWARD * 2
         )
 
     /**
@@ -204,19 +204,19 @@ class MainViewModel(
     )
 
     /**
-     * Preview of what the spendable balance would be if the user exercises.
+     * Preview of what the spendable balance would be if the user completes today.
      *
      * Actual preview = raw preview - total deductions (cash-outs + freeze
      * spending), floored at zero.
      */
-    val exercisePreview: StateFlow<Long> = combine(
+    val completedPreview: StateFlow<Long> = combine(
         repository.currentBalance(habitId),
-        exerciseReward,
+        dailyReward,
         cashOutRepository.allocatedForHabit(habitId),
         freezeRepository.totalFreezeSpending(habitId)
     ) { rawBalance, reward, allocated, freezeSpending ->
         val deductions = allocated + freezeSpending
-        val rawPreview = repository.previewExerciseBalance(rawBalance, reward, deductions)
+        val rawPreview = repository.previewCompletedBalance(rawBalance, reward, deductions)
         (rawPreview - deductions).coerceAtLeast(0L)
     }.stateIn(
         scope = viewModelScope,
@@ -262,7 +262,7 @@ class MainViewModel(
 
     /**
      * Purchase a streak freeze.
-     * Freezes are FREE to acquire but cost 2x exercise reward to USE.
+     * Freezes are FREE to acquire but cost 2x daily reward to USE.
      * Max 2 freezes at a time.
      *
      * Results are observed through:
@@ -287,7 +287,7 @@ class MainViewModel(
 
     /**
      * Use a freeze for a missed day.
-     * This costs 2x exercise reward from balance and preserves the streak.
+     * This costs 2x daily reward from balance and preserves the streak.
      *
      * The cost is tracked separately as "freeze spending" rather than
      * being deducted from check-in balances. This prevents the bug where
@@ -345,10 +345,10 @@ class MainViewModel(
     /**
      * Record a check-in for today.
      *
-     * @param didExercise Whether the user exercised today
+     * @param completed Whether the habit was completed today
      */
-    fun recordTodayCheckIn(didExercise: Boolean) {
-        recordCheckIn(repository.today(), didExercise)
+    fun recordTodayCheckIn(completed: Boolean) {
+        recordCheckIn(repository.today(), completed)
     }
 
     /**
@@ -356,9 +356,9 @@ class MainViewModel(
      * This allows retroactive logging.
      *
      * @param date The date to record the check-in for
-     * @param didExercise Whether the user exercised on that date
+     * @param completed Whether the habit was completed on that date
      */
-    fun recordCheckIn(date: LocalDate, didExercise: Boolean) {
+    fun recordCheckIn(date: LocalDate, completed: Boolean) {
         viewModelScope.launch {
             _isLoading.value = true
             _error.value = null
@@ -367,7 +367,7 @@ class MainViewModel(
                 // Wrap the critical operations in NonCancellable so they complete
                 // even if user presses home button immediately after tapping
                 kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
-                    repository.recordCheckIn(date, didExercise, habitId)
+                    repository.recordCheckIn(date, completed, habitId)
                     // Update widget IMMEDIATELY after DB write.
                     // This ensures widget gets updated even if user exits fast.
                     // UI state (streak, previews, balance) updates reactively
@@ -386,12 +386,12 @@ class MainViewModel(
      * Bulk record check-ins for multiple dates.
      *
      * Used for calendar multi-select feature. Marks all selected dates
-     * as either exercised or missed in one operation.
+     * as either completed or missed in one operation.
      *
      * @param dates Set of dates to update
-     * @param didExercise Whether these days were exercise days
+     * @param completed Whether these days were completed
      */
-    fun bulkRecordCheckIns(dates: Set<LocalDate>, didExercise: Boolean) {
+    fun bulkRecordCheckIns(dates: Set<LocalDate>, completed: Boolean) {
         if (dates.isEmpty()) return
 
         viewModelScope.launch {
@@ -400,7 +400,7 @@ class MainViewModel(
 
             try {
                 kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
-                    repository.bulkRecordCheckIns(dates, didExercise, habitId)
+                    repository.bulkRecordCheckIns(dates, completed, habitId)
                     updateWidget()
                 }
             } catch (e: Exception) {

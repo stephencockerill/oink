@@ -44,6 +44,8 @@ import com.oink.app.MainActivity
 import com.oink.app.OinkApplication
 import com.oink.app.R
 import com.oink.app.utils.Formatters
+import com.oink.app.utils.HabitCopy
+import com.oink.app.utils.UrgencyLevel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -199,19 +201,9 @@ data class WidgetData(
     val balance: Long,
     val streak: Int,
     val checkedInToday: Boolean,
-    val exercisedToday: Boolean?,
+    val completedToday: Boolean?,
     val currentHour: Int
 )
-
-/**
- * Urgency level based on time of day and whether user has logged.
- */
-enum class UrgencyLevel {
-    CALM,       // Logged, or early morning (before noon)
-    NUDGE,      // Not logged, afternoon (12pm-5pm)
-    WARN,       // Not logged, evening (5pm-9pm)
-    CRITICAL    // Not logged, night (after 9pm)
-}
 
 /**
  * Streak tier for escalating display intensity.
@@ -292,17 +284,6 @@ private fun getUrgencyIndicator(urgency: UrgencyLevel): String = when (urgency) 
     UrgencyLevel.NUDGE -> ""          // CTA is enough
     UrgencyLevel.WARN -> "⏰"
     UrgencyLevel.CRITICAL -> ""       // Emoji in CTA
-}
-
-/**
- * Get call-to-action text based on urgency.
- * Encouraging but increasingly urgent as the day goes on.
- */
-private fun getCtaText(urgency: UrgencyLevel): String = when (urgency) {
-    UrgencyLevel.CALM -> "🐷 Log your workout"
-    UrgencyLevel.NUDGE -> "Time to sweat!"
-    UrgencyLevel.WARN -> "Don't break the streak!"
-    UrgencyLevel.CRITICAL -> "⚡ LOG NOW!"
 }
 
 /**
@@ -420,15 +401,15 @@ private fun WidgetContent(data: WidgetData) {
                     }
                     Text(
                         text = when {
-                            data.exercisedToday == true -> "💪 Crushed it!"
-                            data.exercisedToday == false -> "😴 Rest day"
-                            else -> getCtaText(urgencyLevel)
+                            data.completedToday == true -> HabitCopy.DONE
+                            data.completedToday == false -> HabitCopy.REST
+                            else -> HabitCopy.cta(urgencyLevel)
                         },
                         style = TextStyle(
                             color = ColorProvider(
                                 when {
-                                    data.exercisedToday == true -> R.color.widget_success
-                                    data.exercisedToday == false -> R.color.widget_text_secondary
+                                    data.completedToday == true -> R.color.widget_success
+                                    data.completedToday == false -> R.color.widget_text_secondary
                                     urgencyLevel == UrgencyLevel.CRITICAL -> R.color.widget_error
                                     urgencyLevel == UrgencyLevel.WARN -> R.color.widget_error
                                     else -> R.color.widget_text_secondary

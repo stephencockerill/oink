@@ -57,6 +57,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.oink.app.data.PreferencesRepository
 import com.oink.app.utils.Formatters
+import com.oink.app.utils.HabitCopy
 import com.oink.app.viewmodel.SettingsViewModel
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
@@ -78,7 +79,7 @@ fun SettingsScreen(
     onNavigateBack: () -> Unit
 ) {
     val userPreferences by settingsViewModel.userPreferences.collectAsStateWithLifecycle()
-    val exerciseReward by settingsViewModel.exerciseReward.collectAsStateWithLifecycle()
+    val dailyReward by settingsViewModel.dailyReward.collectAsStateWithLifecycle()
     val availableFreezes by settingsViewModel.availableFreezes.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
@@ -141,7 +142,7 @@ fun SettingsScreen(
                     },
                     title = "Daily Reminder",
                     subtitle = if (userPreferences.remindersEnabled) {
-                        "We'll remind you to log your workout"
+                        "We'll remind you to check in"
                     } else {
                         "Enable to get daily check-in reminders"
                     },
@@ -198,13 +199,13 @@ fun SettingsScreen(
                     modifier = Modifier.padding(16.dp)
                 ) {
                     Text(
-                        text = "Workout Reward",
+                        text = "Daily Reward",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Medium
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "How much you earn per workout",
+                        text = HabitCopy.REWARD_DESCRIPTION,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                     )
@@ -216,10 +217,10 @@ fun SettingsScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         PreferencesRepository.REWARD_OPTIONS.forEach { amount ->
-                            val isSelected = exerciseReward == amount
+                            val isSelected = dailyReward == amount
                             androidx.compose.material3.FilterChip(
                                 selected = isSelected,
-                                onClick = { settingsViewModel.setExerciseReward(amount) },
+                                onClick = { settingsViewModel.setDailyReward(amount) },
                                 label = {
                                     Text(
                                         text = "\$${amount / 100}",
@@ -232,7 +233,7 @@ fun SettingsScreen(
 
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Miss a day = balance halved. Freeze cost = 2× reward (${Formatters.formatCurrency(exerciseReward * 2)}).",
+                        text = "Miss a day = balance halved. Freeze cost = 2× reward (${Formatters.formatCurrency(dailyReward * 2)}).",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                     )
@@ -300,7 +301,7 @@ fun SettingsScreen(
 
                     Text(
                         text = "Freezes protect your streak when you miss a day. " +
-                                "Using a freeze costs ${Formatters.formatCurrency(exerciseReward * 2)} from your balance.",
+                                "Using a freeze costs ${Formatters.formatCurrency(dailyReward * 2)} from your balance.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                     )
@@ -331,7 +332,7 @@ fun SettingsScreen(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Fill your piggy bank, one workout at a time. 🐷💪",
+                        text = "Fill your piggy bank, one day at a time. 🐷💪",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                     )

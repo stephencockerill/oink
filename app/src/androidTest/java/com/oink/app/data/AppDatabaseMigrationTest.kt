@@ -206,6 +206,83 @@ class AppDatabaseMigrationTest {
         }
     }
 
+    /**
+     * v4 -> v5: neutral column names.
+     *
+     * Seeds a v4 database (a habit, a cash-out, two check-ins with
+     * completed=true/false, and one allocation) carrying the old column names
+     * `didExercise` and `exerciseRewardAtTime`, runs [AppDatabase.MIGRATION_4_5],
+     * validates the v5 schema, and asserts every row survives under the new
+     * `completed` / `rewardAtTime` names with its money values intact.
+     */
+    @Test
+    @Throws(IOException::class)
+    fun migrate4To5_renamesColumnsPreservingData() {
+        helper.createDatabase(TEST_DB, 4).apply {
+            execSQL(
+                "INSERT INTO habits " +
+                    "(id, name, emoji, rewardValue, availableFreezes, " +
+                    "totalFreezeSpending, isPrivate, sortOrder, createdAt) " +
+                    "VALUES (1, 'Workout', '🏋️', 500, 0, 0, 0, 0, 1700000000000)"
+            )
+            execSQL(
+                "INSERT INTO cash_outs " +
+                    "(id, name, amount, emoji, cashedOutAt, balanceBefore, balanceAfter) " +
+                    "VALUES (1, 'Darts', 2500, '🎯', 1700000000000, 5000, 2500)"
+            )
+            execSQL(
+                "INSERT INTO check_ins (id, date, didExercise, balanceAfter, exerciseRewardAtTime, habitId) " +
+                    "VALUES (1, 20000, 1, 1234, 500, 1), (2, 20001, 0, 617, 700, 1)"
+            )
+            execSQL(
+                "INSERT INTO cash_out_allocations " +
+                    "(id, cashOutId, habitId, amount, exerciseRewardAtTime) " +
+                    "VALUES (1, 1, 1, 2500, 500)"
+            )
+            close()
+        }
+
+        val db = helper.runMigrationsAndValidate(TEST_DB, 5, true, AppDatabase.MIGRATION_4_5)
+
+        // check_ins: didExercise -> completed, exerciseRewardAtTime ->
+        // rewardAtTime; balances and rewards preserved.
+        db.query("SELECT completed, balanceAfter, rewardAtTime, habitId FROM check_ins ORDER BY id")
+            .use { cursor ->
+                assertEquals(2, cursor.getCount())
+                assertTrue(cursor.moveToFirst())
+                assertEquals(1L, cursor.getLong(0)) // completed = true
+                assertEquals(1234L, cursor.getLong(1))
+                assertEquals(500L, cursor.getLong(2))
+                assertEquals(1L, cursor.getLong(3))
+                assertTrue(cursor.moveToNext())
+                assertEquals(0L, cursor.getLong(0)) // completed = false
+                assertEquals(617L, cursor.getLong(1))
+                assertEquals(700L, cursor.getLong(2))
+                assertEquals(1L, cursor.getLong(3))
+            }
+
+        // cash_out_allocations: exerciseRewardAtTime -> rewardAtTime; amount and
+        // captured reward preserved.
+        db.query("SELECT cashOutId, habitId, amount, rewardAtTime FROM cash_out_allocations")
+            .use { cursor ->
+                assertEquals(1, cursor.getCount())
+                assertTrue(cursor.moveToFirst())
+                assertEquals(1L, cursor.getLong(0))
+                assertEquals(1L, cursor.getLong(1))
+                assertEquals(2500L, cursor.getLong(2))
+                assertEquals(500L, cursor.getLong(3))
+            }
+
+        // check_ins unique index is still (habitId, date).
+        db.query("PRAGMA index_info(`index_check_ins_habitId_date`)").use { cursor ->
+            val columns = mutableListOf<String>()
+            while (cursor.moveToNext()) {
+                columns.add(cursor.getString(cursor.getColumnIndexOrThrow("name")))
+            }
+            assertEquals(listOf("habitId", "date"), columns)
+        }
+    }
+
     companion object {
         private const val TEST_DB = "migration-test"
     }

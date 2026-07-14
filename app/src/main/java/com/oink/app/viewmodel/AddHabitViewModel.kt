@@ -27,7 +27,7 @@ import kotlinx.coroutines.launch
 data class AddHabitUiState(
     val name: String = "",
     val emoji: String = DEFAULT_EMOJI,
-    val rewardValue: Long = PreferencesRepository.DEFAULT_EXERCISE_REWARD,
+    val rewardValue: Long = PreferencesRepository.DEFAULT_DAILY_REWARD,
     val freezesEnabled: Boolean = false,
     val isPrivate: Boolean = false,
     val isSaving: Boolean = false
@@ -39,14 +39,14 @@ data class AddHabitUiState(
         get() = name.trim().isNotEmpty() && rewardValue > 0 && !isSaving
 
     companion object {
-        const val DEFAULT_EMOJI = "🏋️"
+        const val DEFAULT_EMOJI = "⭐"
 
         /**
          * Curated single-select emoji palette for the picker. The default
          * [DEFAULT_EMOJI] leads; the rest span common habit categories.
          */
         val EMOJI_OPTIONS: List<String> = listOf(
-            DEFAULT_EMOJI, "🏃", "🧘", "📚", "💧", "🥗", "😴", "🧹", "💰", "🎨", "🎸", "🚭"
+            DEFAULT_EMOJI, "🏋️", "🏃", "🧘", "📚", "💧", "🥗", "😴", "🧹", "💰", "🎨", "🎸", "🚭"
         )
     }
 }

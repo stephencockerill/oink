@@ -25,7 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.FitnessCenter
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -55,14 +55,15 @@ import com.oink.app.ui.theme.OinkTeal
 import com.oink.app.ui.theme.OinkTealContainer
 import com.oink.app.ui.theme.OinkWarning
 import com.oink.app.utils.Formatters
+import com.oink.app.utils.HabitCopy
 import com.oink.app.viewmodel.MainViewModel
 
 /**
  * History screen showing this habit's check-ins.
  *
  * This screen displays a scrollable list of past check-ins for the habit,
- * ordered by date (newest first). Each item shows the date, whether the user
- * exercised, and the balance after that check-in, above a stats summary.
+ * ordered by date (newest first). Each item shows the date, whether the day
+ * was completed, and the balance after that check-in, above a stats summary.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -83,10 +84,10 @@ fun HistoryScreen(
     val stats by remember(checkIns) {
         derivedStateOf {
             val totalDays = checkIns.size
-            val exerciseDays = checkIns.count { it.didExercise }
-            val missedDays = totalDays - exerciseDays
-            val percentage = if (totalDays > 0) (exerciseDays * 100) / totalDays else 0
-            HistoryStats(totalDays, exerciseDays, missedDays, percentage)
+            val completedDays = checkIns.count { it.completed }
+            val missedDays = totalDays - completedDays
+            val percentage = if (totalDays > 0) (completedDays * 100) / totalDays else 0
+            HistoryStats(totalDays, completedDays, missedDays, percentage)
         }
     }
 
@@ -152,9 +153,9 @@ fun HistoryScreen(
  */
 private data class HistoryStats(
     val totalDays: Int,
-    val exerciseDays: Int,
+    val completedDays: Int,
     val missedDays: Int,
-    val exercisePercentage: Int
+    val completionRate: Int
 )
 
 /**
@@ -184,10 +185,10 @@ private fun StatsCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                // Exercise days
+                // Completed days
                 StatItem(
-                    value = stats.exerciseDays.toString(),
-                    label = "Exercise\nDays",
+                    value = stats.completedDays.toString(),
+                    label = HabitCopy.STAT_DONE_DAYS,
                     color = OinkTeal
                 )
 
@@ -200,7 +201,7 @@ private fun StatsCard(
 
                 // Success rate
                 StatItem(
-                    value = "${stats.exercisePercentage}%",
+                    value = "${stats.completionRate}%",
                     label = "Success\nRate",
                     color = OinkPink
                 )
@@ -250,7 +251,7 @@ private fun EmptyHistoryState() {
             modifier = Modifier.padding(32.dp)
         ) {
             Icon(
-                imageVector = Icons.Default.FitnessCenter,
+                imageVector = Icons.Default.CalendarMonth,
                 contentDescription = null,
                 modifier = Modifier.size(80.dp),
                 tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
@@ -268,7 +269,7 @@ private fun EmptyHistoryState() {
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "Start your fitness journey by\nlogging your first workout!",
+                text = HabitCopy.EMPTY_HISTORY,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                 textAlign = TextAlign.Center
@@ -329,7 +330,7 @@ private fun CheckInItem(checkIn: CheckIn) {
                     .size(44.dp)
                     .clip(CircleShape)
                     .background(
-                        if (checkIn.didExercise) {
+                        if (checkIn.completed) {
                             OinkTealContainer
                         } else {
                             MaterialTheme.colorScheme.errorContainer
@@ -338,10 +339,10 @@ private fun CheckInItem(checkIn: CheckIn) {
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = if (checkIn.didExercise) Icons.Default.Check else Icons.Default.Close,
-                    contentDescription = if (checkIn.didExercise) "Exercised" else "Missed",
+                    imageVector = if (checkIn.completed) Icons.Default.Check else Icons.Default.Close,
+                    contentDescription = if (checkIn.completed) HabitCopy.CONTENT_DESC_DONE else "Missed",
                     modifier = Modifier.size(24.dp),
-                    tint = if (checkIn.didExercise) {
+                    tint = if (checkIn.completed) {
                         OinkTeal
                     } else {
                         OinkWarning
@@ -361,7 +362,7 @@ private fun CheckInItem(checkIn: CheckIn) {
                     fontWeight = FontWeight.SemiBold
                 )
                 Text(
-                    text = if (checkIn.didExercise) "Worked out 💪" else "Rest day",
+                    text = if (checkIn.completed) HabitCopy.HISTORY_DONE else HabitCopy.HISTORY_REST,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                 )

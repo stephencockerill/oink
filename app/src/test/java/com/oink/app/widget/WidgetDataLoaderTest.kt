@@ -117,21 +117,21 @@ class WidgetDataLoaderTest {
 
     @Test
     fun `valid public habit resolves to its own balance and streak`() = runTest {
-        // Two consecutive exercise days ending today: streak 2, balance = latest
+        // Two consecutive completed days ending today: streak 2, balance = latest
         // check-in's balanceAfter (no cash-outs or freeze spending).
         fakeCheckInDao.setCheckIns(
             listOf(
                 CheckIn(
                     id = 1L,
                     date = today.minusDays(1),
-                    didExercise = true,
+                    completed = true,
                     balanceAfter = 1000L,
                     habitId = publicHabitId
                 ),
                 CheckIn(
                     id = 2L,
                     date = today,
-                    didExercise = true,
+                    completed = true,
                     balanceAfter = 1500L,
                     habitId = publicHabitId
                 )
@@ -147,7 +147,7 @@ class WidgetDataLoaderTest {
         assertEquals(1500L, data.balance)
         assertEquals(2, data.streak)
         assertTrue(data.checkedInToday)
-        assertEquals(true, data.exercisedToday)
+        assertEquals(true, data.completedToday)
     }
 
     @Test
@@ -159,7 +159,7 @@ class WidgetDataLoaderTest {
         assertEquals(0L, data.balance)
         assertEquals(0, data.streak)
         assertFalse(data.checkedInToday)
-        assertNull(data.exercisedToday)
+        assertNull(data.completedToday)
     }
 
     @Test
@@ -172,7 +172,7 @@ class WidgetDataLoaderTest {
                 CheckIn(
                     id = 1L,
                     date = today,
-                    didExercise = true,
+                    completed = true,
                     balanceAfter = 9000L,
                     habitId = 3L
                 )

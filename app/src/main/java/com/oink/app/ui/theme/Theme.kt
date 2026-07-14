@@ -19,7 +19,7 @@ import androidx.core.view.WindowCompat
  * Key design decisions:
  * - Primary (pink): Main brand color, pig elements, primary actions
  * - Secondary (teal): Accents, streaks, secondary actions
- * - Success (green): Gains, +$5, exercise logged states
+ * - Success (green): Gains, +$5, day completed states
  * - Warning (amber): Losses, ÷2 penalties (not punitive red)
  * - Error (red): Only for actual errors, destructive actions
  *
@@ -169,7 +169,7 @@ fun OinkTheme(
  * Use these for gains/losses instead of error colors.
  */
 object OinkColors {
-    // Success states - use for exercise logged, gains, +$5
+    // Success states - use for day completed, gains, +$5
     val success = OinkSuccess
     val successContainer = OinkSuccessContainer
     val onSuccess = OnOinkSuccess
