@@ -8,6 +8,7 @@ import android.util.Log
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.net.toUri
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.Preferences
 import androidx.glance.GlanceId
@@ -16,6 +17,7 @@ import androidx.glance.GlanceTheme
 import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
+import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
 import androidx.glance.appwidget.provideContent
@@ -94,6 +96,11 @@ class OinkWidget : GlanceAppWidget() {
 
         logd { "Widget data: $widgetData" }
 
+        // Resolve this instance's appWidgetId outside composition (GlanceAppWidgetManager
+        // access does not belong in a composable) so the fallback can relaunch config for
+        // THIS specific widget.
+        val appWidgetId = GlanceAppWidgetManager(context).getAppWidgetId(id)
+
         provideContent {
             // Read state to establish dependency (forces re-render when state changes)
             val prefs = currentState<Preferences>()
@@ -104,7 +111,7 @@ class OinkWidget : GlanceAppWidget() {
                 if (widgetData != null) {
                     WidgetContent(data = widgetData)
                 } else {
-                    FallbackContent()
+                    FallbackContent(configureIntent(context, appWidgetId))
                 }
             }
         }
@@ -437,24 +444,48 @@ private fun WidgetContent(data: WidgetData) {
 }
 
 /**
+ * Explicit intent that reopens [OinkWidgetConfigActivity] for one specific widget
+ * instance, so the fallback can send the user straight to the habit picker for the
+ * widget they tapped.
+ *
+ * The [appWidgetId] is carried two ways: as [AppWidgetManager.EXTRA_APPWIDGET_ID]
+ * (the int extra the config activity reads in `onCreate`) and inside a unique
+ * [Intent.setData] URI. Both are required. PendingIntent equality
+ * ([Intent.filterEquals]) compares action/data/type/component but NOT extras, so
+ * without a per-instance data URI every fallback widget would collapse onto one
+ * shared PendingIntent and all launch config for the same widget id. The distinct
+ * `oink://widget/configure/<id>` URI keeps each instance's PendingIntent unique.
+ *
+ * [Intent.FLAG_ACTIVITY_NEW_TASK] is required because the click fires from the
+ * launcher/widget-host context, which has no activity to host the new one.
+ */
+private fun configureIntent(context: Context, appWidgetId: Int): Intent =
+    Intent(context, OinkWidgetConfigActivity::class.java).apply {
+        data = "oink://widget/configure/$appWidgetId".toUri()
+        putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
+        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+    }
+
+/**
  * Neutral fallback shown when the widget has no valid habit to display.
  *
  * Rendered whenever no habit is chosen yet, or the chosen habit is missing,
  * deleted, or private. It carries NO habit data - just a neutral prompt - so a
- * private or deleted habit can never surface here. Tapping opens the app, the
- * same as a populated widget.
+ * private or deleted habit can never surface here. Tapping reopens
+ * [OinkWidgetConfigActivity] for this widget instance (via [configureIntent]) so
+ * the user can pick a habit directly, unlike a populated widget which opens the app.
  */
 // androidx.glance.unit.ColorProvider(resId) is the documented public way to build
 // a Glance ColorProvider from a color resource; its RestrictedApi flag is a known
 // lint bug.
 @Suppress("RestrictedApi")
 @Composable
-private fun FallbackContent() {
+private fun FallbackContent(configureIntent: Intent) {
     Box(
         modifier = GlanceModifier
             .fillMaxSize()
             .background(ColorProvider(R.color.widget_urgency_calm))
-            .clickable(actionStartActivity<MainActivity>())
+            .clickable(actionStartActivity(configureIntent))
             .padding(horizontal = 16.dp, vertical = 8.dp),
         contentAlignment = Alignment.Center
     ) {
