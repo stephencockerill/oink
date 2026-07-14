@@ -106,8 +106,9 @@ class RewardsViewModel(
 ) : AndroidViewModel(application) {
 
     /**
-     * The habit this screen operates on. The app is single-habit for now, so
-     * freeze spending is read from the seeded default habit.
+     * The habit the [totalCompletedDays] stat is counted over. The rest of this
+     * screen is pot-level and spans every habit, but that one stat is scoped to
+     * the default habit only.
      */
     private val habitId: Long = HabitRepository.DEFAULT_HABIT_ID
 
