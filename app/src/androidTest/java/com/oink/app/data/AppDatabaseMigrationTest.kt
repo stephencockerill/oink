@@ -283,6 +283,61 @@ class AppDatabaseMigrationTest {
         }
     }
 
+    /**
+     * v5 -> v6: check_ins.completed -> didSucceed.
+     *
+     * Seeds a v5 database (a habit plus two check-ins carrying the old
+     * `completed` column, one true and one false), runs
+     * [AppDatabase.MIGRATION_5_6], validates the v6 schema, and asserts both rows
+     * survive under the new `didSucceed` name with their boolean and money values
+     * intact.
+     */
+    @Test
+    @Throws(IOException::class)
+    fun migrate5To6_renamesCompletedToDidSucceedPreservingData() {
+        helper.createDatabase(TEST_DB, 5).apply {
+            execSQL(
+                "INSERT INTO habits " +
+                    "(id, name, emoji, rewardValue, availableFreezes, " +
+                    "totalFreezeSpending, isPrivate, sortOrder, createdAt) " +
+                    "VALUES (1, 'Workout', '🏋️', 500, 0, 0, 0, 0, 1700000000000)"
+            )
+            execSQL(
+                "INSERT INTO check_ins (id, date, completed, balanceAfter, rewardAtTime, habitId) " +
+                    "VALUES (1, 20000, 1, 1234, 500, 1), (2, 20001, 0, 617, 700, 1)"
+            )
+            close()
+        }
+
+        val db = helper.runMigrationsAndValidate(TEST_DB, 6, true, AppDatabase.MIGRATION_5_6)
+
+        // check_ins: completed -> didSucceed; booleans, balances, and rewards
+        // preserved.
+        db.query("SELECT didSucceed, balanceAfter, rewardAtTime, habitId FROM check_ins ORDER BY id")
+            .use { cursor ->
+                assertEquals(2, cursor.getCount())
+                assertTrue(cursor.moveToFirst())
+                assertEquals(1L, cursor.getLong(0)) // didSucceed = true
+                assertEquals(1234L, cursor.getLong(1))
+                assertEquals(500L, cursor.getLong(2))
+                assertEquals(1L, cursor.getLong(3))
+                assertTrue(cursor.moveToNext())
+                assertEquals(0L, cursor.getLong(0)) // didSucceed = false
+                assertEquals(617L, cursor.getLong(1))
+                assertEquals(700L, cursor.getLong(2))
+                assertEquals(1L, cursor.getLong(3))
+            }
+
+        // check_ins unique index is still (habitId, date).
+        db.query("PRAGMA index_info(`index_check_ins_habitId_date`)").use { cursor ->
+            val columns = mutableListOf<String>()
+            while (cursor.moveToNext()) {
+                columns.add(cursor.getString(cursor.getColumnIndexOrThrow("name")))
+            }
+            assertEquals(listOf("habitId", "date"), columns)
+        }
+    }
+
     companion object {
         private const val TEST_DB = "migration-test"
     }

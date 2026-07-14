@@ -124,14 +124,14 @@ class WidgetDataLoaderTest {
                 CheckIn(
                     id = 1L,
                     date = today.minusDays(1),
-                    completed = true,
+                    didSucceed = true,
                     balanceAfter = 1000L,
                     habitId = publicHabitId
                 ),
                 CheckIn(
                     id = 2L,
                     date = today,
-                    completed = true,
+                    didSucceed = true,
                     balanceAfter = 1500L,
                     habitId = publicHabitId
                 )
@@ -147,7 +147,7 @@ class WidgetDataLoaderTest {
         assertEquals(1500L, data.balance)
         assertEquals(2, data.streak)
         assertTrue(data.checkedInToday)
-        assertEquals(true, data.completedToday)
+        assertEquals(true, data.didSucceedToday)
     }
 
     @Test
@@ -159,7 +159,7 @@ class WidgetDataLoaderTest {
         assertEquals(0L, data.balance)
         assertEquals(0, data.streak)
         assertFalse(data.checkedInToday)
-        assertNull(data.completedToday)
+        assertNull(data.didSucceedToday)
     }
 
     @Test
@@ -172,7 +172,7 @@ class WidgetDataLoaderTest {
                 CheckIn(
                     id = 1L,
                     date = today,
-                    completed = true,
+                    didSucceed = true,
                     balanceAfter = 9000L,
                     habitId = 3L
                 )

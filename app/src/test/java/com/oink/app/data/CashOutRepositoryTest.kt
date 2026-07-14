@@ -619,7 +619,7 @@ class CashOutRepositoryTest {
         val checkIn = CheckIn(
             id = 1L,
             date = LocalDate.now().minusDays(1),
-            completed = true,
+            didSucceed = true,
             balanceAfter = balance
         )
         fakeCheckInDao.setCheckIns(listOf(checkIn))
@@ -661,7 +661,7 @@ class CashOutRepositoryTest {
             CheckIn(
                 id = (index + 1).toLong(),
                 date = LocalDate.now().minusDays(1),
-                completed = true,
+                didSucceed = true,
                 balanceAfter = balance,
                 habitId = habitId
             )

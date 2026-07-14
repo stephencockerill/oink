@@ -224,8 +224,8 @@ fun HabitDetailScreen(
                 completedPreview = completedPreview,
                 missPreview = missPreview,
                 isLoading = isLoading,
-                onCheckIn = { completed ->
-                    viewModel.recordTodayCheckIn(completed)
+                onCheckIn = { didSucceed ->
+                    viewModel.recordTodayCheckIn(didSucceed)
                 }
             )
 
@@ -582,7 +582,7 @@ private fun CheckInSection(
                 }
             } else {
                 // Already checked in - show status
-                CheckInStatus(completed = todayCheckIn.completed)
+                CheckInStatus(didSucceed = todayCheckIn.didSucceed)
 
                 Spacer(modifier = Modifier.height(16.dp))
 
@@ -596,12 +596,12 @@ private fun CheckInSection(
 
                 // Show change button
                 OutlinedButton(
-                    onClick = { onCheckIn(!todayCheckIn.completed) },
+                    onClick = { onCheckIn(!todayCheckIn.didSucceed) },
                     enabled = !isLoading,
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Text(
-                        text = if (todayCheckIn.completed) HabitCopy.UNDO_DONE else HabitCopy.UNDO_REST,
+                        text = if (todayCheckIn.didSucceed) HabitCopy.UNDO_DONE else HabitCopy.UNDO_REST,
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }
@@ -694,9 +694,9 @@ private fun PreviewSection(
  * Teal for a completed day, subtle gray for an off day.
  */
 @Composable
-private fun CheckInStatus(completed: Boolean) {
+private fun CheckInStatus(didSucceed: Boolean) {
     val backgroundColor by animateColorAsState(
-        targetValue = if (completed) {
+        targetValue = if (didSucceed) {
             OinkTealContainer
         } else {
             MaterialTheme.colorScheme.surfaceVariant
@@ -704,7 +704,7 @@ private fun CheckInStatus(completed: Boolean) {
         label = "status_bg_color"
     )
 
-    val contentColor = if (completed) {
+    val contentColor = if (didSucceed) {
         OinkTeal
     } else {
         MaterialTheme.colorScheme.onSurfaceVariant
@@ -728,7 +728,7 @@ private fun CheckInStatus(completed: Boolean) {
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = if (completed) Icons.Default.Check else Icons.Default.Close,
+                    imageVector = if (didSucceed) Icons.Default.Check else Icons.Default.Close,
                     contentDescription = null,
                     modifier = Modifier.size(28.dp),
                     tint = contentColor
@@ -739,13 +739,13 @@ private fun CheckInStatus(completed: Boolean) {
 
             Column {
                 Text(
-                    text = if (completed) HabitCopy.DONE else HabitCopy.REST,
+                    text = if (didSucceed) HabitCopy.DONE else HabitCopy.REST,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = contentColor
                 )
                 Text(
-                    text = if (completed) HabitCopy.DONE_SUBTITLE else HabitCopy.REST_SUBTITLE,
+                    text = if (didSucceed) HabitCopy.DONE_SUBTITLE else HabitCopy.REST_SUBTITLE,
                     style = MaterialTheme.typography.bodyMedium,
                     color = contentColor.copy(alpha = 0.8f)
                 )

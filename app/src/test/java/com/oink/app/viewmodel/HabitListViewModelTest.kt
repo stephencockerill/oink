@@ -108,12 +108,12 @@ class HabitListViewModelTest {
             Habit(id = 3L, name = "Secret", emoji = "🤫", isPrivate = true, sortOrder = 2)
         )
         // Habit 1: one completed day today -> spendable = one reward, streak 1.
-        checkInRepository.recordCheckIn(checkInRepository.today(), completed = true, habitId = 1L)
+        checkInRepository.recordCheckIn(checkInRepository.today(), didSucceed = true, habitId = 1L)
         // Habit 2: two completed days (yesterday + today) -> spendable = two rewards, streak 2.
-        checkInRepository.recordCheckIn(checkInRepository.today().minusDays(1), completed = true, habitId = 2L)
-        checkInRepository.recordCheckIn(checkInRepository.today(), completed = true, habitId = 2L)
+        checkInRepository.recordCheckIn(checkInRepository.today().minusDays(1), didSucceed = true, habitId = 2L)
+        checkInRepository.recordCheckIn(checkInRepository.today(), didSucceed = true, habitId = 2L)
         // Private habit has a balance too, but must be excluded from the list.
-        checkInRepository.recordCheckIn(checkInRepository.today(), completed = true, habitId = 3L)
+        checkInRepository.recordCheckIn(checkInRepository.today(), didSucceed = true, habitId = 3L)
 
         val viewModel = createViewModel()
         backgroundScope.launch { viewModel.habitCards.collect {} }
@@ -139,10 +139,10 @@ class HabitListViewModelTest {
             Habit(id = 2L, name = "Meditate", sortOrder = 1),
             Habit(id = 3L, name = "Secret", isPrivate = true, sortOrder = 2)
         )
-        checkInRepository.recordCheckIn(checkInRepository.today(), completed = true, habitId = 1L)
-        checkInRepository.recordCheckIn(checkInRepository.today(), completed = true, habitId = 2L)
+        checkInRepository.recordCheckIn(checkInRepository.today(), didSucceed = true, habitId = 1L)
+        checkInRepository.recordCheckIn(checkInRepository.today(), didSucceed = true, habitId = 2L)
         // Private habit funds nothing that should appear in the shared bank.
-        checkInRepository.recordCheckIn(checkInRepository.today(), completed = true, habitId = 3L)
+        checkInRepository.recordCheckIn(checkInRepository.today(), didSucceed = true, habitId = 3L)
 
         val viewModel = createViewModel()
         backgroundScope.launch { viewModel.overallBank.collect {} }

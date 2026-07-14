@@ -84,7 +84,7 @@ interface CheckInDao {
      * Get a habit's total count of completed days (days marked done).
      * Used for stats and calculating completed-day counts.
      */
-    @Query("SELECT COUNT(*) FROM check_ins WHERE habitId = :habitId AND completed = 1")
+    @Query("SELECT COUNT(*) FROM check_ins WHERE habitId = :habitId AND didSucceed = 1")
     suspend fun getCompletedDayCount(habitId: Long): Int
 
     /**

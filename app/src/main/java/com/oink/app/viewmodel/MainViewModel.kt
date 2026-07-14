@@ -368,10 +368,10 @@ class MainViewModel(
     /**
      * Record a check-in for today.
      *
-     * @param completed Whether the habit was completed today
+     * @param didSucceed Whether the habit succeeded today
      */
-    fun recordTodayCheckIn(completed: Boolean) {
-        recordCheckIn(repository.today(), completed)
+    fun recordTodayCheckIn(didSucceed: Boolean) {
+        recordCheckIn(repository.today(), didSucceed)
     }
 
     /**
@@ -379,9 +379,9 @@ class MainViewModel(
      * This allows retroactive logging.
      *
      * @param date The date to record the check-in for
-     * @param completed Whether the habit was completed on that date
+     * @param didSucceed Whether the habit succeeded on that date
      */
-    fun recordCheckIn(date: LocalDate, completed: Boolean) {
+    fun recordCheckIn(date: LocalDate, didSucceed: Boolean) {
         viewModelScope.launch {
             _isLoading.value = true
             _error.value = null
@@ -390,7 +390,7 @@ class MainViewModel(
                 // Wrap the critical operations in NonCancellable so they complete
                 // even if user presses home button immediately after tapping
                 kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
-                    repository.recordCheckIn(date, completed, habitId)
+                    repository.recordCheckIn(date, didSucceed, habitId)
                     // Update widget IMMEDIATELY after DB write.
                     // This ensures widget gets updated even if user exits fast.
                     // UI state (streak, previews, balance) updates reactively
@@ -412,9 +412,9 @@ class MainViewModel(
      * as either completed or missed in one operation.
      *
      * @param dates Set of dates to update
-     * @param completed Whether these days were completed
+     * @param didSucceed Whether these days succeeded
      */
-    fun bulkRecordCheckIns(dates: Set<LocalDate>, completed: Boolean) {
+    fun bulkRecordCheckIns(dates: Set<LocalDate>, didSucceed: Boolean) {
         if (dates.isEmpty()) return
 
         viewModelScope.launch {
@@ -423,7 +423,7 @@ class MainViewModel(
 
             try {
                 kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
-                    repository.bulkRecordCheckIns(dates, completed, habitId)
+                    repository.bulkRecordCheckIns(dates, didSucceed, habitId)
                     updateWidget()
                 }
             } catch (e: Exception) {

@@ -92,7 +92,7 @@ fun HistoryScreen(
     val stats by remember(checkIns) {
         derivedStateOf {
             val totalDays = checkIns.size
-            val completedDays = checkIns.count { it.completed }
+            val completedDays = checkIns.count { it.didSucceed }
             val missedDays = totalDays - completedDays
             val percentage = if (totalDays > 0) (completedDays * 100) / totalDays else 0
             HistoryStats(totalDays, completedDays, missedDays, percentage)
@@ -338,7 +338,7 @@ private fun CheckInItem(checkIn: CheckIn) {
                     .size(44.dp)
                     .clip(CircleShape)
                     .background(
-                        if (checkIn.completed) {
+                        if (checkIn.didSucceed) {
                             OinkTealContainer
                         } else {
                             MaterialTheme.colorScheme.errorContainer
@@ -347,10 +347,10 @@ private fun CheckInItem(checkIn: CheckIn) {
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = if (checkIn.completed) Icons.Default.Check else Icons.Default.Close,
-                    contentDescription = if (checkIn.completed) HabitCopy.CONTENT_DESC_DONE else "Missed",
+                    imageVector = if (checkIn.didSucceed) Icons.Default.Check else Icons.Default.Close,
+                    contentDescription = if (checkIn.didSucceed) HabitCopy.CONTENT_DESC_DONE else "Missed",
                     modifier = Modifier.size(24.dp),
-                    tint = if (checkIn.completed) {
+                    tint = if (checkIn.didSucceed) {
                         OinkTeal
                     } else {
                         OinkWarning
@@ -370,7 +370,7 @@ private fun CheckInItem(checkIn: CheckIn) {
                     fontWeight = FontWeight.SemiBold
                 )
                 Text(
-                    text = if (checkIn.completed) HabitCopy.HISTORY_DONE else HabitCopy.HISTORY_REST,
+                    text = if (checkIn.didSucceed) HabitCopy.HISTORY_DONE else HabitCopy.HISTORY_REST,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                 )

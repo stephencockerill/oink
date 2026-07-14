@@ -11,7 +11,7 @@ import java.time.LocalDate
 /**
  * Entity representing a daily check-in record.
  *
- * Each check-in tracks whether the habit was completed on a given date
+ * Each check-in tracks whether the habit succeeded on a given date
  * and what their balance was after the check-in was recorded.
  *
  * A check-in belongs to one habit. At most one check-in per (habit, date),
@@ -43,11 +43,11 @@ data class CheckIn(
     val date: LocalDate,
 
     /**
-     * Whether the habit was completed on this date.
-     * true = completed (+$5.00)
-     * false = missed (balance / 2)
+     * Whether the habit succeeded on this date.
+     * true = succeeded (did the build habit / stayed clean on a quit habit) (+ daily reward)
+     * false = missed/slipped (balance / 2)
      */
-    val completed: Boolean,
+    val didSucceed: Boolean,
 
     /**
      * The user's balance AFTER this check-in was recorded, in cents.

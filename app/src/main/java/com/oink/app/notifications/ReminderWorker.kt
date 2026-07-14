@@ -40,7 +40,7 @@ class ReminderWorker(
         // Only show notification if:
         // - No check-in for today, OR
         // - Check-in exists but the user marked the day as not completed (off day)
-        if (todayCheckIn == null || todayCheckIn.completed == false) {
+        if (todayCheckIn == null || todayCheckIn.didSucceed == false) {
             NotificationHelper.showDailyReminder(applicationContext)
         }
 

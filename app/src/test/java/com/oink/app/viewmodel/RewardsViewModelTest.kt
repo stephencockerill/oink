@@ -301,7 +301,7 @@ class RewardsViewModelTest {
             CheckIn(
                 id = (index + 1).toLong(),
                 date = LocalDate.now().minusDays(1),
-                completed = true,
+                didSucceed = true,
                 balanceAfter = balance,
                 habitId = habitId
             )

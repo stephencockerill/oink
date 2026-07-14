@@ -70,7 +70,7 @@ class CheckInRepositoryTest {
     @Test
     fun `first completed day adds reward to starting balance`() = runTest {
         val today = LocalDate.now(fixedClock)
-        repository.recordCheckIn(today, completed = true)
+        repository.recordCheckIn(today, didSucceed = true)
 
         val balance = repository.currentBalance().first()
         assertEquals(500L, balance)
@@ -79,7 +79,7 @@ class CheckInRepositoryTest {
     @Test
     fun `first miss halves starting balance (stays at zero)`() = runTest {
         val today = LocalDate.now(fixedClock)
-        repository.recordCheckIn(today, completed = false)
+        repository.recordCheckIn(today, didSucceed = false)
 
         val balance = repository.currentBalance().first()
         assertEquals(0L, balance) // 0 / 2 = 0
@@ -91,9 +91,9 @@ class CheckInRepositoryTest {
         val day2 = LocalDate.now(fixedClock).minusDays(1)
         val day3 = LocalDate.now(fixedClock)
 
-        repository.recordCheckIn(day1, completed = true) // $5
-        repository.recordCheckIn(day2, completed = true) // $10
-        repository.recordCheckIn(day3, completed = true) // $15
+        repository.recordCheckIn(day1, didSucceed = true) // $5
+        repository.recordCheckIn(day2, didSucceed = true) // $10
+        repository.recordCheckIn(day3, didSucceed = true) // $15
 
         val balance = repository.currentBalance().first()
         assertEquals(1500L, balance)
@@ -104,8 +104,8 @@ class CheckInRepositoryTest {
         val day1 = LocalDate.now(fixedClock).minusDays(1)
         val day2 = LocalDate.now(fixedClock)
 
-        repository.recordCheckIn(day1, completed = true) // $5
-        repository.recordCheckIn(day2, completed = false) // $2.50
+        repository.recordCheckIn(day1, didSucceed = true) // $5
+        repository.recordCheckIn(day2, didSucceed = false) // $2.50
 
         val balance = repository.currentBalance().first()
         assertEquals(250L, balance)
@@ -117,9 +117,9 @@ class CheckInRepositoryTest {
         val day2 = LocalDate.now(fixedClock).minusDays(1)
         val day3 = LocalDate.now(fixedClock)
 
-        repository.recordCheckIn(day1, completed = true)  // $5
-        repository.recordCheckIn(day2, completed = false) // $2.50
-        repository.recordCheckIn(day3, completed = true)  // $7.50
+        repository.recordCheckIn(day1, didSucceed = true)  // $5
+        repository.recordCheckIn(day2, didSucceed = false) // $2.50
+        repository.recordCheckIn(day3, didSucceed = true)  // $7.50
 
         val balance = repository.currentBalance().first()
         assertEquals(750L, balance)
@@ -130,7 +130,7 @@ class CheckInRepositoryTest {
         dailyReward = 1000L
         val today = LocalDate.now(fixedClock)
 
-        repository.recordCheckIn(today, completed = true)
+        repository.recordCheckIn(today, didSucceed = true)
 
         val balance = repository.currentBalance().first()
         assertEquals(1000L, balance)
@@ -149,10 +149,10 @@ class CheckInRepositoryTest {
     fun `miss halves spendable balance after a cash-out`() = runTest {
         // The issue's exact example: raw $100, cashed out $10 -> spendable $90.
         dailyReward = 10000L
-        repository.recordCheckIn(LocalDate.now(fixedClock).minusDays(1), completed = true) // raw $100
+        repository.recordCheckIn(LocalDate.now(fixedClock).minusDays(1), didSucceed = true) // raw $100
 
         deductions = 1000L // simulate a $10 cash-out already recorded
-        repository.recordCheckIn(LocalDate.now(fixedClock), completed = false) // miss
+        repository.recordCheckIn(LocalDate.now(fixedClock), didSucceed = false) // miss
 
         val raw = repository.getCurrentBalanceOnce()
         val spendable = BalanceCalculator.calculateActualBalance(
@@ -172,10 +172,10 @@ class CheckInRepositoryTest {
         // Regression guard: with zero deductions, spendable == raw and a miss
         // is the classic raw / 2.
         dailyReward = 10000L
-        repository.recordCheckIn(LocalDate.now(fixedClock).minusDays(1), completed = true) // raw $100
+        repository.recordCheckIn(LocalDate.now(fixedClock).minusDays(1), didSucceed = true) // raw $100
 
         deductions = 0L
-        repository.recordCheckIn(LocalDate.now(fixedClock), completed = false) // miss
+        repository.recordCheckIn(LocalDate.now(fixedClock), didSucceed = false) // miss
 
         val raw = repository.getCurrentBalanceOnce()
         assertEquals(5000L, raw) // $50.00
@@ -184,7 +184,7 @@ class CheckInRepositoryTest {
     @Test
     fun `preview miss reflects halved spendable after a cash-out`() = runTest {
         dailyReward = 10000L
-        repository.recordCheckIn(LocalDate.now(fixedClock).minusDays(1), completed = true) // raw $100
+        repository.recordCheckIn(LocalDate.now(fixedClock).minusDays(1), didSucceed = true) // raw $100
 
         deductions = 1000L // $10 cashed out
         val rawPreview = repository.previewMissBalance()
@@ -202,14 +202,14 @@ class CheckInRepositoryTest {
         val day2 = LocalDate.now(fixedClock).minusDays(1)
         val day3 = LocalDate.now(fixedClock)
 
-        repository.recordCheckIn(day1, completed = true) // raw $100
-        repository.recordCheckIn(day2, completed = true) // raw $200
+        repository.recordCheckIn(day1, didSucceed = true) // raw $100
+        repository.recordCheckIn(day2, didSucceed = true) // raw $200
 
         deductions = 2000L // $20 cashed out; spendable now $180
-        repository.recordCheckIn(day3, completed = false) // miss -> spendable $90
+        repository.recordCheckIn(day3, didSucceed = false) // miss -> spendable $90
 
         // Retroactively flip day2 to a miss; day3's balance must recalculate.
-        repository.recordCheckIn(day2, completed = false)
+        repository.recordCheckIn(day2, didSucceed = false)
 
         // day2 miss: (10000 + 2000) / 2 = 6000
         // day3 miss: (6000 + 2000) / 2 = 4000
@@ -228,11 +228,11 @@ class CheckInRepositoryTest {
         val day1 = LocalDate.now(fixedClock).minusDays(1)
         val day2 = LocalDate.now(fixedClock)
 
-        repository.recordCheckIn(day1, completed = true) // $5
-        repository.recordCheckIn(day2, completed = true) // $10
+        repository.recordCheckIn(day1, didSucceed = true) // $5
+        repository.recordCheckIn(day2, didSucceed = true) // $10
 
         // Now change day2 to miss
-        repository.recordCheckIn(day2, completed = false) // $5 / 2 = $2.50
+        repository.recordCheckIn(day2, didSucceed = false) // $5 / 2 = $2.50
 
         val balance = repository.currentBalance().first()
         assertEquals(250L, balance)
@@ -243,11 +243,11 @@ class CheckInRepositoryTest {
         val day1 = LocalDate.now(fixedClock).minusDays(1)
         val day2 = LocalDate.now(fixedClock)
 
-        repository.recordCheckIn(day1, completed = true) // $5
-        repository.recordCheckIn(day2, completed = false) // $2.50
+        repository.recordCheckIn(day1, didSucceed = true) // $5
+        repository.recordCheckIn(day2, didSucceed = false) // $2.50
 
         // Now change day2 to completed
-        repository.recordCheckIn(day2, completed = true) // $5 + $5 = $10
+        repository.recordCheckIn(day2, didSucceed = true) // $5 + $5 = $10
 
         val balance = repository.currentBalance().first()
         assertEquals(1000L, balance)
@@ -259,12 +259,12 @@ class CheckInRepositoryTest {
         val day2 = LocalDate.now(fixedClock).minusDays(1)
         val day3 = LocalDate.now(fixedClock)
 
-        repository.recordCheckIn(day1, completed = true)  // $5
-        repository.recordCheckIn(day2, completed = true)  // $10
-        repository.recordCheckIn(day3, completed = true)  // $15
+        repository.recordCheckIn(day1, didSucceed = true)  // $5
+        repository.recordCheckIn(day2, didSucceed = true)  // $10
+        repository.recordCheckIn(day3, didSucceed = true)  // $15
 
         // Change day1 to miss - should cascade
-        repository.recordCheckIn(day1, completed = false) // $0
+        repository.recordCheckIn(day1, didSucceed = false) // $0
         // day2: 0 + 5 = $5
         // day3: 5 + 5 = $10
 
@@ -285,7 +285,7 @@ class CheckInRepositoryTest {
         dailyReward = 700L
         val date = LocalDate.now().minusDays(1)
 
-        repository.recordCheckIn(date, completed = true)
+        repository.recordCheckIn(date, didSucceed = true)
 
         val checkIn = repository.getCheckInForDate(date)
         assertEquals(700L, checkIn!!.rewardAtTime)
@@ -298,16 +298,16 @@ class CheckInRepositoryTest {
         val day3 = LocalDate.now()
 
         // Record three completed days while the reward is $5.00.
-        repository.recordCheckIn(day1, completed = true) // $5
-        repository.recordCheckIn(day2, completed = true) // $10
-        repository.recordCheckIn(day3, completed = true) // $15
+        repository.recordCheckIn(day1, didSucceed = true) // $5
+        repository.recordCheckIn(day2, didSucceed = true) // $10
+        repository.recordCheckIn(day3, didSucceed = true) // $15
 
         // User later bumps the reward to $10.00.
         dailyReward = 1000L
 
         // Editing the earliest day triggers a full recompute of day2 and day3.
         // Those days were earned at $5.00 and must NOT be re-valued at $10.00.
-        repository.recordCheckIn(day1, completed = false) // $0
+        repository.recordCheckIn(day1, didSucceed = false) // $0
 
         // day1 miss: 0. day2: 0 + 5 = $5. day3: 5 + 5 = $10 (both at the OLD rate).
         val balance = repository.currentBalance().first()
@@ -320,12 +320,12 @@ class CheckInRepositoryTest {
         val day2 = LocalDate.now()
 
         dailyReward = 500L
-        repository.recordCheckIn(day1, completed = true)  // $5 at $5.00 rate
-        repository.recordCheckIn(day2, completed = false) // $2.50
+        repository.recordCheckIn(day1, didSucceed = true)  // $5 at $5.00 rate
+        repository.recordCheckIn(day2, didSucceed = false) // $2.50
 
         // Reward changes, then the user flips day2 from miss to completed.
         dailyReward = 2000L
-        repository.recordCheckIn(day2, completed = true)
+        repository.recordCheckIn(day2, didSucceed = true)
 
         // day2 must use its own recorded $5.00 reward: $5 + $5 = $10, not $25.
         val balance = repository.currentBalance().first()
@@ -352,17 +352,17 @@ class CheckInRepositoryTest {
 
     @Test
     fun `today check-in flow reflects a check-in dated today`() = runTest {
-        repository.recordCheckIn(LocalDate.now(fixedClock), completed = true)
+        repository.recordCheckIn(LocalDate.now(fixedClock), didSucceed = true)
 
         val todayCheckIn = repository.getTodayCheckIn().first()
         assertNotNull(todayCheckIn)
         assertEquals(LocalDate.now(fixedClock), todayCheckIn!!.date)
-        assertTrue(todayCheckIn.completed)
+        assertTrue(todayCheckIn.didSucceed)
     }
 
     @Test
     fun `today check-in flow is null when only past days are logged`() = runTest {
-        repository.recordCheckIn(LocalDate.now(fixedClock).minusDays(1), completed = true)
+        repository.recordCheckIn(LocalDate.now(fixedClock).minusDays(1), didSucceed = true)
 
         val todayCheckIn = repository.getTodayCheckIn().first()
         assertNull(todayCheckIn)
@@ -370,7 +370,7 @@ class CheckInRepositoryTest {
 
     @Test
     fun `single completed day is streak of 1`() = runTest {
-        repository.recordCheckIn(LocalDate.now(fixedClock), completed = true)
+        repository.recordCheckIn(LocalDate.now(fixedClock), didSucceed = true)
         val streak = repository.calculateStreak()
         assertEquals(1, streak)
     }
@@ -378,9 +378,9 @@ class CheckInRepositoryTest {
     @Test
     fun `consecutive completed days build streak`() = runTest {
         val today = LocalDate.now(fixedClock)
-        repository.recordCheckIn(today.minusDays(2), completed = true)
-        repository.recordCheckIn(today.minusDays(1), completed = true)
-        repository.recordCheckIn(today, completed = true)
+        repository.recordCheckIn(today.minusDays(2), didSucceed = true)
+        repository.recordCheckIn(today.minusDays(1), didSucceed = true)
+        repository.recordCheckIn(today, didSucceed = true)
 
         val streak = repository.calculateStreak()
         assertEquals(3, streak)
@@ -389,9 +389,9 @@ class CheckInRepositoryTest {
     @Test
     fun `miss day breaks streak`() = runTest {
         val today = LocalDate.now(fixedClock)
-        repository.recordCheckIn(today.minusDays(2), completed = true)
-        repository.recordCheckIn(today.minusDays(1), completed = false) // Streak broken!
-        repository.recordCheckIn(today, completed = true)
+        repository.recordCheckIn(today.minusDays(2), didSucceed = true)
+        repository.recordCheckIn(today.minusDays(1), didSucceed = false) // Streak broken!
+        repository.recordCheckIn(today, didSucceed = true)
 
         val streak = repository.calculateStreak()
         assertEquals(1, streak) // Only today counts
@@ -400,9 +400,9 @@ class CheckInRepositoryTest {
     @Test
     fun `gap in dates breaks streak`() = runTest {
         val today = LocalDate.now(fixedClock)
-        repository.recordCheckIn(today.minusDays(3), completed = true)
+        repository.recordCheckIn(today.minusDays(3), didSucceed = true)
         // No check-in for day -2 or -1
-        repository.recordCheckIn(today, completed = true)
+        repository.recordCheckIn(today, didSucceed = true)
 
         val streak = repository.calculateStreak()
         assertEquals(1, streak) // Only today counts
@@ -413,9 +413,9 @@ class CheckInRepositoryTest {
         val today = LocalDate.now(fixedClock)
         val frozenDate = today.minusDays(1)
 
-        repository.recordCheckIn(today.minusDays(2), completed = true)
+        repository.recordCheckIn(today.minusDays(2), didSucceed = true)
         // Day -1 is frozen (no check-in needed)
-        repository.recordCheckIn(today, completed = true)
+        repository.recordCheckIn(today, didSucceed = true)
 
         val streak = repository.calculateStreak(frozenDates = setOf(frozenDate))
         assertEquals(2, streak) // Frozen day doesn't break, but doesn't add either
@@ -426,9 +426,9 @@ class CheckInRepositoryTest {
         val today = LocalDate.now(fixedClock)
         val frozenDate = today.minusDays(1)
 
-        repository.recordCheckIn(today.minusDays(2), completed = true)
-        repository.recordCheckIn(today.minusDays(1), completed = false) // Miss but frozen!
-        repository.recordCheckIn(today, completed = true)
+        repository.recordCheckIn(today.minusDays(2), didSucceed = true)
+        repository.recordCheckIn(today.minusDays(1), didSucceed = false) // Miss but frozen!
+        repository.recordCheckIn(today, didSucceed = true)
 
         val streak = repository.calculateStreak(frozenDates = setOf(frozenDate))
         assertEquals(2, streak)
@@ -437,8 +437,8 @@ class CheckInRepositoryTest {
     @Test
     fun `today not checked in yet continues yesterday streak`() = runTest {
         val today = LocalDate.now(fixedClock)
-        repository.recordCheckIn(today.minusDays(2), completed = true)
-        repository.recordCheckIn(today.minusDays(1), completed = true)
+        repository.recordCheckIn(today.minusDays(2), didSucceed = true)
+        repository.recordCheckIn(today.minusDays(1), didSucceed = true)
         // Today not checked in yet
 
         val streak = repository.calculateStreak()
@@ -466,7 +466,7 @@ class CheckInRepositoryTest {
         // freeze.
         val today = LocalDate.now(fixedClock)
         val checkIns = listOf(
-            CheckIn(id = 1L, date = today, completed = true, balanceAfter = 500L)
+            CheckIn(id = 1L, date = today, didSucceed = true, balanceAfter = 500L)
         )
 
         assertNull(repository.findMissedDayForFreeze(checkIns))
@@ -478,7 +478,7 @@ class CheckInRepositoryTest {
         // gap, but it predates the habit, so it is not offered.
         val today = LocalDate.now(fixedClock)
         val checkIns = listOf(
-            CheckIn(id = 1L, date = today.minusDays(1), completed = true, balanceAfter = 500L)
+            CheckIn(id = 1L, date = today.minusDays(1), didSucceed = true, balanceAfter = 500L)
         )
 
         assertNull(repository.findMissedDayForFreeze(checkIns))
@@ -490,7 +490,7 @@ class CheckInRepositoryTest {
         // missed day the user can freeze.
         val today = LocalDate.now(fixedClock)
         val checkIns = listOf(
-            CheckIn(id = 1L, date = today.minusDays(2), completed = true, balanceAfter = 500L)
+            CheckIn(id = 1L, date = today.minusDays(2), didSucceed = true, balanceAfter = 500L)
         )
 
         assertEquals(today.minusDays(1), repository.findMissedDayForFreeze(checkIns))
@@ -501,8 +501,8 @@ class CheckInRepositoryTest {
         // Checked in day 1, logged a miss yesterday: yesterday can be frozen.
         val today = LocalDate.now(fixedClock)
         val checkIns = listOf(
-            CheckIn(id = 1L, date = today.minusDays(1), completed = false, balanceAfter = 250L),
-            CheckIn(id = 2L, date = today.minusDays(2), completed = true, balanceAfter = 500L)
+            CheckIn(id = 1L, date = today.minusDays(1), didSucceed = false, balanceAfter = 250L),
+            CheckIn(id = 2L, date = today.minusDays(2), didSucceed = true, balanceAfter = 500L)
         )
 
         assertEquals(today.minusDays(1), repository.findMissedDayForFreeze(checkIns))
@@ -516,9 +516,9 @@ class CheckInRepositoryTest {
         // ago; yesterday is a gap.
         val today = LocalDate.now(fixedClock)
         val checkIns = listOf(
-            CheckIn(id = 1L, date = today.minusDays(4), completed = true, balanceAfter = 500L),
-            CheckIn(id = 2L, date = today.minusDays(3), completed = true, balanceAfter = 1000L),
-            CheckIn(id = 3L, date = today.minusDays(2), completed = true, balanceAfter = 1500L)
+            CheckIn(id = 1L, date = today.minusDays(4), didSucceed = true, balanceAfter = 500L),
+            CheckIn(id = 2L, date = today.minusDays(3), didSucceed = true, balanceAfter = 1000L),
+            CheckIn(id = 3L, date = today.minusDays(2), didSucceed = true, balanceAfter = 1500L)
             // yesterday: gap
         )
 
@@ -531,7 +531,7 @@ class CheckInRepositoryTest {
 
     @Test
     fun `preview completed shows current plus reward`() = runTest {
-        repository.recordCheckIn(LocalDate.now(fixedClock).minusDays(1), completed = true) // $5
+        repository.recordCheckIn(LocalDate.now(fixedClock).minusDays(1), didSucceed = true) // $5
 
         val preview = repository.previewCompletedBalance()
         assertEquals(1000L, preview) // $5 + $5
@@ -539,7 +539,7 @@ class CheckInRepositoryTest {
 
     @Test
     fun `preview miss shows current halved`() = runTest {
-        repository.recordCheckIn(LocalDate.now(fixedClock).minusDays(1), completed = true) // $5
+        repository.recordCheckIn(LocalDate.now(fixedClock).minusDays(1), didSucceed = true) // $5
 
         val preview = repository.previewMissBalance()
         assertEquals(250L, preview) // $5 / 2
@@ -554,7 +554,7 @@ class CheckInRepositoryTest {
         val today = LocalDate.now(fixedClock)
         // Create 30 consecutive completed days
         repeat(30) { i ->
-            repository.recordCheckIn(today.minusDays((29 - i).toLong()), completed = true)
+            repository.recordCheckIn(today.minusDays((29 - i).toLong()), didSucceed = true)
         }
 
         val streak = repository.calculateStreak()
@@ -564,10 +564,10 @@ class CheckInRepositoryTest {
     @Test
     fun `balance halving rounds to the nearest cent`() = runTest {
         // Start with some odd balance through calculations
-        repository.recordCheckIn(LocalDate.now(fixedClock).minusDays(3), completed = true)  // 500
-        repository.recordCheckIn(LocalDate.now(fixedClock).minusDays(2), completed = false) // 250
-        repository.recordCheckIn(LocalDate.now(fixedClock).minusDays(1), completed = false) // 125
-        repository.recordCheckIn(LocalDate.now(fixedClock), completed = false) // 125 / 2 = 62.5 → 63
+        repository.recordCheckIn(LocalDate.now(fixedClock).minusDays(3), didSucceed = true)  // 500
+        repository.recordCheckIn(LocalDate.now(fixedClock).minusDays(2), didSucceed = false) // 250
+        repository.recordCheckIn(LocalDate.now(fixedClock).minusDays(1), didSucceed = false) // 125
+        repository.recordCheckIn(LocalDate.now(fixedClock), didSucceed = false) // 125 / 2 = 62.5 → 63
 
         val balance = repository.currentBalance().first()
         assertEquals(63L, balance) // 62.5 cents rounds UP to 63 (round half up)
@@ -576,12 +576,12 @@ class CheckInRepositoryTest {
     @Test
     fun `get check-in for date returns correct check-in`() = runTest {
         val targetDate = LocalDate.now(fixedClock).minusDays(5)
-        repository.recordCheckIn(targetDate, completed = true)
+        repository.recordCheckIn(targetDate, didSucceed = true)
 
         val checkIn = repository.getCheckInForDate(targetDate)
         assertNotNull(checkIn)
         assertEquals(targetDate, checkIn!!.date)
-        assertTrue(checkIn.completed)
+        assertTrue(checkIn.didSucceed)
     }
 
     @Test
@@ -593,11 +593,11 @@ class CheckInRepositoryTest {
     @Test
     fun `total completed-day count is accurate`() = runTest {
         val today = LocalDate.now(fixedClock)
-        repository.recordCheckIn(today.minusDays(4), completed = true)
-        repository.recordCheckIn(today.minusDays(3), completed = false)
-        repository.recordCheckIn(today.minusDays(2), completed = true)
-        repository.recordCheckIn(today.minusDays(1), completed = true)
-        repository.recordCheckIn(today, completed = false)
+        repository.recordCheckIn(today.minusDays(4), didSucceed = true)
+        repository.recordCheckIn(today.minusDays(3), didSucceed = false)
+        repository.recordCheckIn(today.minusDays(2), didSucceed = true)
+        repository.recordCheckIn(today.minusDays(1), didSucceed = true)
+        repository.recordCheckIn(today, didSucceed = false)
 
         val count = repository.getCompletedDayCount()
         assertEquals(3, count) // 3 completed days
@@ -611,7 +611,7 @@ class CheckInRepositoryTest {
     fun `bulkRecordCheckIns with empty set does nothing`() = runTest {
         val initialBalance = repository.currentBalance().first()
 
-        repository.bulkRecordCheckIns(emptySet(), completed = true)
+        repository.bulkRecordCheckIns(emptySet(), didSucceed = true)
 
         val balanceAfter = repository.currentBalance().first()
         assertEquals(initialBalance, balanceAfter)
@@ -626,7 +626,7 @@ class CheckInRepositoryTest {
             today.minusDays(1)
         )
 
-        repository.bulkRecordCheckIns(dates, completed = true)
+        repository.bulkRecordCheckIns(dates, didSucceed = true)
 
         // Should have 3 check-ins, all completed, balance = $15
         val balance = repository.currentBalance().first()
@@ -637,14 +637,14 @@ class CheckInRepositoryTest {
     @Test
     fun `bulkRecordCheckIns marks multiple new dates as missed`() = runTest {
         // First, create some balance
-        repository.recordCheckIn(LocalDate.now(fixedClock).minusDays(5), completed = true) // $5
+        repository.recordCheckIn(LocalDate.now(fixedClock).minusDays(5), didSucceed = true) // $5
 
         val dates = setOf(
             LocalDate.now(fixedClock).minusDays(4),
             LocalDate.now(fixedClock).minusDays(3)
         )
 
-        repository.bulkRecordCheckIns(dates, completed = false)
+        repository.bulkRecordCheckIns(dates, didSucceed = false)
 
         // $5 -> $2.50 -> $1.25
         val balance = repository.currentBalance().first()
@@ -658,11 +658,11 @@ class CheckInRepositoryTest {
         val day2 = today.minusDays(1)
 
         // Create as missed
-        repository.recordCheckIn(day1, completed = false) // $0
-        repository.recordCheckIn(day2, completed = false) // $0
+        repository.recordCheckIn(day1, didSucceed = false) // $0
+        repository.recordCheckIn(day2, didSucceed = false) // $0
 
         // Bulk update to completed
-        repository.bulkRecordCheckIns(setOf(day1, day2), completed = true)
+        repository.bulkRecordCheckIns(setOf(day1, day2), didSucceed = true)
 
         // Now should be $10
         val balance = repository.currentBalance().first()
@@ -676,14 +676,14 @@ class CheckInRepositoryTest {
         // Day 1: completed ($5)
         // Day 2: miss ($2.50)
         // Day 3: completed ($7.50)
-        repository.recordCheckIn(today.minusDays(3), completed = true)
-        repository.recordCheckIn(today.minusDays(2), completed = false)
-        repository.recordCheckIn(today.minusDays(1), completed = true)
+        repository.recordCheckIn(today.minusDays(3), didSucceed = true)
+        repository.recordCheckIn(today.minusDays(2), didSucceed = false)
+        repository.recordCheckIn(today.minusDays(1), didSucceed = true)
 
         assertEquals(750L, repository.currentBalance().first())
 
         // Bulk update day 2 to completed
-        repository.bulkRecordCheckIns(setOf(today.minusDays(2)), completed = true)
+        repository.bulkRecordCheckIns(setOf(today.minusDays(2)), didSucceed = true)
 
         // Now: $5 -> $10 -> $15
         val balance = repository.currentBalance().first()
@@ -697,10 +697,10 @@ class CheckInRepositoryTest {
         val newDate = today.minusDays(2)
 
         // Create one existing check-in
-        repository.recordCheckIn(existingDate, completed = false) // $0
+        repository.recordCheckIn(existingDate, didSucceed = false) // $0
 
         // Bulk update both
-        repository.bulkRecordCheckIns(setOf(existingDate, newDate), completed = true)
+        repository.bulkRecordCheckIns(setOf(existingDate, newDate), didSucceed = true)
 
         // Both should now be completed: $5 + $5 = $10
         val balance = repository.currentBalance().first()
@@ -709,8 +709,8 @@ class CheckInRepositoryTest {
         // Both should be marked as completed
         val checkIn1 = repository.getCheckInForDate(existingDate)
         val checkIn2 = repository.getCheckInForDate(newDate)
-        assertTrue(checkIn1!!.completed)
-        assertTrue(checkIn2!!.completed)
+        assertTrue(checkIn1!!.didSucceed)
+        assertTrue(checkIn2!!.didSucceed)
     }
 
     @Test
@@ -718,12 +718,12 @@ class CheckInRepositoryTest {
         val today = LocalDate.now(fixedClock)
 
         // Create check-ins for 3 days
-        repository.recordCheckIn(today.minusDays(3), completed = true)  // $5
-        repository.recordCheckIn(today.minusDays(2), completed = true)  // $10
-        repository.recordCheckIn(today.minusDays(1), completed = true)  // $15
+        repository.recordCheckIn(today.minusDays(3), didSucceed = true)  // $5
+        repository.recordCheckIn(today.minusDays(2), didSucceed = true)  // $10
+        repository.recordCheckIn(today.minusDays(1), didSucceed = true)  // $15
 
         // Only update day -2 to missed
-        repository.bulkRecordCheckIns(setOf(today.minusDays(2)), completed = false)
+        repository.bulkRecordCheckIns(setOf(today.minusDays(2)), didSucceed = false)
 
         // Day -3: $5 (unchanged)
         // Day -2: $2.50 (was $10, now halved from $5)
@@ -733,21 +733,21 @@ class CheckInRepositoryTest {
 
         // Verify day -3 is still completed
         val checkIn = repository.getCheckInForDate(today.minusDays(3))
-        assertTrue(checkIn!!.completed)
+        assertTrue(checkIn!!.didSucceed)
     }
 
     @Test
     fun `bulkRecordCheckIns with single date works`() = runTest {
         val date = LocalDate.now(fixedClock).minusDays(1)
 
-        repository.bulkRecordCheckIns(setOf(date), completed = true)
+        repository.bulkRecordCheckIns(setOf(date), didSucceed = true)
 
         val balance = repository.currentBalance().first()
         assertEquals(500L, balance)
 
         val checkIn = repository.getCheckInForDate(date)
         assertNotNull(checkIn)
-        assertTrue(checkIn!!.completed)
+        assertTrue(checkIn!!.didSucceed)
     }
 
     @Test
@@ -759,7 +759,7 @@ class CheckInRepositoryTest {
             LocalDate.now(fixedClock).minusDays(1)
         )
 
-        repository.bulkRecordCheckIns(dates, completed = true)
+        repository.bulkRecordCheckIns(dates, didSucceed = true)
 
         // $10 + $10 = $20
         val balance = repository.currentBalance().first()
@@ -778,15 +778,15 @@ class CheckInRepositoryTest {
     fun `two habits check in on the same date without colliding`() = runTest {
         val today = LocalDate.now(fixedClock)
 
-        repository.recordCheckIn(today, completed = true, habitId = 1L)
-        repository.recordCheckIn(today, completed = false, habitId = 2L)
+        repository.recordCheckIn(today, didSucceed = true, habitId = 1L)
+        repository.recordCheckIn(today, didSucceed = false, habitId = 2L)
 
         val habit1 = repository.getCheckInForDate(today, habitId = 1L)
         val habit2 = repository.getCheckInForDate(today, habitId = 2L)
         assertNotNull(habit1)
         assertNotNull(habit2)
-        assertTrue(habit1!!.completed)
-        assertEquals(false, habit2!!.completed)
+        assertTrue(habit1!!.didSucceed)
+        assertEquals(false, habit2!!.didSucceed)
         // Independent balances: habit 1 earned a reward, habit 2 halved from zero.
         assertEquals(500L, repository.currentBalance(habitId = 1L).first())
         assertEquals(0L, repository.currentBalance(habitId = 2L).first())
@@ -797,11 +797,11 @@ class CheckInRepositoryTest {
         val today = LocalDate.now(fixedClock)
 
         // Habit 1: an unbroken two-day streak.
-        repository.recordCheckIn(today.minusDays(1), completed = true, habitId = 1L)
-        repository.recordCheckIn(today, completed = true, habitId = 1L)
+        repository.recordCheckIn(today.minusDays(1), didSucceed = true, habitId = 1L)
+        repository.recordCheckIn(today, didSucceed = true, habitId = 1L)
         // Habit 2: a two-day run then a miss today breaks it.
-        repository.recordCheckIn(today.minusDays(1), completed = true, habitId = 2L)
-        repository.recordCheckIn(today, completed = false, habitId = 2L)
+        repository.recordCheckIn(today.minusDays(1), didSucceed = true, habitId = 2L)
+        repository.recordCheckIn(today, didSucceed = false, habitId = 2L)
 
         assertEquals(2, repository.calculateStreak(habitId = 1L))
         assertEquals(0, repository.calculateStreak(habitId = 2L))
@@ -819,8 +819,8 @@ class CheckInRepositoryTest {
         // Habit 1 raw $100, with a $10 cash-out allocated to it -> spendable $90.
         val repo = repoWithAllocation(reward = 10000L, allocationHabitId = 1L, allocationAmount = 1000L)
 
-        repo.recordCheckIn(LocalDate.now(fixedClock).minusDays(1), completed = true, habitId = 1L)
-        repo.recordCheckIn(LocalDate.now(fixedClock), completed = false, habitId = 1L)
+        repo.recordCheckIn(LocalDate.now(fixedClock).minusDays(1), didSucceed = true, habitId = 1L)
+        repo.recordCheckIn(LocalDate.now(fixedClock), didSucceed = false, habitId = 1L)
 
         val raw = repo.getCurrentBalanceOnce(habitId = 1L)
         assertEquals(5500L, raw) // raw' = (10000 + 1000) / 2
@@ -834,8 +834,8 @@ class CheckInRepositoryTest {
         // deduction and simply halves its raw balance.
         val repo = repoWithAllocation(reward = 10000L, allocationHabitId = 2L, allocationAmount = 1000L)
 
-        repo.recordCheckIn(LocalDate.now(fixedClock).minusDays(1), completed = true, habitId = 1L)
-        repo.recordCheckIn(LocalDate.now(fixedClock), completed = false, habitId = 1L)
+        repo.recordCheckIn(LocalDate.now(fixedClock).minusDays(1), didSucceed = true, habitId = 1L)
+        repo.recordCheckIn(LocalDate.now(fixedClock), didSucceed = false, habitId = 1L)
 
         assertEquals(5000L, repo.getCurrentBalanceOnce(habitId = 1L)) // 10000 / 2
     }
@@ -845,8 +845,8 @@ class CheckInRepositoryTest {
         // raw 100, deduction 1 -> (100 + 1) / 2 = 50.5, which rounds up to 51.
         val repo = repoWithAllocation(reward = 100L, allocationHabitId = 1L, allocationAmount = 1L)
 
-        repo.recordCheckIn(LocalDate.now(fixedClock).minusDays(1), completed = true, habitId = 1L)
-        repo.recordCheckIn(LocalDate.now(fixedClock), completed = false, habitId = 1L)
+        repo.recordCheckIn(LocalDate.now(fixedClock).minusDays(1), didSucceed = true, habitId = 1L)
+        repo.recordCheckIn(LocalDate.now(fixedClock), didSucceed = false, habitId = 1L)
 
         assertEquals(51L, repo.getCurrentBalanceOnce(habitId = 1L))
     }
