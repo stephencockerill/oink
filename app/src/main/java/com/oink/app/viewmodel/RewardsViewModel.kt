@@ -13,18 +13,64 @@ import com.oink.app.data.CashOutRepository
 import com.oink.app.data.CheckInRepository
 import com.oink.app.data.FreezeRepository
 import com.oink.app.data.HabitRepository
+import com.oink.app.data.PinHasher
+import com.oink.app.data.PreferencesRepository
 import com.oink.app.data.PrivateGate
 import com.oink.app.widget.OinkWidget
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+
+/**
+ * Whether the discreet private-funds unlock affordance shows on the Rewards
+ * screen, and in what mode.
+ *
+ * Crucially, this is derived purely from the PIN configuration
+ * ([PreferencesRepository.hasPin]) and the shared [PrivateGate] unlock flag,
+ * never from whether any private habits or funds exist. That mirrors the private
+ * area's plausible-deniability guarantee: the control's presence leaks only that
+ * a PIN was set, exactly what the visible Private area already implies.
+ */
+sealed interface PrivateFundsAccess {
+    /** Resolving the PIN configuration; show no control. */
+    data object Loading : PrivateFundsAccess
+
+    /** No PIN configured; show no unlock control at all. */
+    data object NoPin : PrivateFundsAccess
+
+    /** A PIN is set and the area is locked; offer the discreet unlock. */
+    data object Locked : PrivateFundsAccess
+
+    /** Unlocked; private funds are folded into the pot and history. */
+    data object Unlocked : PrivateFundsAccess
+}
+
+/**
+ * Rate-limit and error state for the private-funds PIN prompt, snapshotted at
+ * emission time. Mirrors the private area's locked-state fields so the two
+ * prompts behave identically.
+ *
+ * @param isLockedOut whether the rate limiter is currently blocking attempts
+ * @param remainingLockoutSeconds seconds left on the lockout (0 when not locked out)
+ * @param remainingAttempts wrong PINs left before the next lockout
+ * @param showError whether the last attempt was wrong
+ */
+data class PinPromptState(
+    val isLockedOut: Boolean = false,
+    val remainingLockoutSeconds: Int = 0,
+    val remainingAttempts: Int = PrivateGate.MAX_ATTEMPTS,
+    val showError: Boolean = false
+)
 
 /**
  * ViewModel for the Rewards screen.
@@ -38,6 +84,12 @@ import kotlinx.coroutines.withContext
  * private habit is hidden. While unlocked the pot spans public and private
  * habits and the full history shows. See [CashOutRepository].
  *
+ * When a PIN is set but the area is locked, [privateFundsAccess] offers a
+ * discreet unlock: entering the correct PIN flips the shared [PrivateGate], so
+ * the pot grows to include private banks and the full history appears. The
+ * existing background re-lock behaviour still applies. PBKDF2 verification is
+ * CPU-bound, so it runs on [defaultDispatcher] rather than the main thread.
+ *
  * No lifetime "earned - cashed out = balance" figure is surfaced here: with
  * gating a hidden private-funded claim would break the reconciliation and betray
  * that hidden claims exist.
@@ -48,7 +100,9 @@ class RewardsViewModel(
     private val cashOutRepository: CashOutRepository,
     private val checkInRepository: CheckInRepository,
     private val freezeRepository: FreezeRepository,
-    private val privateGate: PrivateGate
+    private val privateGate: PrivateGate,
+    private val preferencesRepository: PreferencesRepository,
+    private val defaultDispatcher: CoroutineDispatcher = Dispatchers.Default
 ) : AndroidViewModel(application) {
 
     /**
@@ -97,6 +151,48 @@ class RewardsViewModel(
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = 0L
         )
+
+    /**
+     * Whether the most recent private-funds PIN attempt failed. Transient UI
+     * signal, so it is a plain MutableStateFlow rather than persisted or derived.
+     */
+    private val _lastAttemptFailed = MutableStateFlow(false)
+
+    /**
+     * Drives the discreet private-funds unlock control. Keyed only on whether a
+     * PIN exists and the unlock flag, so it reveals nothing about private
+     * contents (see [PrivateFundsAccess]).
+     */
+    val privateFundsAccess: StateFlow<PrivateFundsAccess> = combine(
+        preferencesRepository.hasPin,
+        privateGate.isUnlocked
+    ) { hasPin, unlocked ->
+        when {
+            unlocked -> PrivateFundsAccess.Unlocked
+            hasPin -> PrivateFundsAccess.Locked
+            else -> PrivateFundsAccess.NoPin
+        }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = PrivateFundsAccess.Loading
+    )
+
+    /**
+     * Rate-limit and error state for the PIN prompt. Re-emits on every attempt;
+     * the live "still locked out?" answer is read from [PrivateGate]'s injected
+     * clock at emission time.
+     */
+    val pinPrompt: StateFlow<PinPromptState> = combine(
+        privateGate.attemptState,
+        _lastAttemptFailed
+    ) { _, attemptFailed ->
+        buildPinPrompt(attemptFailed)
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = PinPromptState()
+    )
 
     /**
      * Total workout count (all exercise days logged).
@@ -215,6 +311,58 @@ class RewardsViewModel(
      */
     fun clearError() {
         _error.value = null
+    }
+
+    // ============================================================
+    // Private-funds unlock
+    // ============================================================
+
+    /**
+     * Verify a private-funds PIN attempt. Rejected outright while rate-limited.
+     * On a correct PIN the limiter resets and the shared gate unlocks - so the
+     * pot and history flows grow to include private banks - and on a wrong one
+     * the failure is recorded (advancing the limiter) and surfaced as an error.
+     *
+     * Mirrors [PrivateViewModel.submitPin], including running the CPU-bound
+     * PBKDF2 verify on [defaultDispatcher].
+     */
+    fun submitPin(pin: String) {
+        if (privateGate.isLockedOut()) return
+        viewModelScope.launch {
+            val stored = preferencesRepository.getHashedPin() ?: return@launch
+            val matches = withContext(defaultDispatcher) { PinHasher.verify(pin, stored) }
+            if (matches) {
+                _lastAttemptFailed.value = false
+                privateGate.recordSuccess()
+                privateGate.unlock()
+            } else {
+                privateGate.recordFailure()
+                _lastAttemptFailed.value = true
+            }
+        }
+    }
+
+    /**
+     * Clear the PIN error flag, so dismissing and reopening the prompt starts
+     * clean rather than showing a stale "incorrect PIN".
+     */
+    fun clearPinError() {
+        _lastAttemptFailed.value = false
+    }
+
+    /**
+     * Snapshot the lockout window at emission time. While locked out, no error
+     * text is shown (the countdown carries the message instead).
+     */
+    private fun buildPinPrompt(attemptFailed: Boolean): PinPromptState {
+        val lockedOut = privateGate.isLockedOut()
+        val remainingMillis = privateGate.remainingLockoutMillis()
+        return PinPromptState(
+            isLockedOut = lockedOut,
+            remainingLockoutSeconds = ((remainingMillis + 999) / 1000).toInt(),
+            remainingAttempts = privateGate.remainingAttempts(),
+            showError = attemptFailed && !lockedOut
+        )
     }
 
     // ============================================================
@@ -375,7 +523,8 @@ class RewardsViewModel(
                         cashOutRepository = container.cashOutRepository,
                         checkInRepository = container.checkInRepository,
                         freezeRepository = container.freezeRepository,
-                        privateGate = container.privateGate
+                        privateGate = container.privateGate,
+                        preferencesRepository = container.preferencesRepository
                     )
                 }
             }

@@ -73,7 +73,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.oink.app.data.CashOut
 import com.oink.app.data.CheckIn
 import com.oink.app.ui.theme.OinkPink
 import com.oink.app.ui.theme.OinkPinkDark
@@ -106,7 +105,6 @@ fun CalendarScreen(
     onNavigateBack: () -> Unit
 ) {
     val checkIns by viewModel.allCheckIns.collectAsStateWithLifecycle()
-    val cashOuts by viewModel.allCashOuts.collectAsStateWithLifecycle()
     val streak by viewModel.streak.collectAsStateWithLifecycle()
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
 
@@ -125,18 +123,6 @@ fun CalendarScreen(
     val checkInMap by remember(checkIns) {
         derivedStateOf {
             checkIns.associateBy { it.date }
-        }
-    }
-
-    // Create a map of date -> cash-outs for reward indicators
-    val cashOutsByDate by remember(cashOuts) {
-        derivedStateOf {
-            cashOuts.groupBy { cashOut ->
-                // Convert millis to LocalDate
-                java.time.Instant.ofEpochMilli(cashOut.cashedOutAt)
-                    .atZone(java.time.ZoneId.systemDefault())
-                    .toLocalDate()
-            }
         }
     }
 
@@ -293,7 +279,6 @@ fun CalendarScreen(
             CalendarGrid(
                 yearMonth = currentYearMonth,
                 checkInMap = checkInMap,
-                cashOutsByDate = cashOutsByDate,
                 isSelectionMode = isSelectionMode,
                 selectedDates = selectedDates,
                 rangeStartDate = rangeStartDate,
@@ -509,7 +494,6 @@ private fun DayOfWeekHeader() {
 private fun CalendarGrid(
     yearMonth: YearMonth,
     checkInMap: Map<LocalDate, CheckIn>,
-    cashOutsByDate: Map<LocalDate, List<CashOut>>,
     isSelectionMode: Boolean,
     selectedDates: Set<LocalDate>,
     rangeStartDate: LocalDate?,
@@ -558,7 +542,6 @@ private fun CalendarGrid(
                 val isFuture = date.isAfter(today)
                 val isSelected = selectedDates.contains(date)
                 val isRangeStart = rangeStartDate == date
-                val hasReward = cashOutsByDate.containsKey(date)
 
                 CalendarDay(
                     date = date,
@@ -568,7 +551,6 @@ private fun CalendarGrid(
                     isSelectionMode = isSelectionMode,
                     isSelected = isSelected,
                     isRangeStart = isRangeStart,
-                    hasReward = hasReward,
                     onClick = { onDayClick(date) },
                     onLongClick = { onDayLongClick(date) }
                 )
@@ -590,7 +572,6 @@ private fun CalendarDay(
     isSelectionMode: Boolean,
     isSelected: Boolean,
     isRangeStart: Boolean,
-    hasReward: Boolean,
     onClick: () -> Unit,
     onLongClick: () -> Unit
 ) {
@@ -648,15 +629,6 @@ private fun CalendarDay(
         Column(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Reward indicator at top
-            if (hasReward && !isSelectionMode) {
-                Text(
-                    text = "🎁",
-                    fontSize = 8.sp,
-                    modifier = Modifier.padding(bottom = 1.dp)
-                )
-            }
-
             Text(
                 text = date.dayOfMonth.toString(),
                 style = MaterialTheme.typography.bodyMedium,
@@ -725,22 +697,6 @@ private fun CalendarLegend() {
                 label = "No log"
             )
         }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Reward indicator legend
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center
-        ) {
-            Text(
-                text = "🎁 = Reward claimed on this day",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-            )
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
     }
 }
 
