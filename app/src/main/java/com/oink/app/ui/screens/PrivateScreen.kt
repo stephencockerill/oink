@@ -20,7 +20,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Button
@@ -51,9 +50,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.oink.app.ui.components.TodayCheckInControl
 import com.oink.app.ui.theme.OinkError
 import com.oink.app.ui.theme.OinkPink
 import com.oink.app.ui.theme.OinkTeal
@@ -131,7 +132,8 @@ fun PrivateScreen(
                 is PrivateUiState.Locked -> LockedContent(state = state, onSubmitPin = viewModel::submitPin)
                 is PrivateUiState.Unlocked -> UnlockedContent(
                     habits = state.habits,
-                    onHabitClick = onHabitClick
+                    onHabitClick = onHabitClick,
+                    onCheckIn = viewModel::recordCheckIn
                 )
             }
         }
@@ -288,7 +290,8 @@ private fun LockedContent(
 @Composable
 private fun UnlockedContent(
     habits: List<HabitCardState>,
-    onHabitClick: (Long) -> Unit
+    onHabitClick: (Long) -> Unit,
+    onCheckIn: (Long, Boolean) -> Unit
 ) {
     if (habits.isEmpty()) {
         GateColumn {
@@ -321,19 +324,26 @@ private fun UnlockedContent(
             key = { it.id },
             contentType = { "private-habit-card" }
         ) { card ->
-            PrivateHabitCard(card = card, onClick = { onHabitClick(card.id) })
+            PrivateHabitCard(
+                card = card,
+                onClick = { onHabitClick(card.id) },
+                onCheckIn = { completed -> onCheckIn(card.id, completed) }
+            )
         }
     }
 }
 
 /**
- * A private habit card: emoji, name, streak, and this habit's spendable balance.
- * Mirrors the home habit card so the two areas read alike.
+ * A private habit card: emoji, name, streak, this habit's spendable balance, and
+ * an inline quick check-in control. Mirrors the home habit card so the two areas
+ * read alike. Tapping the card body opens the habit detail; the check-in control
+ * logs today without navigating (see [TodayCheckInControl]).
  */
 @Composable
 private fun PrivateHabitCard(
     card: HabitCardState,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onCheckIn: (Boolean) -> Unit
 ) {
     Card(
         modifier = Modifier
@@ -369,7 +379,9 @@ private fun PrivateHabitCard(
                     text = card.name,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
@@ -388,10 +400,11 @@ private fun PrivateHabitCard(
                 color = OinkTeal
             )
 
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+            Spacer(modifier = Modifier.width(8.dp))
+
+            TodayCheckInControl(
+                todayCompleted = card.todayCompleted,
+                onCheckIn = onCheckIn
             )
         }
     }

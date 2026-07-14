@@ -25,6 +25,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -160,6 +161,60 @@ class HabitListViewModelTest {
         advanceUntilIdle()
 
         assertEquals(emptyList<HabitCardState>(), viewModel.habitCards.value)
+    }
+
+    @Test
+    fun `todayCompleted reflects today's check-in`() = runTest {
+        fakeHabitDao.seed(Habit(id = 1L, name = "Workout", sortOrder = 0))
+
+        val viewModel = createViewModel()
+        backgroundScope.launch { viewModel.habitCards.collect {} }
+        advanceUntilIdle()
+
+        // Nothing logged today yet.
+        assertNull(viewModel.habitCards.value.first { it.id == 1L }.todayCompleted)
+
+        viewModel.recordCheckIn(1L, completed = true)
+        advanceUntilIdle()
+        assertEquals(true, viewModel.habitCards.value.first { it.id == 1L }.todayCompleted)
+
+        viewModel.recordCheckIn(1L, completed = false)
+        advanceUntilIdle()
+        assertEquals(false, viewModel.habitCards.value.first { it.id == 1L }.todayCompleted)
+    }
+
+    @Test
+    fun `recordCheckIn credits a done day, halves on a miss, and restores on undo`() = runTest {
+        fakeHabitDao.seed(Habit(id = 1L, name = "Workout", sortOrder = 0))
+        // A completed day yesterday leaves a balance of one reward to build on.
+        checkInRepository.recordCheckIn(checkInRepository.today().minusDays(1), completed = true, habitId = 1L)
+
+        val viewModel = createViewModel()
+        backgroundScope.launch { viewModel.habitCards.collect {} }
+        advanceUntilIdle()
+
+        val reward = PreferencesRepository.DEFAULT_DAILY_REWARD
+
+        fun card() = viewModel.habitCards.value.first { it.id == 1L }
+
+        // Done today: +reward on top of yesterday, streak 2.
+        viewModel.recordCheckIn(1L, completed = true)
+        advanceUntilIdle()
+        assertEquals(reward * 2, card().spendable)
+        assertEquals(2, card().streak)
+
+        // Miss today: spendable halves ((500 + 0 + 1) / 2 = 250) and streak breaks.
+        viewModel.recordCheckIn(1L, completed = false)
+        advanceUntilIdle()
+        assertEquals(reward / 2, card().spendable)
+        assertEquals(0, card().streak)
+
+        // Undo the miss (miss -> done): the halving is fully reversed because the
+        // balance is recomputed off the previous day, not the halved value.
+        viewModel.recordCheckIn(1L, completed = true)
+        advanceUntilIdle()
+        assertEquals(reward * 2, card().spendable)
+        assertEquals(2, card().streak)
     }
 
     @Test
