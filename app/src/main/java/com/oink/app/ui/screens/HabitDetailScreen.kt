@@ -96,8 +96,17 @@ fun HabitDetailScreen(
     onNavigateToHistory: () -> Unit,
     onNavigateToCalendar: () -> Unit,
     onNavigateToSettings: () -> Unit,
-    onNavigateToRewards: () -> Unit
+    onNavigateToRewards: () -> Unit,
+    onPrivateLocked: () -> Unit
 ) {
+    // A private habit must not stay visible once the gate re-locks (e.g. after
+    // backgrounding). Leave the private subtree for the PIN gate the moment it
+    // does. Public habits never trip this.
+    val privateLocked by viewModel.privateLocked.collectAsStateWithLifecycle()
+    LaunchedEffect(privateLocked) {
+        if (privateLocked) onPrivateLocked()
+    }
+
     val habitName by viewModel.habitName.collectAsStateWithLifecycle()
     val habitEmoji by viewModel.habitEmoji.collectAsStateWithLifecycle()
     val balance by viewModel.currentBalance.collectAsStateWithLifecycle()

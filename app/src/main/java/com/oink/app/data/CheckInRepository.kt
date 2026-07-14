@@ -452,17 +452,33 @@ class CheckInRepository(
      *
      * Does no I/O so reactive callers can recompute on every check-in emission.
      *
+     * A day can only be a freeze candidate if the habit was already active on or
+     * before it: the search is bounded below by the earliest check-in date. A
+     * habit with no check-ins has no streak to protect (returns null), and a gap
+     * before the first check-in is not a miss - the habit did not yet exist to
+     * miss it. This bound is on the first check-in date, not [Habit.createdAt]: a
+     * migrated habit's createdAt is the migration timestamp yet its check-ins
+     * predate it, so the earliest check-in is the correct floor.
+     *
      * @param checkIns All check-ins (order irrelevant; keyed by date internally)
      * @param frozenDates Dates to skip over (already frozen, or dismissed by the user)
      */
     fun findMissedDayForFreeze(checkIns: List<CheckIn>, frozenDates: Set<LocalDate> = emptySet()): LocalDate? {
-        val today = today()
-        var currentDate = today.minusDays(1) // Start from yesterday
+        // No activity yet - nothing to protect.
+        val earliestCheckIn = checkIns.minByOrNull { it.date }?.date ?: return null
+
+        var currentDate = today().minusDays(1) // Start from yesterday
 
         val checkInMap = checkIns.associateBy { it.date }
 
-        // Look back up to 7 days for a missed day
+        // Look back up to 7 days for a missed day, never before the habit's
+        // first activity.
         repeat(7) {
+            if (currentDate < earliestCheckIn) {
+                // Reached before the habit existed - no miss to freeze.
+                return null
+            }
+
             if (frozenDates.contains(currentDate)) {
                 currentDate = currentDate.minusDays(1)
                 return@repeat
@@ -471,16 +487,16 @@ class CheckInRepository(
             val checkIn = checkInMap[currentDate]
 
             if (checkIn == null) {
-                // Gap - this is a missed day
+                // Gap after the habit was active - a missed day.
                 return currentDate
             }
 
             if (!checkIn.completed) {
-                // Logged as rest day - this could be frozen too
+                // Logged as a rest day - this could be frozen too.
                 return currentDate
             }
 
-            // Completed day - continue looking back
+            // Completed day - continue looking back.
             currentDate = currentDate.minusDays(1)
         }
 

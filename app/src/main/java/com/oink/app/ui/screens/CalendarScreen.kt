@@ -55,6 +55,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -103,8 +104,15 @@ import java.util.Locale
 @Composable
 fun CalendarScreen(
     viewModel: MainViewModel,
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    onPrivateLocked: () -> Unit
 ) {
+    // Leave a private habit's calendar for the PIN gate when the gate re-locks.
+    val privateLocked by viewModel.privateLocked.collectAsStateWithLifecycle()
+    LaunchedEffect(privateLocked) {
+        if (privateLocked) onPrivateLocked()
+    }
+
     val checkIns by viewModel.allCheckIns.collectAsStateWithLifecycle()
     val streak by viewModel.streak.collectAsStateWithLifecycle()
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()

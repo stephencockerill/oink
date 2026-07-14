@@ -13,11 +13,13 @@ import com.oink.app.AppContainer
 import com.oink.app.data.FreezeRepository
 import com.oink.app.data.HabitRepository
 import com.oink.app.data.PreferencesRepository
+import com.oink.app.data.PrivateGate
 import com.oink.app.data.UserPreferences
 import com.oink.app.notifications.NotificationHelper
 import com.oink.app.notifications.ReminderScheduler
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -41,6 +43,7 @@ class SettingsViewModel(
     private val preferencesRepository: PreferencesRepository,
     private val habitRepository: HabitRepository,
     private val freezeRepository: FreezeRepository,
+    private val privateGate: PrivateGate,
     savedStateHandle: SavedStateHandle
 ) : AndroidViewModel(application) {
 
@@ -52,6 +55,25 @@ class SettingsViewModel(
      */
     private val habitId: Long =
         savedStateHandle.get<Long>(MainViewModel.HABIT_ID_KEY) ?: HabitRepository.DEFAULT_HABIT_ID
+
+    /**
+     * True when this habit is private and the private gate is locked.
+     *
+     * Mirrors [MainViewModel.privateLocked]: this settings subtree hangs off the
+     * private-habit detail screen, so it must also drop back to the PIN gate on a
+     * background re-lock rather than keep showing a private habit's settings.
+     * Public habits are never gated.
+     */
+    val privateLocked: StateFlow<Boolean> = combine(
+        habitRepository.habit(habitId),
+        privateGate.isUnlocked
+    ) { habit, unlocked ->
+        habit?.isPrivate == true && !unlocked
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = false
+    )
 
     /**
      * User preferences as a StateFlow.
@@ -178,6 +200,7 @@ class SettingsViewModel(
                         preferencesRepository = container.preferencesRepository,
                         habitRepository = container.habitRepository,
                         freezeRepository = container.freezeRepository,
+                        privateGate = container.privateGate,
                         savedStateHandle = createSavedStateHandle()
                     )
                 }

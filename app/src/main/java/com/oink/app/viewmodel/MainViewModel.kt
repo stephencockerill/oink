@@ -16,6 +16,7 @@ import com.oink.app.data.CheckInRepository
 import com.oink.app.data.FreezeRepository
 import com.oink.app.data.HabitRepository
 import com.oink.app.data.PreferencesRepository
+import com.oink.app.data.PrivateGate
 import com.oink.app.utils.Formatters
 import com.oink.app.widget.OinkWidget
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -52,6 +53,7 @@ class MainViewModel(
     private val habitRepository: HabitRepository,
     private val cashOutRepository: CashOutRepository,
     private val freezeRepository: FreezeRepository,
+    private val privateGate: PrivateGate,
     savedStateHandle: SavedStateHandle
 ) : AndroidViewModel(application) {
 
@@ -86,6 +88,27 @@ class MainViewModel(
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = ""
         )
+
+    /**
+     * True when this habit is private and the private gate is locked.
+     *
+     * The [PrivateGate] on its own only guards the dedicated private area; a
+     * per-habit screen (detail/history/calendar/settings) reached under it would
+     * otherwise keep rendering a private habit's data after a background re-lock.
+     * The screen observes this and pops back out of the private subtree to the
+     * PIN gate when it flips true. Public habits are never gated: a null/absent or
+     * public habit yields false regardless of the unlock flag.
+     */
+    val privateLocked: StateFlow<Boolean> = combine(
+        habitRepository.habit(habitId),
+        privateGate.isUnlocked
+    ) { habit, unlocked ->
+        habit?.isPrivate == true && !unlocked
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = false
+    )
 
     /**
      * This habit's spendable balance as a StateFlow.
@@ -463,6 +486,7 @@ class MainViewModel(
                         habitRepository = container.habitRepository,
                         cashOutRepository = container.cashOutRepository,
                         freezeRepository = container.freezeRepository,
+                        privateGate = container.privateGate,
                         savedStateHandle = createSavedStateHandle()
                     )
                 }

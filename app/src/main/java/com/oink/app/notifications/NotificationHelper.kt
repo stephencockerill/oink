@@ -74,6 +74,10 @@ object NotificationHelper {
     /**
      * Show the daily reminder notification.
      */
+    // The notify() call is guarded by the hasNotificationPermission() early return
+    // below (a real POST_NOTIFICATIONS checkSelfPermission on API 33+); lint cannot
+    // follow the cross-function guard.
+    @Suppress("MissingPermission")
     fun showDailyReminder(context: Context) {
         if (!hasNotificationPermission(context)) {
             // Can't show notification without permission

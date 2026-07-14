@@ -43,6 +43,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -76,8 +77,15 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun SettingsScreen(
     settingsViewModel: SettingsViewModel,
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    onPrivateLocked: () -> Unit
 ) {
+    // Leave a private habit's settings for the PIN gate when the gate re-locks.
+    val privateLocked by settingsViewModel.privateLocked.collectAsStateWithLifecycle()
+    LaunchedEffect(privateLocked) {
+        if (privateLocked) onPrivateLocked()
+    }
+
     val userPreferences by settingsViewModel.userPreferences.collectAsStateWithLifecycle()
     val dailyReward by settingsViewModel.dailyReward.collectAsStateWithLifecycle()
     val availableFreezes by settingsViewModel.availableFreezes.collectAsStateWithLifecycle()
