@@ -102,6 +102,10 @@ class FakeCheckInDao : CheckInDao {
         return checkIns.value.count { it.habitId == habitId && it.didSucceed }
     }
 
+    override fun getCompletedDayCountFlow(habitId: Long): Flow<Int> {
+        return checkIns.map { list -> list.count { it.habitId == habitId && it.didSucceed } }
+    }
+
     override suspend fun getCheckInBefore(habitId: Long, epochDay: Long): CheckIn? {
         return checkIns.value
             .filter { it.habitId == habitId && it.date.toEpochDay() < epochDay }

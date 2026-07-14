@@ -88,6 +88,14 @@ interface CheckInDao {
     suspend fun getCompletedDayCount(habitId: Long): Int
 
     /**
+     * Observe a habit's total count of completed days (days marked done).
+     * Re-emits whenever the habit's check-ins change, so reactive callers stay
+     * in sync without a manual refresh.
+     */
+    @Query("SELECT COUNT(*) FROM check_ins WHERE habitId = :habitId AND didSucceed = 1")
+    fun getCompletedDayCountFlow(habitId: Long): Flow<Int>
+
+    /**
      * Get a habit's check-in immediately before a given date.
      * Efficient single query instead of loading all check-ins and filtering.
      */

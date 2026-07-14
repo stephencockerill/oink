@@ -568,6 +568,13 @@ class CheckInRepository(
         return checkInDao.getCompletedDayCount(habitId)
     }
 
+    /**
+     * Flow of a habit's total number of completed days (days marked done).
+     * Re-emits whenever the habit's check-ins change.
+     */
+    fun completedDayCount(habitId: Long = HabitRepository.DEFAULT_HABIT_ID): Flow<Int> =
+        checkInDao.getCompletedDayCountFlow(habitId)
+
     // NOTE: We intentionally DO NOT have a deductBalance() method!
     //
     // Deductions (cash-outs, freeze costs) are tracked SEPARATELY from check-ins.

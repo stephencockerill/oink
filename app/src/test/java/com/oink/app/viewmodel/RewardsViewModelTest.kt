@@ -110,6 +110,7 @@ class RewardsViewModelTest {
         application = application,
         cashOutRepository = cashOutRepository,
         checkInRepository = checkInRepository,
+        habitRepository = habitRepository,
         freezeRepository = freezeRepository,
         privateGate = privateGate,
         preferencesRepository = fakePreferencesRepository,
@@ -292,8 +293,79 @@ class RewardsViewModelTest {
         assertFalse(viewModel.pinPrompt.value.showError)
     }
 
+    @Test
+    fun `totalCompletedDays sums completed days across every public habit`() = runTest {
+        seedHabits(
+            Habit(id = 1L, name = "Workout", sortOrder = 0, isPrivate = false),
+            Habit(id = 2L, name = "Read", sortOrder = 1, isPrivate = false)
+        )
+        seedCompletedDays(1L to 3, 2L to 2)
+
+        val viewModel = createViewModel()
+        backgroundScope.launch { viewModel.totalCompletedDays.collect {} }
+        advanceUntilIdle()
+
+        assertEquals(5, viewModel.totalCompletedDays.value)
+    }
+
+    @Test
+    fun `totalCompletedDays is zero with no habits and never touches the default habit`() = runTest {
+        // No habits in scope, but the default habit has completed days on record.
+        // The stat must span the (empty) habit set, not the missing default habit.
+        seedCompletedDays(HabitRepository.DEFAULT_HABIT_ID to 4)
+
+        val viewModel = createViewModel()
+        backgroundScope.launch { viewModel.totalCompletedDays.collect {} }
+        advanceUntilIdle()
+
+        assertEquals(0, viewModel.totalCompletedDays.value)
+    }
+
+    @Test
+    fun `totalCompletedDays excludes private habits when locked and includes them when unlocked`() = runTest {
+        seedHabits(
+            Habit(id = 1L, name = "Workout", sortOrder = 0, isPrivate = false),
+            Habit(id = 2L, name = "Therapy", sortOrder = 1, isPrivate = true)
+        )
+        seedCompletedDays(1L to 3, 2L to 2)
+
+        val viewModel = createViewModel()
+        backgroundScope.launch { viewModel.totalCompletedDays.collect {} }
+        advanceUntilIdle()
+
+        // Locked: public habit only.
+        assertEquals(3, viewModel.totalCompletedDays.value)
+
+        // Unlocked: public + private, live.
+        privateGate.unlock()
+        advanceUntilIdle()
+        assertEquals(5, viewModel.totalCompletedDays.value)
+    }
+
     private fun seedHabits(vararg habits: Habit) {
         fakeHabitDao.seed(*habits)
+    }
+
+    /**
+     * Seed completed ([CheckIn.didSucceed] true) check-ins per habit on distinct
+     * dates, so [RewardsViewModel.totalCompletedDays] has counts greater than one
+     * to sum. Dates are unique across all seeded check-ins.
+     */
+    private fun seedCompletedDays(vararg habitToCount: Pair<Long, Int>) {
+        var id = 1L
+        var dayOffset = 1L
+        val checkIns = habitToCount.flatMap { (habitId, count) ->
+            (0 until count).map {
+                CheckIn(
+                    id = id++,
+                    date = LocalDate.now().minusDays(dayOffset++),
+                    didSucceed = true,
+                    balanceAfter = 0L,
+                    habitId = habitId
+                )
+            }
+        }
+        fakeCheckInDao.setCheckIns(checkIns)
     }
 
     private fun seedRawBalances(vararg balances: Pair<Long, Long>) {
