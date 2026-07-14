@@ -27,7 +27,7 @@ data class Habit(
     /**
      * Emoji shown alongside the habit.
      */
-    val emoji: String = "🏋️",
+    val emoji: String = "⭐",
 
     /**
      * Reward earned per successful day for this habit, in cents.
