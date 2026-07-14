@@ -80,6 +80,7 @@ import com.oink.app.ui.theme.OinkPinkDark
 import com.oink.app.ui.theme.OinkTeal
 import com.oink.app.ui.theme.OinkTealContainer
 import com.oink.app.ui.theme.OinkWarning
+import com.oink.app.utils.HabitCopy
 import com.oink.app.viewmodel.MainViewModel
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -710,7 +711,7 @@ private fun CalendarLegend() {
                 color = OinkTealContainer,
                 iconColor = OinkTeal,
                 icon = Icons.Default.Check,
-                label = "Exercised"
+                label = HabitCopy.LEGEND_DONE
             )
             LegendItem(
                 color = MaterialTheme.colorScheme.errorContainer,
@@ -812,9 +813,9 @@ private fun LogDayDialog(
                 if (existingCheckIn != null) {
                     Text(
                         text = if (existingCheckIn.didExercise) {
-                            "You logged this as an exercise day ✓"
+                            HabitCopy.LOGGED_DONE
                         } else {
-                            "You logged this as a rest day"
+                            HabitCopy.LOGGED_REST
                         },
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
@@ -826,7 +827,7 @@ private fun LogDayDialog(
                     )
                 } else {
                     Text(
-                        text = "Did you exercise on this day?",
+                        text = HabitCopy.CHECK_IN_PROMPT_PAST,
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }
@@ -940,7 +941,7 @@ private fun BulkActionBar(
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Exercised!")
+                    Text(HabitCopy.CONFIRM_DONE)
                 }
             }
 

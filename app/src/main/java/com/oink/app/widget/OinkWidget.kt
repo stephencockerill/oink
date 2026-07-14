@@ -44,6 +44,8 @@ import com.oink.app.MainActivity
 import com.oink.app.OinkApplication
 import com.oink.app.R
 import com.oink.app.utils.Formatters
+import com.oink.app.utils.HabitCopy
+import com.oink.app.utils.UrgencyLevel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -204,16 +206,6 @@ data class WidgetData(
 )
 
 /**
- * Urgency level based on time of day and whether user has logged.
- */
-enum class UrgencyLevel {
-    CALM,       // Logged, or early morning (before noon)
-    NUDGE,      // Not logged, afternoon (12pm-5pm)
-    WARN,       // Not logged, evening (5pm-9pm)
-    CRITICAL    // Not logged, night (after 9pm)
-}
-
-/**
  * Streak tier for escalating display intensity.
  */
 enum class StreakTier {
@@ -292,17 +284,6 @@ private fun getUrgencyIndicator(urgency: UrgencyLevel): String = when (urgency) 
     UrgencyLevel.NUDGE -> ""          // CTA is enough
     UrgencyLevel.WARN -> "⏰"
     UrgencyLevel.CRITICAL -> ""       // Emoji in CTA
-}
-
-/**
- * Get call-to-action text based on urgency.
- * Encouraging but increasingly urgent as the day goes on.
- */
-private fun getCtaText(urgency: UrgencyLevel): String = when (urgency) {
-    UrgencyLevel.CALM -> "🐷 Log your workout"
-    UrgencyLevel.NUDGE -> "Time to sweat!"
-    UrgencyLevel.WARN -> "Don't break the streak!"
-    UrgencyLevel.CRITICAL -> "⚡ LOG NOW!"
 }
 
 /**
@@ -420,9 +401,9 @@ private fun WidgetContent(data: WidgetData) {
                     }
                     Text(
                         text = when {
-                            data.exercisedToday == true -> "💪 Crushed it!"
-                            data.exercisedToday == false -> "😴 Rest day"
-                            else -> getCtaText(urgencyLevel)
+                            data.exercisedToday == true -> HabitCopy.DONE
+                            data.exercisedToday == false -> HabitCopy.REST
+                            else -> HabitCopy.cta(urgencyLevel)
                         },
                         style = TextStyle(
                             color = ColorProvider(

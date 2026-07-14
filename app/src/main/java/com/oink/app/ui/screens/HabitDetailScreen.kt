@@ -75,6 +75,7 @@ import com.oink.app.ui.theme.OinkTeal
 import com.oink.app.ui.theme.OinkTealContainer
 import com.oink.app.ui.theme.OinkWarning
 import com.oink.app.utils.Formatters
+import com.oink.app.utils.HabitCopy
 import com.oink.app.viewmodel.MainViewModel
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -498,7 +499,7 @@ private fun CheckInSection(
             if (todayCheckIn == null) {
                 // Not checked in yet - show question and buttons
                 Text(
-                    text = "Did you exercise today?",
+                    text = HabitCopy.CHECK_IN_PROMPT,
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Medium,
                     textAlign = TextAlign.Center
@@ -591,7 +592,7 @@ private fun CheckInSection(
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Text(
-                        text = if (todayCheckIn.didExercise) "Actually, I didn't exercise" else "Wait, I did exercise!",
+                        text = if (todayCheckIn.didExercise) HabitCopy.UNDO_DONE else HabitCopy.UNDO_REST,
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }
@@ -628,7 +629,7 @@ private fun PreviewSection(
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
-                    text = "Exercise",
+                    text = HabitCopy.PREVIEW_DONE,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                 )
@@ -729,13 +730,13 @@ private fun CheckInStatus(didExercise: Boolean) {
 
             Column {
                 Text(
-                    text = if (didExercise) "Crushed it! 💪" else "Rest day",
+                    text = if (didExercise) HabitCopy.DONE else HabitCopy.REST,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = contentColor
                 )
                 Text(
-                    text = if (didExercise) "You exercised today" else "Tomorrow's another chance",
+                    text = if (didExercise) HabitCopy.DONE_SUBTITLE else HabitCopy.REST_SUBTITLE,
                     style = MaterialTheme.typography.bodyMedium,
                     color = contentColor.copy(alpha = 0.8f)
                 )

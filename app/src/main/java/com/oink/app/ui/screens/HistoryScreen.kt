@@ -59,6 +59,7 @@ import com.oink.app.ui.theme.OinkTeal
 import com.oink.app.ui.theme.OinkTealContainer
 import com.oink.app.ui.theme.OinkWarning
 import com.oink.app.utils.Formatters
+import com.oink.app.utils.HabitCopy
 import com.oink.app.viewmodel.MainViewModel
 
 /**
@@ -216,7 +217,7 @@ private fun StatsCard(
                 // Exercise days
                 StatItem(
                     value = stats.exerciseDays.toString(),
-                    label = "Exercise\nDays",
+                    label = HabitCopy.STAT_DONE_DAYS,
                     color = OinkTeal
                 )
 
@@ -306,7 +307,7 @@ private fun EmptyHistoryState() {
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "Start your fitness journey by\nlogging your first workout!",
+                text = HabitCopy.EMPTY_HISTORY,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                 textAlign = TextAlign.Center
@@ -385,7 +386,7 @@ private fun CheckInItem(checkIn: CheckIn) {
             ) {
                 Icon(
                     imageVector = if (checkIn.didExercise) Icons.Default.Check else Icons.Default.Close,
-                    contentDescription = if (checkIn.didExercise) "Exercised" else "Missed",
+                    contentDescription = if (checkIn.didExercise) HabitCopy.CONTENT_DESC_DONE else "Missed",
                     modifier = Modifier.size(24.dp),
                     tint = if (checkIn.didExercise) {
                         OinkTeal
@@ -407,7 +408,7 @@ private fun CheckInItem(checkIn: CheckIn) {
                     fontWeight = FontWeight.SemiBold
                 )
                 Text(
-                    text = if (checkIn.didExercise) "Worked out 💪" else "Rest day",
+                    text = if (checkIn.didExercise) HabitCopy.HISTORY_DONE else HabitCopy.HISTORY_REST,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                 )

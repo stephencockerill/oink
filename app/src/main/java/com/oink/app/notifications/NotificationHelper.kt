@@ -13,6 +13,7 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.oink.app.MainActivity
 import com.oink.app.R
+import com.oink.app.utils.HabitCopy
 
 /**
  * Helper class for managing notifications.
@@ -97,7 +98,7 @@ object NotificationHelper {
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("Time to feed the pig! 🐷")
-            .setContentText("Did you exercise today? Add to your piggy bank!")
+            .setContentText(HabitCopy.NOTIFICATION_PROMPT)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setContentIntent(pendingIntent)
             .setAutoCancel(true) // Dismiss when tapped
