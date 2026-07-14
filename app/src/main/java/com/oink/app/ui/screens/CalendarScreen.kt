@@ -343,8 +343,8 @@ fun CalendarScreen(
             existingCheckIn = checkInMap[date],
             isLoading = isLoading,
             onDismiss = { selectedDate = null },
-            onLog = { completed ->
-                viewModel.recordCheckIn(date, completed)
+            onLog = { didSucceed ->
+                viewModel.recordCheckIn(date, didSucceed)
                 selectedDate = null
             }
         )
@@ -588,16 +588,16 @@ private fun CalendarDay(
     val backgroundColor = when {
         isFuture -> Color.Transparent
         isSelected -> MaterialTheme.colorScheme.primaryContainer
-        checkIn?.completed == true -> OinkTealContainer
-        checkIn?.completed == false -> MaterialTheme.colorScheme.errorContainer
+        checkIn?.didSucceed == true -> OinkTealContainer
+        checkIn?.didSucceed == false -> MaterialTheme.colorScheme.errorContainer
         else -> Color.Transparent
     }
 
     val textColor = when {
         isFuture -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
         isSelected -> MaterialTheme.colorScheme.onPrimaryContainer
-        checkIn?.completed == true -> OinkTeal
-        checkIn?.completed == false -> OinkWarning
+        checkIn?.didSucceed == true -> OinkTeal
+        checkIn?.didSucceed == false -> OinkWarning
         else -> MaterialTheme.colorScheme.onSurface
     }
 
@@ -658,7 +658,7 @@ private fun CalendarDay(
                 }
                 checkIn != null -> {
                     Icon(
-                        imageVector = if (checkIn.completed) Icons.Default.Check else Icons.Default.Close,
+                        imageVector = if (checkIn.didSucceed) Icons.Default.Check else Icons.Default.Close,
                         contentDescription = null,
                         modifier = Modifier.size(12.dp),
                         tint = textColor
@@ -776,7 +776,7 @@ private fun LogDayDialog(
             Column {
                 if (existingCheckIn != null) {
                     Text(
-                        text = if (existingCheckIn.completed) {
+                        text = if (existingCheckIn.didSucceed) {
                             HabitCopy.LOGGED_DONE
                         } else {
                             HabitCopy.LOGGED_REST

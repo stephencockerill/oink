@@ -56,7 +56,7 @@ class WidgetDataLoader(
             balance = balance,
             streak = streak,
             checkedInToday = todayCheckIn != null,
-            completedToday = todayCheckIn?.completed,
+            didSucceedToday = todayCheckIn?.didSucceed,
             currentHour = LocalTime.now(clock).hour
         )
     }

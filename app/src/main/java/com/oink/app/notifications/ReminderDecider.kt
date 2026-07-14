@@ -42,7 +42,7 @@ class ReminderDecider(
             .filter { !it.isPrivate }
             .any { habit ->
                 val checkIn = checkInDao.getCheckInForDate(habit.id, todayEpochDay)
-                checkIn == null || !checkIn.completed
+                checkIn == null || !checkIn.didSucceed
             }
     }
 }

@@ -30,6 +30,11 @@ import androidx.sqlite.db.SupportSQLiteDatabase
  *       cash_out_allocations.exerciseRewardAtTime -> rewardAtTime.
  *       [MIGRATION_4_5] renames them by rebuilding each table, since SQLite
  *       before 3.25 (Android API < 30) has no ALTER TABLE RENAME COLUMN.
+ * - v6: Habit-agnostic success wording. check_ins.completed -> didSucceed, so
+ *       the column reads correctly for quit habits (staying clean succeeds; it
+ *       is not "completed") as well as build habits. [MIGRATION_5_6] renames it
+ *       by rebuilding check_ins, since SQLite before 3.25 (Android API < 30)
+ *       has no ALTER TABLE RENAME COLUMN.
  *
  * IMPORTANT: When bumping the version, add a migration!
  * Never use fallbackToDestructiveMigration() in production - it wipes user data.
@@ -42,7 +47,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         FrozenDay::class,
         CashOutAllocation::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -72,7 +77,13 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "oink_database"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                    .addMigrations(
+                        MIGRATION_1_2,
+                        MIGRATION_2_3,
+                        MIGRATION_3_4,
+                        MIGRATION_4_5,
+                        MIGRATION_5_6
+                    )
                     .build()
                 INSTANCE = instance
                 instance
@@ -388,6 +399,53 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL(
                     "CREATE INDEX IF NOT EXISTS `index_cash_out_allocations_habitId` " +
                         "ON `cash_out_allocations` (`habitId`)"
+                )
+            }
+        }
+
+        /**
+         * v5 -> v6: habit-agnostic success wording.
+         *
+         * Renames `check_ins.completed` -> `check_ins.didSucceed`. "completed"
+         * reads wrong for a quit-type habit - staying clean is a success, not a
+         * completion - whereas `didSucceed` is correct for both build and quit
+         * habits.
+         *
+         * SQLite gained `ALTER TABLE ... RENAME COLUMN` only in 3.25 (Android
+         * API 30), so on the app's `minSdk` 26 - and on Room's bundled framework
+         * SQLite - a RENAME COLUMN would crash. check_ins is therefore renamed by
+         * rebuilding it with the create-`_new` / copy / drop / rename idiom used
+         * by [MIGRATION_1_2], preserving the primary key, the `habitId` default
+         * and foreign key (with CASCADE), the `(habitId, date)` unique index, and
+         * every value - `completed` copies straight into `didSucceed`.
+         *
+         * Only check_ins is affected. Nothing references it, so dropping it
+         * cannot cascade, and rebuilt rows keep their original ids.
+         */
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `check_ins_new` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`date` INTEGER NOT NULL, " +
+                        "`didSucceed` INTEGER NOT NULL, " +
+                        "`balanceAfter` INTEGER NOT NULL, " +
+                        "`rewardAtTime` INTEGER NOT NULL, " +
+                        "`habitId` INTEGER NOT NULL DEFAULT 1, " +
+                        "FOREIGN KEY(`habitId`) REFERENCES `habits`(`id`) " +
+                        "ON UPDATE NO ACTION ON DELETE CASCADE)"
+                )
+                db.execSQL(
+                    "INSERT INTO `check_ins_new` " +
+                        "(`id`, `date`, `didSucceed`, `balanceAfter`, `rewardAtTime`, `habitId`) " +
+                        "SELECT `id`, `date`, `completed`, `balanceAfter`, `rewardAtTime`, `habitId` " +
+                        "FROM `check_ins`"
+                )
+                db.execSQL("DROP TABLE `check_ins`")
+                db.execSQL("ALTER TABLE `check_ins_new` RENAME TO `check_ins`")
+                db.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS `index_check_ins_habitId_date` " +
+                        "ON `check_ins` (`habitId`, `date`)"
                 )
             }
         }

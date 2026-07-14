@@ -99,7 +99,7 @@ class FakeCheckInDao : CheckInDao {
     }
 
     override suspend fun getCompletedDayCount(habitId: Long): Int {
-        return checkIns.value.count { it.habitId == habitId && it.completed }
+        return checkIns.value.count { it.habitId == habitId && it.didSucceed }
     }
 
     override suspend fun getCheckInBefore(habitId: Long, epochDay: Long): CheckIn? {

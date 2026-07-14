@@ -45,7 +45,7 @@ class ReminderDeciderTest {
     private fun completedToday(habitId: Long) = CheckIn(
         id = habitId,
         date = today,
-        completed = true,
+        didSucceed = true,
         balanceAfter = 500L,
         habitId = habitId
     )
@@ -53,7 +53,7 @@ class ReminderDeciderTest {
     private fun missedToday(habitId: Long) = CheckIn(
         id = habitId,
         date = today,
-        completed = false,
+        didSucceed = false,
         balanceAfter = 0L,
         habitId = habitId
     )

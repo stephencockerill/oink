@@ -66,14 +66,14 @@ class AppDatabaseDaoTest {
     fun insertAndReadBack_roundTripsLocalDate() = runTest {
         val date = LocalDate.of(2024, 6, 15)
         val id = checkInDao.insert(
-            CheckIn(date = date, completed = true, balanceAfter = 1234, rewardAtTime = 500)
+            CheckIn(date = date, didSucceed = true, balanceAfter = 1234, rewardAtTime = 500)
         )
 
         val stored = checkInDao.getCheckInForDate(1L, date.toEpochDay())
 
         assertEquals(id, stored?.id)
         assertEquals(date, stored?.date)
-        assertTrue(stored!!.completed)
+        assertTrue(stored!!.didSucceed)
         assertEquals(1234L, stored.balanceAfter)
         assertEquals(500L, stored.rewardAtTime)
     }
@@ -85,7 +85,7 @@ class AppDatabaseDaoTest {
     @Test
     fun getCheckInForDate_matchesOnEpochDay() = runTest {
         val date = LocalDate.of(2020, 1, 1)
-        checkInDao.insert(CheckIn(date = date, completed = false, balanceAfter = 0))
+        checkInDao.insert(CheckIn(date = date, didSucceed = false, balanceAfter = 0))
 
         assertNull(checkInDao.getCheckInForDate(1L, date.toEpochDay() - 1))
         assertEquals(date, checkInDao.getCheckInForDate(1L, date.toEpochDay())?.date)
@@ -99,12 +99,12 @@ class AppDatabaseDaoTest {
     @Test
     fun insertSameDate_replacesViaUniqueIndex() = runTest {
         val date = LocalDate.of(2024, 3, 10)
-        checkInDao.insert(CheckIn(date = date, completed = false, balanceAfter = 100))
-        checkInDao.insert(CheckIn(date = date, completed = true, balanceAfter = 600))
+        checkInDao.insert(CheckIn(date = date, didSucceed = false, balanceAfter = 100))
+        checkInDao.insert(CheckIn(date = date, didSucceed = true, balanceAfter = 600))
 
         val all = checkInDao.getAllCheckInsAsc(1L)
         assertEquals(1, all.size)
-        assertTrue(all.first().completed)
+        assertTrue(all.first().didSucceed)
         assertEquals(600L, all.first().balanceAfter)
     }
 
@@ -117,9 +117,9 @@ class AppDatabaseDaoTest {
         val jan = LocalDate.of(2024, 1, 1)
         val feb = LocalDate.of(2024, 2, 1)
         val mar = LocalDate.of(2024, 3, 1)
-        checkInDao.insert(CheckIn(date = feb, completed = true, balanceAfter = 200))
-        checkInDao.insert(CheckIn(date = jan, completed = true, balanceAfter = 100))
-        checkInDao.insert(CheckIn(date = mar, completed = true, balanceAfter = 300))
+        checkInDao.insert(CheckIn(date = feb, didSucceed = true, balanceAfter = 200))
+        checkInDao.insert(CheckIn(date = jan, didSucceed = true, balanceAfter = 100))
+        checkInDao.insert(CheckIn(date = mar, didSucceed = true, balanceAfter = 300))
 
         assertEquals(listOf(jan, feb, mar), checkInDao.getAllCheckInsAsc(1L).map { it.date })
         assertEquals(mar, checkInDao.getLatestCheckIn(1L)?.date)
@@ -128,13 +128,13 @@ class AppDatabaseDaoTest {
     }
 
     /**
-     * COUNT(*) filtered on completed = 1 runs against the stored boolean.
+     * COUNT(*) filtered on didSucceed = 1 runs against the stored boolean.
      */
     @Test
     fun getCompletedDayCount_countsCompletedDays() = runTest {
-        checkInDao.insert(CheckIn(date = LocalDate.of(2024, 1, 1), completed = true, balanceAfter = 100))
-        checkInDao.insert(CheckIn(date = LocalDate.of(2024, 1, 2), completed = false, balanceAfter = 50))
-        checkInDao.insert(CheckIn(date = LocalDate.of(2024, 1, 3), completed = true, balanceAfter = 550))
+        checkInDao.insert(CheckIn(date = LocalDate.of(2024, 1, 1), didSucceed = true, balanceAfter = 100))
+        checkInDao.insert(CheckIn(date = LocalDate.of(2024, 1, 2), didSucceed = false, balanceAfter = 50))
+        checkInDao.insert(CheckIn(date = LocalDate.of(2024, 1, 3), didSucceed = true, balanceAfter = 550))
 
         assertEquals(2, checkInDao.getCompletedDayCount(1L))
     }
@@ -144,8 +144,8 @@ class AppDatabaseDaoTest {
      */
     @Test
     fun getAllCheckInsFlow_emitsNewestFirst() = runTest {
-        checkInDao.insert(CheckIn(date = LocalDate.of(2024, 1, 1), completed = true, balanceAfter = 100))
-        checkInDao.insert(CheckIn(date = LocalDate.of(2024, 1, 5), completed = true, balanceAfter = 600))
+        checkInDao.insert(CheckIn(date = LocalDate.of(2024, 1, 1), didSucceed = true, balanceAfter = 100))
+        checkInDao.insert(CheckIn(date = LocalDate.of(2024, 1, 5), didSucceed = true, balanceAfter = 600))
 
         val dates = checkInDao.getAllCheckInsFlow(1L).first().map { it.date }
         assertEquals(listOf(LocalDate.of(2024, 1, 5), LocalDate.of(2024, 1, 1)), dates)

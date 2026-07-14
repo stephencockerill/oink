@@ -220,7 +220,7 @@ class PrivateViewModelTest {
         )
         fakePreferencesRepository.setPin(PinHasher.hash("4321"))
         // A completed day yesterday for the private habit to build on.
-        checkInRepository.recordCheckIn(checkInRepository.today().minusDays(1), completed = true, habitId = 2L)
+        checkInRepository.recordCheckIn(checkInRepository.today().minusDays(1), didSucceed = true, habitId = 2L)
 
         val viewModel = createViewModel()
         backgroundScope.launch { viewModel.uiState.collect {} }
@@ -238,21 +238,21 @@ class PrivateViewModelTest {
         assertNull(privateCard().todayCompleted)
 
         // Done today: +reward, streak 2.
-        viewModel.recordCheckIn(2L, completed = true)
+        viewModel.recordCheckIn(2L, didSucceed = true)
         advanceUntilIdle()
         assertEquals(true, privateCard().todayCompleted)
         assertEquals(reward * 2, privateCard().spendable)
         assertEquals(2, privateCard().streak)
 
         // Miss today: spendable halves and streak breaks.
-        viewModel.recordCheckIn(2L, completed = false)
+        viewModel.recordCheckIn(2L, didSucceed = false)
         advanceUntilIdle()
         assertEquals(false, privateCard().todayCompleted)
         assertEquals(reward / 2, privateCard().spendable)
         assertEquals(0, privateCard().streak)
 
         // Undo the miss (miss -> done): fully reversed.
-        viewModel.recordCheckIn(2L, completed = true)
+        viewModel.recordCheckIn(2L, didSucceed = true)
         advanceUntilIdle()
         assertEquals(reward * 2, privateCard().spendable)
         assertEquals(2, privateCard().streak)

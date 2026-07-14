@@ -246,7 +246,7 @@ class MainViewModelTest {
         advanceUntilIdle()
         assertEquals(0, viewModel.streak.value)
 
-        viewModel.recordTodayCheckIn(completed = true)
+        viewModel.recordTodayCheckIn(didSucceed = true)
         advanceUntilIdle()
 
         assertEquals(1, viewModel.streak.value)
@@ -271,7 +271,7 @@ class MainViewModelTest {
         // From a zero balance, completing today would reach one reward.
         assertEquals(PreferencesRepository.DEFAULT_DAILY_REWARD, viewModel.completedPreview.value)
 
-        viewModel.recordTodayCheckIn(completed = true)
+        viewModel.recordTodayCheckIn(didSucceed = true)
         advanceUntilIdle()
 
         // Balance is now one reward, so completing again previews two rewards.
@@ -291,7 +291,7 @@ class MainViewModelTest {
         backgroundScope.launch { vmA.currentBalance.collect {} }
         advanceUntilIdle()
 
-        vmA.recordTodayCheckIn(completed = true)
+        vmA.recordTodayCheckIn(didSucceed = true)
         advanceUntilIdle()
 
         // Habit A earned one reward; its spendable balance reflects only itself.
@@ -308,7 +308,7 @@ class MainViewModelTest {
         backgroundScope.launch { vmB.streak.collect {} }
         advanceUntilIdle()
 
-        vmA.recordTodayCheckIn(completed = true)
+        vmA.recordTodayCheckIn(didSucceed = true)
         advanceUntilIdle()
 
         // Habit A moved...

@@ -137,31 +137,31 @@ class CheckInRepository(
      * - Recalculating subsequent balances if updating a past date
      *
      * @param date The date to record the check-in for
-     * @param completed Whether the habit was completed
+     * @param didSucceed Whether the habit succeeded
      * @param habitId The habit to record against
      * @return The recorded check-in
      */
     suspend fun recordCheckIn(
         date: LocalDate,
-        completed: Boolean,
+        didSucceed: Boolean,
         habitId: Long = HabitRepository.DEFAULT_HABIT_ID
     ): CheckIn {
         val existingCheckIn = getCheckInForDate(date, habitId)
 
         if (existingCheckIn != null) {
             // Update existing check-in
-            return updateCheckIn(existingCheckIn, completed, habitId)
+            return updateCheckIn(existingCheckIn, didSucceed, habitId)
         }
 
         // New check-in
         val dailyReward = getDailyReward(habitId)
         val previousBalance = getPreviousBalance(date, habitId)
         val deductions = deductionProvider.getDeductionsAsOf(habitId, date)
-        val newBalance = calculateNewBalance(previousBalance, completed, dailyReward, deductions)
+        val newBalance = calculateNewBalance(previousBalance, didSucceed, dailyReward, deductions)
 
         val checkIn = CheckIn(
             date = date,
-            completed = completed,
+            didSucceed = didSucceed,
             balanceAfter = newBalance,
             rewardAtTime = dailyReward,
             habitId = habitId
@@ -181,8 +181,8 @@ class CheckInRepository(
      * Update an existing check-in.
      * This will also recalculate all subsequent balances for its habit.
      */
-    private suspend fun updateCheckIn(existing: CheckIn, completed: Boolean, habitId: Long): CheckIn {
-        if (existing.completed == completed) {
+    private suspend fun updateCheckIn(existing: CheckIn, didSucceed: Boolean, habitId: Long): CheckIn {
+        if (existing.didSucceed == didSucceed) {
             // No change needed
             return existing
         }
@@ -191,10 +191,10 @@ class CheckInRepository(
         // check-in so editing a past day never rewrites it with today's rate.
         val previousBalance = getPreviousBalance(existing.date, habitId)
         val deductions = deductionProvider.getDeductionsAsOf(habitId, existing.date)
-        val newBalance = calculateNewBalance(previousBalance, completed, existing.rewardAtTime, deductions)
+        val newBalance = calculateNewBalance(previousBalance, didSucceed, existing.rewardAtTime, deductions)
 
         val updated = existing.copy(
-            completed = completed,
+            didSucceed = didSucceed,
             balanceAfter = newBalance
         )
 
@@ -216,12 +216,12 @@ class CheckInRepository(
      * balances once after all updates are complete.
      *
      * @param dates The dates to update
-     * @param completed Whether these days were completed
+     * @param didSucceed Whether these days succeeded
      * @param habitId The habit to record against
      */
     suspend fun bulkRecordCheckIns(
         dates: Set<LocalDate>,
-        completed: Boolean,
+        didSucceed: Boolean,
         habitId: Long = HabitRepository.DEFAULT_HABIT_ID
     ) {
         if (dates.isEmpty()) return
@@ -239,24 +239,24 @@ class CheckInRepository(
             if (existing != null) {
                 // Update existing, keeping its recorded reward so a past day
                 // isn't rewritten with today's rate.
-                if (existing.completed != completed) {
+                if (existing.didSucceed != didSucceed) {
                     val newBalance = calculateNewBalance(
-                        previousBalance, completed, existing.rewardAtTime, deductions
+                        previousBalance, didSucceed, existing.rewardAtTime, deductions
                     )
                     checkInDao.update(
                         existing.copy(
-                            completed = completed,
+                            didSucceed = didSucceed,
                             balanceAfter = newBalance
                         )
                     )
                 }
             } else {
                 // Create new
-                val newBalance = calculateNewBalance(previousBalance, completed, dailyReward, deductions)
+                val newBalance = calculateNewBalance(previousBalance, didSucceed, dailyReward, deductions)
                 checkInDao.insert(
                     CheckIn(
                         date = date,
-                        completed = completed,
+                        didSucceed = didSucceed,
                         balanceAfter = newBalance,
                         rewardAtTime = dailyReward,
                         habitId = habitId
@@ -303,11 +303,11 @@ class CheckInRepository(
      */
     private fun calculateNewBalance(
         previousBalance: Long,
-        completed: Boolean,
+        didSucceed: Boolean,
         dailyReward: Long,
         deductions: Long
     ): Long {
-        return if (completed) {
+        return if (didSucceed) {
             previousBalance + dailyReward
         } else {
             (previousBalance + deductions + 1) / 2
@@ -344,7 +344,7 @@ class CheckInRepository(
             .forEach { checkIn ->
                 val deductions = deductionProvider.getDeductionsAsOf(habitId, checkIn.date)
                 val newBalance = calculateNewBalance(
-                    currentBalance, checkIn.completed, checkIn.rewardAtTime, deductions
+                    currentBalance, checkIn.didSucceed, checkIn.rewardAtTime, deductions
                 )
                 // Integer comparison - no float-equality fuzziness.
                 if (newBalance != checkIn.balanceAfter) {
@@ -358,7 +358,7 @@ class CheckInRepository(
      * Calculate the current streak (consecutive completed days).
      *
      * A streak is broken when:
-     * - User misses a day (completed = false) AND it's not frozen
+     * - User misses a day (didSucceed = false) AND it's not frozen
      * - There's a gap in dates (user didn't log at all) AND it's not frozen
      *
      * @param habitId The habit whose streak to calculate
@@ -412,7 +412,7 @@ class CheckInRepository(
                 break
             }
 
-            if (!checkIn.completed) {
+            if (!checkIn.didSucceed) {
                 if (isFrozen) {
                     // Logged as missed but frozen - continue without breaking
                     currentDate = currentDate.minusDays(1)
@@ -436,7 +436,7 @@ class CheckInRepository(
      *
      * A "missed day" is either:
      * - A gap in dates (no check-in)
-     * - A logged "rest day" (completed = false)
+     * - A logged "rest day" (didSucceed = false)
      *
      * @param habitId The habit to search
      * @param frozenDates Dates already frozen (to exclude)
@@ -491,7 +491,7 @@ class CheckInRepository(
                 return currentDate
             }
 
-            if (!checkIn.completed) {
+            if (!checkIn.didSucceed) {
                 // Logged as a rest day - this could be frozen too.
                 return currentDate
             }
@@ -524,7 +524,7 @@ class CheckInRepository(
      * @param deductions Total cash-outs + freeze spending in force today
      */
     fun previewCompletedBalance(rawBalance: Long, dailyReward: Long, deductions: Long): Long =
-        calculateNewBalance(rawBalance, completed = true, dailyReward, deductions)
+        calculateNewBalance(rawBalance, didSucceed = true, dailyReward, deductions)
 
     /**
      * Get what the raw balance would be if user misses today.
@@ -550,7 +550,7 @@ class CheckInRepository(
      * @param deductions Total cash-outs + freeze spending in force today
      */
     fun previewMissBalance(rawBalance: Long, deductions: Long): Long =
-        calculateNewBalance(rawBalance, completed = false, dailyReward = 0L, deductions)
+        calculateNewBalance(rawBalance, didSucceed = false, dailyReward = 0L, deductions)
 
     /**
      * Get current balance (one-time query, not a Flow).

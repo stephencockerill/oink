@@ -201,7 +201,7 @@ data class WidgetData(
     val balance: Long,
     val streak: Int,
     val checkedInToday: Boolean,
-    val completedToday: Boolean?,
+    val didSucceedToday: Boolean?,
     val currentHour: Int
 )
 
@@ -405,15 +405,15 @@ private fun WidgetContent(data: WidgetData) {
                     }
                     Text(
                         text = when {
-                            data.completedToday == true -> HabitCopy.DONE
-                            data.completedToday == false -> HabitCopy.REST
+                            data.didSucceedToday == true -> HabitCopy.DONE
+                            data.didSucceedToday == false -> HabitCopy.REST
                             else -> HabitCopy.cta(urgencyLevel)
                         },
                         style = TextStyle(
                             color = ColorProvider(
                                 when {
-                                    data.completedToday == true -> R.color.widget_success
-                                    data.completedToday == false -> R.color.widget_text_secondary
+                                    data.didSucceedToday == true -> R.color.widget_success
+                                    data.didSucceedToday == false -> R.color.widget_text_secondary
                                     urgencyLevel == UrgencyLevel.CRITICAL -> R.color.widget_error
                                     urgencyLevel == UrgencyLevel.WARN -> R.color.widget_error
                                     else -> R.color.widget_text_secondary

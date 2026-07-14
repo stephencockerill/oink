@@ -211,7 +211,7 @@ class PrivateViewModel(
     private fun todayCompletedFlow(habitId: Long): Flow<Boolean?> =
         checkInRepository.allCheckIns(habitId).map { checkIns ->
             val today = checkInRepository.today()
-            checkIns.find { it.date == today }?.completed
+            checkIns.find { it.date == today }?.didSucceed
         }
 
     /**
@@ -223,10 +223,10 @@ class PrivateViewModel(
      * (the widget loader returns null for private habits), but the refresh is
      * harmless and keeps the two surfaces' behaviour uniform.
      */
-    fun recordCheckIn(habitId: Long, completed: Boolean) {
+    fun recordCheckIn(habitId: Long, didSucceed: Boolean) {
         viewModelScope.launch {
             withContext(NonCancellable) {
-                checkInRepository.recordCheckIn(checkInRepository.today(), completed, habitId)
+                checkInRepository.recordCheckIn(checkInRepository.today(), didSucceed, habitId)
                 widgetUpdater.update()
             }
         }
