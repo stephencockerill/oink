@@ -36,6 +36,8 @@ import androidx.compose.material.icons.filled.Celebration
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -61,9 +63,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -83,8 +87,12 @@ import com.oink.app.ui.theme.OinkPink
 import com.oink.app.ui.theme.OinkPinkDark
 import com.oink.app.ui.theme.OinkTeal
 import com.oink.app.ui.theme.OinkTealContainer
+import com.oink.app.ui.theme.OinkError
 import com.oink.app.utils.Formatters
 import com.oink.app.utils.HabitCopy
+import com.oink.app.viewmodel.PinPromptState
+import com.oink.app.viewmodel.PrivateFundsAccess
+import com.oink.app.viewmodel.PrivateViewModel
 import com.oink.app.viewmodel.RewardsViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -113,12 +121,15 @@ fun RewardsScreen(
     val cashOutSuccess by viewModel.cashOutSuccess.collectAsStateWithLifecycle()
     val selectedCashOut by viewModel.selectedCashOut.collectAsStateWithLifecycle()
     val showDeleteConfirmation by viewModel.showDeleteConfirmation.collectAsStateWithLifecycle()
+    val privateFundsAccess by viewModel.privateFundsAccess.collectAsStateWithLifecycle()
+    val pinPrompt by viewModel.pinPrompt.collectAsStateWithLifecycle()
 
     val snackbarHostState = remember { SnackbarHostState() }
     var showCashOutSheet by remember { mutableStateOf(false) }
     var showCelebration by remember { mutableStateOf(false) }
     var celebrationCashOut by remember { mutableStateOf<CashOut?>(null) }
     var showEditSheet by remember { mutableStateOf(false) }
+    var showUnlockDialog by remember { mutableStateOf(false) }
 
     // Show error in snackbar
     LaunchedEffect(error) {
@@ -150,6 +161,15 @@ fun RewardsScreen(
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
+                },
+                actions = {
+                    PrivateFundsAction(
+                        access = privateFundsAccess,
+                        onUnlockClick = {
+                            viewModel.clearPinError()
+                            showUnlockDialog = true
+                        }
+                    )
                 }
             )
         },
@@ -275,6 +295,134 @@ fun RewardsScreen(
             }
         )
     }
+
+    // Private-funds unlock dialog. Only meaningful while still locked; a
+    // successful unlock flips [privateFundsAccess] to Unlocked, dismissing it.
+    if (showUnlockDialog && privateFundsAccess is PrivateFundsAccess.Locked) {
+        PrivateFundsUnlockDialog(
+            prompt = pinPrompt,
+            onSubmitPin = viewModel::submitPin,
+            onDismiss = {
+                showUnlockDialog = false
+                viewModel.clearPinError()
+            }
+        )
+    }
+}
+
+/**
+ * Discreet private-funds control for the top app bar.
+ *
+ * When a PIN is set but the area is locked, this is a small lock icon that opens
+ * the PIN prompt; when unlocked, an unobtrusive open-lock indicator marks that
+ * private funds are included. It shows nothing when no PIN is configured, so its
+ * mere presence reveals only that a PIN exists.
+ */
+@Composable
+private fun PrivateFundsAction(
+    access: PrivateFundsAccess,
+    onUnlockClick: () -> Unit
+) {
+    when (access) {
+        PrivateFundsAccess.Loading, PrivateFundsAccess.NoPin -> Unit
+        PrivateFundsAccess.Locked -> {
+            IconButton(onClick = onUnlockClick) {
+                Icon(
+                    imageVector = Icons.Default.Lock,
+                    contentDescription = "Unlock private funds",
+                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                )
+            }
+        }
+        PrivateFundsAccess.Unlocked -> {
+            Icon(
+                imageVector = Icons.Default.LockOpen,
+                contentDescription = "Private funds included",
+                tint = OinkTeal.copy(alpha = 0.7f),
+                modifier = Modifier.padding(end = 12.dp)
+            )
+        }
+    }
+}
+
+/**
+ * PIN prompt for including private funds. Reuses the shared [PinField]; a wrong
+ * attempt shows an error and a rate-limit lockout disables entry and counts down
+ * locally, re-enabling input when it elapses (mirrors the private area gate).
+ */
+@Composable
+private fun PrivateFundsUnlockDialog(
+    prompt: PinPromptState,
+    onSubmitPin: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var pin by rememberSaveable { mutableStateOf("") }
+    var secondsLeft by remember(prompt.remainingLockoutSeconds, prompt.isLockedOut) {
+        mutableIntStateOf(if (prompt.isLockedOut) prompt.remainingLockoutSeconds else 0)
+    }
+
+    LaunchedEffect(prompt.isLockedOut, prompt.remainingLockoutSeconds) {
+        while (secondsLeft > 0) {
+            delay(1000)
+            secondsLeft -= 1
+        }
+    }
+
+    val lockedOut = prompt.isLockedOut && secondsLeft > 0
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = {
+            Icon(Icons.Default.Lock, contentDescription = null, tint = OinkTeal)
+        },
+        title = { Text("Enter PIN") },
+        text = {
+            Column {
+                PinField(
+                    value = pin,
+                    onValueChange = { pin = it.digitsOnly() },
+                    label = "PIN",
+                    enabled = !lockedOut,
+                    isError = prompt.showError
+                )
+                when {
+                    lockedOut -> {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Too many attempts. Try again in ${secondsLeft}s.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = OinkError
+                        )
+                    }
+                    prompt.showError -> {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Incorrect PIN. ${prompt.remainingAttempts} attempts left.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = OinkError
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    onSubmitPin(pin)
+                    pin = ""
+                },
+                enabled = !lockedOut && PrivateViewModel.isValidPin(pin),
+                colors = ButtonDefaults.buttonColors(containerColor = OinkTeal)
+            ) {
+                Text("Unlock")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
 }
 
 @Composable

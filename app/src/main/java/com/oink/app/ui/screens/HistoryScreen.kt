@@ -23,7 +23,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.CardGiftcard
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CalendarMonth
@@ -50,11 +49,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.oink.app.data.CashOut
 import com.oink.app.data.CheckIn
 import com.oink.app.ui.theme.OinkPink
-import com.oink.app.ui.theme.OinkPinkDark
 import com.oink.app.ui.theme.OinkTeal
 import com.oink.app.ui.theme.OinkTealContainer
 import com.oink.app.ui.theme.OinkWarning
@@ -63,31 +59,12 @@ import com.oink.app.utils.HabitCopy
 import com.oink.app.viewmodel.MainViewModel
 
 /**
- * History screen showing all check-ins.
+ * History screen showing this habit's check-ins.
  *
- * This screen displays a scrollable list of all past check-ins,
- * ordered by date (newest first). Each item shows the date,
- * whether the day was completed, and the balance after that check-in.
- *
- * We'll enhance this later with editing capabilities, but for now
- * it's a simple read-only list.
+ * This screen displays a scrollable list of past check-ins for the habit,
+ * ordered by date (newest first). Each item shows the date, whether the day
+ * was completed, and the balance after that check-in, above a stats summary.
  */
-/**
- * Represents an item in the history timeline.
- * Can be either a check-in or a cash-out.
- */
-private sealed class TimelineItem {
-    abstract val sortKey: Long // For sorting by date/time
-
-    data class CheckInItem(val checkIn: CheckIn) : TimelineItem() {
-        override val sortKey: Long = checkIn.date.toEpochDay() * 1_000_000 // Multiply to ensure check-ins come before same-day cash-outs
-    }
-
-    data class CashOutItem(val cashOut: CashOut) : TimelineItem() {
-        override val sortKey: Long = cashOut.cashedOutAt / 86_400_000 * 1_000_000 + (cashOut.cashedOutAt % 86_400_000) / 1000
-    }
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HistoryScreen(
@@ -95,27 +72,22 @@ fun HistoryScreen(
     onNavigateBack: () -> Unit
 ) {
     val checkIns by viewModel.allCheckIns.collectAsStateWithLifecycle()
-    val cashOuts by viewModel.allCashOuts.collectAsStateWithLifecycle()
 
-    // Create combined timeline of check-ins and cash-outs
-    val timelineItems by remember(checkIns, cashOuts) {
+    // Check-ins newest first.
+    val sortedCheckIns by remember(checkIns) {
         derivedStateOf {
-            val items = mutableListOf<TimelineItem>()
-            items.addAll(checkIns.map { TimelineItem.CheckInItem(it) })
-            items.addAll(cashOuts.map { TimelineItem.CashOutItem(it) })
-            items.sortedByDescending { it.sortKey }
+            checkIns.sortedByDescending { it.date }
         }
     }
 
     // Calculate stats from check-ins
-    val stats by remember(checkIns, cashOuts) {
+    val stats by remember(checkIns) {
         derivedStateOf {
             val totalDays = checkIns.size
             val completedDays = checkIns.count { it.completed }
             val missedDays = totalDays - completedDays
             val percentage = if (totalDays > 0) (completedDays * 100) / totalDays else 0
-            val rewardsCount = cashOuts.size
-            HistoryStats(totalDays, completedDays, missedDays, percentage, rewardsCount)
+            HistoryStats(totalDays, completedDays, missedDays, percentage)
         }
     }
 
@@ -158,7 +130,7 @@ fun HistoryScreen(
 
             // Check-in list or empty state
             AnimatedVisibility(
-                visible = timelineItems.isEmpty(),
+                visible = sortedCheckIns.isEmpty(),
                 enter = fadeIn(),
                 exit = fadeOut()
             ) {
@@ -166,11 +138,11 @@ fun HistoryScreen(
             }
 
             AnimatedVisibility(
-                visible = timelineItems.isNotEmpty(),
+                visible = sortedCheckIns.isNotEmpty(),
                 enter = fadeIn(),
                 exit = fadeOut()
             ) {
-                TimelineList(items = timelineItems)
+                CheckInList(checkIns = sortedCheckIns)
             }
         }
     }
@@ -183,8 +155,7 @@ private data class HistoryStats(
     val totalDays: Int,
     val completedDays: Int,
     val missedDays: Int,
-    val completionRate: Int,
-    val rewardsCount: Int = 0
+    val completionRate: Int
 )
 
 /**
@@ -234,15 +205,6 @@ private fun StatsCard(
                     label = "Success\nRate",
                     color = OinkPink
                 )
-
-                // Rewards count (only show if there are rewards)
-                if (stats.rewardsCount > 0) {
-                    StatItem(
-                        value = stats.rewardsCount.toString(),
-                        label = "Rewards\n🎁",
-                        color = OinkTeal
-                    )
-                }
             }
         }
     }
@@ -317,10 +279,10 @@ private fun EmptyHistoryState() {
 }
 
 /**
- * Combined timeline list showing both check-ins and cash-outs.
+ * Scrollable list of this habit's check-ins, newest first.
  */
 @Composable
-private fun TimelineList(items: List<TimelineItem>) {
+private fun CheckInList(checkIns: List<CheckIn>) {
     val listState = rememberLazyListState()
 
     LazyColumn(
@@ -330,18 +292,10 @@ private fun TimelineList(items: List<TimelineItem>) {
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         items(
-            items = items,
-            key = { item ->
-                when (item) {
-                    is TimelineItem.CheckInItem -> "checkin_${item.checkIn.id}"
-                    is TimelineItem.CashOutItem -> "cashout_${item.cashOut.id}"
-                }
-            }
-        ) { item ->
-            when (item) {
-                is TimelineItem.CheckInItem -> CheckInItem(checkIn = item.checkIn)
-                is TimelineItem.CashOutItem -> CashOutHistoryItem(cashOut = item.cashOut)
-            }
+            items = checkIns,
+            key = { checkIn -> checkIn.id }
+        ) { checkIn ->
+            CheckInItem(checkIn = checkIn)
         }
 
         // Bottom spacer for nice padding
@@ -426,79 +380,6 @@ private fun CheckInItem(checkIn: CheckIn) {
                 )
                 Text(
                     text = "Balance",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
-                )
-            }
-        }
-    }
-}
-
-/**
- * Cash-out item in the history timeline.
- */
-@Composable
-private fun CashOutHistoryItem(cashOut: CashOut) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = OinkPink.copy(alpha = 0.1f)
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Gift icon
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .clip(CircleShape)
-                    .background(OinkPink.copy(alpha = 0.2f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(text = cashOut.emoji, fontSize = 24.sp)
-            }
-
-            Spacer(modifier = Modifier.width(16.dp))
-
-            // Details
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
-                Text(
-                    text = cashOut.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Text(
-                    text = "🎁 Reward claimed!",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = OinkPink
-                )
-                Text(
-                    text = Formatters.formatDateFromMillis(cashOut.cashedOutAt),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                )
-            }
-
-            // Amount (negative since it's a cash-out)
-            Column(
-                horizontalAlignment = Alignment.End
-            ) {
-                Text(
-                    text = "-${Formatters.formatCurrency(cashOut.amount)}",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = OinkPink
-                )
-                Text(
-                    text = HabitCopy.dayCount(cashOut.daysToEarn),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
                 )

@@ -18,7 +18,6 @@ import com.oink.app.data.Habit
 import com.oink.app.data.HabitRepository
 import com.oink.app.data.HabitRewardProvider
 import com.oink.app.data.PreferencesRepository
-import com.oink.app.data.PrivateGate
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
@@ -73,7 +72,6 @@ class MainViewModelTest {
     private lateinit var freezeRepository: FreezeRepository
     private lateinit var checkInRepository: CheckInRepository
     private lateinit var cashOutRepository: CashOutRepository
-    private lateinit var privateGate: PrivateGate
     private lateinit var viewModel: MainViewModel
 
     @Before
@@ -106,7 +104,6 @@ class MainViewModelTest {
             freezeRepository,
             FakeTransactionRunner()
         )
-        privateGate = PrivateGate(elapsedRealtime = { 0L })
 
         viewModel = viewModelFor(HABIT_A)
     }
@@ -121,7 +118,6 @@ class MainViewModelTest {
         habitRepository = habitRepository,
         cashOutRepository = cashOutRepository,
         freezeRepository = freezeRepository,
-        privateGate = privateGate,
         savedStateHandle = SavedStateHandle(mapOf(MainViewModel.HABIT_ID_KEY to habitId))
     )
 
