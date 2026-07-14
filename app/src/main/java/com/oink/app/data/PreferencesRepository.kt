@@ -75,4 +75,29 @@ interface PreferencesRepository {
      * Store the private-area PIN as its hash, salt, and iteration count.
      */
     suspend fun setPin(hashed: PinHasher.HashedPin)
+
+    /**
+     * The configured security-question recovery entry, or null if none is set.
+     * Read at recovery time to present the prompt and verify the answer.
+     */
+    suspend fun getSecurityQuestion(): SecurityQuestion?
+
+    /**
+     * Store the security-question recovery entry (prompt in the clear, answer as
+     * a hash). Set only when the PIN is created on a device without biometric or
+     * lockscreen-credential recovery.
+     */
+    suspend fun setSecurityQuestion(question: SecurityQuestion)
+
+    /**
+     * Read the persisted [SecurityQuestionLimiter] counters, defaulting to a clean
+     * slate when unset.
+     */
+    suspend fun getSecurityQuestionLimiterState(): SecurityQuestionLimiter.State
+
+    /**
+     * Persist the [SecurityQuestionLimiter] counters so the escalating lockout
+     * survives process death.
+     */
+    suspend fun setSecurityQuestionLimiterState(state: SecurityQuestionLimiter.State)
 }

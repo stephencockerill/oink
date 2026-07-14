@@ -94,6 +94,9 @@ dependencies {
 
     // Full emoji picker (searchable/categorized grid, ships its own emoji data)
     implementation(libs.androidx.emoji2.emojipicker)
+
+    // BiometricPrompt for the forgotten-PIN recovery path (biometric / device credential)
+    implementation(libs.androidx.biometric)
     // Restores ListenableFuture on the compile classpath (see catalog note).
     implementation(libs.guava)
 

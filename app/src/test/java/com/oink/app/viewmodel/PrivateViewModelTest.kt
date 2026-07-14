@@ -18,10 +18,15 @@ import com.oink.app.data.HabitRewardProvider
 import com.oink.app.data.PinHasher
 import com.oink.app.data.PreferencesRepository
 import com.oink.app.data.PrivateGate
+import com.oink.app.data.SecurityAnswer
+import com.oink.app.data.SecurityQuestion
+import com.oink.app.data.SecurityQuestionLimiter
+import com.oink.app.security.FakeDeviceCredentialAvailability
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -73,6 +78,9 @@ class PrivateViewModelTest {
 
     private var elapsed = 0L
     private lateinit var privateGate: PrivateGate
+    private lateinit var deviceCredentialAvailability: FakeDeviceCredentialAvailability
+    private var sqClock = 0L
+    private lateinit var securityQuestionLimiter: SecurityQuestionLimiter
 
     @Before
     fun setup() {
@@ -100,6 +108,11 @@ class PrivateViewModelTest {
             FakeTransactionRunner()
         )
         privateGate = PrivateGate(elapsedRealtime = { elapsed })
+        deviceCredentialAvailability = FakeDeviceCredentialAvailability(canAuthenticate = true)
+        securityQuestionLimiter = SecurityQuestionLimiter(
+            fakePreferencesRepository,
+            nowMillis = { sqClock }
+        )
     }
 
     @After
@@ -114,6 +127,8 @@ class PrivateViewModelTest {
         checkInRepository = checkInRepository,
         freezeRepository = freezeRepository,
         cashOutRepository = cashOutRepository,
+        deviceCredentialAvailability = deviceCredentialAvailability,
+        securityQuestionLimiter = securityQuestionLimiter,
         defaultDispatcher = testDispatcher
     )
 
@@ -123,7 +138,7 @@ class PrivateViewModelTest {
         backgroundScope.launch { viewModel.uiState.collect {} }
         advanceUntilIdle()
 
-        assertEquals(PrivateUiState.NeedsPinSetup, viewModel.uiState.value)
+        assertTrue(viewModel.uiState.value is PrivateUiState.NeedsPinSetup)
     }
 
     @Test
@@ -275,5 +290,137 @@ class PrivateViewModelTest {
         advanceUntilIdle()
 
         assertTrue(viewModel.uiState.value is PrivateUiState.Locked)
+    }
+
+    @Test
+    fun `setup requires a security question only without device auth`() = runTest {
+        deviceCredentialAvailability.canAuthenticate = false
+        val viewModel = createViewModel()
+        backgroundScope.launch { viewModel.uiState.collect {} }
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertTrue(state is PrivateUiState.NeedsPinSetup)
+        assertTrue((state as PrivateUiState.NeedsPinSetup).requiresSecurityQuestion)
+    }
+
+    @Test
+    fun `createPin without device auth stores the security question`() = runTest {
+        deviceCredentialAvailability.canAuthenticate = false
+        val viewModel = createViewModel()
+        backgroundScope.launch { viewModel.uiState.collect {} }
+        advanceUntilIdle()
+
+        viewModel.createPin("1234", securityQuestion = "First pet?", securityAnswer = "Fido")
+        advanceUntilIdle()
+
+        val stored = fakePreferencesRepository.getSecurityQuestion()
+        assertNotNull("A security question must be persisted", stored)
+        assertEquals("First pet?", stored!!.prompt)
+        assertTrue(privateGate.isUnlocked.value)
+    }
+
+    @Test
+    fun `forgot pin with device auth emits the launch event`() = runTest {
+        fakePreferencesRepository.setPin(PinHasher.hash("4321"))
+        val viewModel = createViewModel()
+        backgroundScope.launch { viewModel.uiState.collect {} }
+        val launches = mutableListOf<Unit>()
+        // Unconfined so the collector subscribes eagerly, before the event fires.
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.launchDeviceAuth.collect { launches.add(it) }
+        }
+        advanceUntilIdle()
+
+        viewModel.onForgotPin()
+        advanceUntilIdle()
+
+        assertEquals("Device auth must be requested exactly once", 1, launches.size)
+        // The device-auth path never enters the security-question overlay.
+        assertEquals(RecoveryUiState.Idle, viewModel.recovery.value)
+    }
+
+    @Test
+    fun `device auth success then completeRecovery resets the pin and unlocks`() = runTest {
+        fakePreferencesRepository.setPin(PinHasher.hash("4321"))
+        val viewModel = createViewModel()
+        backgroundScope.launch { viewModel.uiState.collect {} }
+        advanceUntilIdle()
+
+        viewModel.onDeviceAuthSucceeded()
+        assertEquals(RecoveryUiState.SettingNewPin, viewModel.recovery.value)
+
+        viewModel.completeRecovery("9999")
+        advanceUntilIdle()
+
+        val stored = fakePreferencesRepository.getHashedPin()
+        assertTrue("The new PIN must verify", PinHasher.verify("9999", stored!!))
+        assertTrue(privateGate.isUnlocked.value)
+        assertTrue(viewModel.uiState.value is PrivateUiState.Unlocked)
+        assertEquals(RecoveryUiState.Idle, viewModel.recovery.value)
+    }
+
+    @Test
+    fun `forgot pin without device auth or question is unavailable`() = runTest {
+        deviceCredentialAvailability.canAuthenticate = false
+        fakePreferencesRepository.setPin(PinHasher.hash("4321"))
+        val viewModel = createViewModel()
+        backgroundScope.launch { viewModel.uiState.collect {} }
+        advanceUntilIdle()
+
+        viewModel.onForgotPin()
+        advanceUntilIdle()
+
+        assertEquals(RecoveryUiState.Unavailable, viewModel.recovery.value)
+    }
+
+    @Test
+    fun `security answer recovery resets the pin and unlocks`() = runTest {
+        deviceCredentialAvailability.canAuthenticate = false
+        fakePreferencesRepository.setPin(PinHasher.hash("4321"))
+        fakePreferencesRepository.setSecurityQuestion(
+            SecurityQuestion(prompt = "First pet?", answer = SecurityAnswer.hash("Fido"))
+        )
+        val viewModel = createViewModel()
+        backgroundScope.launch { viewModel.uiState.collect {} }
+        advanceUntilIdle()
+
+        viewModel.onForgotPin()
+        advanceUntilIdle()
+        val prompt = viewModel.recovery.value
+        assertTrue(prompt is RecoveryUiState.SecurityQuestion)
+        assertEquals("First pet?", (prompt as RecoveryUiState.SecurityQuestion).prompt)
+
+        // Punctuation- and case-insensitive match.
+        viewModel.submitSecurityAnswer("  fido! ")
+        advanceUntilIdle()
+        assertEquals(RecoveryUiState.SettingNewPin, viewModel.recovery.value)
+
+        viewModel.completeRecovery("9999")
+        advanceUntilIdle()
+        assertTrue(PinHasher.verify("9999", fakePreferencesRepository.getHashedPin()!!))
+        assertTrue(viewModel.uiState.value is PrivateUiState.Unlocked)
+    }
+
+    @Test
+    fun `wrong security answer shows an error and stays on the question`() = runTest {
+        deviceCredentialAvailability.canAuthenticate = false
+        fakePreferencesRepository.setPin(PinHasher.hash("4321"))
+        fakePreferencesRepository.setSecurityQuestion(
+            SecurityQuestion(prompt = "First pet?", answer = SecurityAnswer.hash("Fido"))
+        )
+        val viewModel = createViewModel()
+        backgroundScope.launch { viewModel.uiState.collect {} }
+        advanceUntilIdle()
+
+        viewModel.onForgotPin()
+        advanceUntilIdle()
+        viewModel.submitSecurityAnswer("Rex")
+        advanceUntilIdle()
+
+        val state = viewModel.recovery.value
+        assertTrue(state is RecoveryUiState.SecurityQuestion)
+        assertTrue((state as RecoveryUiState.SecurityQuestion).showError)
+        assertFalse(privateGate.isUnlocked.value)
     }
 }

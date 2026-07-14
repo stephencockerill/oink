@@ -1,9 +1,9 @@
 package com.oink.app
 
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.fragment.app.FragmentActivity
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -22,8 +22,13 @@ import com.oink.app.ui.theme.OinkTheme
  * The dependency graph lives in [AppContainer] (built by [OinkApplication]);
  * the Activity just hands it to the nav host, and the ViewModel factories pull
  * what they need from it. No repositories or ViewModels are constructed here.
+ *
+ * It extends [FragmentActivity] (a [androidx.activity.ComponentActivity] subclass,
+ * so Compose, edge-to-edge, and navigation are unaffected) because
+ * [androidx.biometric.BiometricPrompt], used by the PIN-recovery flow, hosts an
+ * invisible fragment and therefore requires a fragment-capable host.
  */
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

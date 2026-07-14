@@ -34,6 +34,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -62,6 +63,7 @@ import com.oink.app.utils.Formatters
 import com.oink.app.viewmodel.HabitCardState
 import com.oink.app.viewmodel.PrivateUiState
 import com.oink.app.viewmodel.PrivateViewModel
+import com.oink.app.viewmodel.RecoveryUiState
 import kotlinx.coroutines.delay
 
 /**
@@ -82,6 +84,7 @@ fun PrivateScreen(
     onNavigateBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val recovery by viewModel.recovery.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
@@ -126,14 +129,35 @@ fun PrivateScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            when (val state = uiState) {
-                PrivateUiState.Loading -> LoadingContent()
-                PrivateUiState.NeedsPinSetup -> PinSetupContent(onCreatePin = viewModel::createPin)
-                is PrivateUiState.Locked -> LockedContent(state = state, onSubmitPin = viewModel::submitPin)
-                is PrivateUiState.Unlocked -> UnlockedContent(
-                    habits = state.habits,
-                    onHabitClick = onHabitClick,
-                    onCheckIn = viewModel::recordCheckIn
+            when (val active = recovery) {
+                RecoveryUiState.Idle -> when (val state = uiState) {
+                    PrivateUiState.Loading -> LoadingContent()
+                    is PrivateUiState.NeedsPinSetup -> PinSetupContent(
+                        requiresSecurityQuestion = state.requiresSecurityQuestion,
+                        onCreatePin = viewModel::createPin
+                    )
+                    is PrivateUiState.Locked -> LockedContent(
+                        state = state,
+                        onSubmitPin = viewModel::submitPin,
+                        onForgotPin = viewModel::onForgotPin
+                    )
+                    is PrivateUiState.Unlocked -> UnlockedContent(
+                        habits = state.habits,
+                        onHabitClick = onHabitClick,
+                        onCheckIn = viewModel::recordCheckIn
+                    )
+                }
+                is RecoveryUiState.SecurityQuestion -> SecurityQuestionContent(
+                    state = active,
+                    onSubmit = viewModel::submitSecurityAnswer,
+                    onCancel = viewModel::cancelRecovery
+                )
+                RecoveryUiState.SettingNewPin -> NewPinContent(
+                    onSetPin = viewModel::completeRecovery,
+                    onCancel = viewModel::cancelRecovery
+                )
+                RecoveryUiState.Unavailable -> RecoveryUnavailableContent(
+                    onDismiss = viewModel::cancelRecovery
                 )
             }
         }
@@ -150,16 +174,28 @@ private fun LoadingContent() {
 /**
  * First-run create-PIN form: enter and confirm a 4-6 digit PIN. The copy is
  * deliberately generic and says nothing about what the area contains.
+ *
+ * When [requiresSecurityQuestion] is set - the device offers no biometric or
+ * lockscreen-credential recovery - a question and answer are collected too, as
+ * the only way to recover a forgotten PIN, and the button stays disabled until
+ * both are filled.
  */
 @Composable
-private fun PinSetupContent(onCreatePin: (String) -> Unit) {
+private fun PinSetupContent(
+    requiresSecurityQuestion: Boolean,
+    onCreatePin: (pin: String, question: String?, answer: String?) -> Unit
+) {
     var pin by rememberSaveable { mutableStateOf("") }
     var confirm by rememberSaveable { mutableStateOf("") }
+    var question by rememberSaveable { mutableStateOf("") }
+    var answer by rememberSaveable { mutableStateOf("") }
 
     val pinValid = PrivateViewModel.isValidPin(pin)
     val matches = confirm.isNotEmpty() && pin == confirm
     val mismatch = confirm.isNotEmpty() && pin != confirm
-    val canSubmit = pinValid && matches
+    val questionComplete = !requiresSecurityQuestion ||
+        (question.isNotBlank() && answer.isNotBlank())
+    val canSubmit = pinValid && matches && questionComplete
 
     GateColumn {
         LockBadge()
@@ -201,11 +237,36 @@ private fun PinSetupContent(onCreatePin: (String) -> Unit) {
             )
         }
 
+        if (requiresSecurityQuestion) {
+            Spacer(modifier = Modifier.height(24.dp))
+            Text(
+                text = "Set a security question so you can reset your PIN if you forget it.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            RecoveryTextField(
+                value = question,
+                onValueChange = { question = it },
+                label = "Security question"
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            RecoveryTextField(
+                value = answer,
+                onValueChange = { answer = it },
+                label = "Answer"
+            )
+        }
+
         Spacer(modifier = Modifier.height(32.dp))
         GateButton(
             text = "Set PIN",
             enabled = canSubmit,
-            onClick = { onCreatePin(pin) }
+            onClick = {
+                if (requiresSecurityQuestion) onCreatePin(pin, question, answer)
+                else onCreatePin(pin, null, null)
+            }
         )
     }
 }
@@ -217,7 +278,8 @@ private fun PinSetupContent(onCreatePin: (String) -> Unit) {
 @Composable
 private fun LockedContent(
     state: PrivateUiState.Locked,
-    onSubmitPin: (String) -> Unit
+    onSubmitPin: (String) -> Unit,
+    onForgotPin: () -> Unit
 ) {
     var pin by rememberSaveable { mutableStateOf("") }
     var secondsLeft by remember(state.remainingLockoutSeconds, state.isLockedOut) {
@@ -279,6 +341,204 @@ private fun LockedContent(
                 onSubmitPin(pin)
                 pin = ""
             }
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        TextButton(onClick = onForgotPin) {
+            Text(
+                text = "Forgot PIN?",
+                style = MaterialTheme.typography.bodyMedium,
+                color = OinkTeal
+            )
+        }
+    }
+}
+
+/**
+ * Recovery step: answer the security question. Shown only when the device has no
+ * biometric or lockscreen-credential recovery and a question was configured. A
+ * wrong answer shows an error; too many wrong answers lock the field out with a
+ * countdown, mirroring the PIN prompt's rate limit.
+ */
+@Composable
+private fun SecurityQuestionContent(
+    state: RecoveryUiState.SecurityQuestion,
+    onSubmit: (String) -> Unit,
+    onCancel: () -> Unit
+) {
+    var answer by rememberSaveable { mutableStateOf("") }
+    var secondsLeft by remember(state.remainingLockoutSeconds, state.isLockedOut) {
+        mutableIntStateOf(if (state.isLockedOut) state.remainingLockoutSeconds else 0)
+    }
+
+    LaunchedEffect(state.isLockedOut, state.remainingLockoutSeconds) {
+        while (secondsLeft > 0) {
+            delay(1000)
+            secondsLeft -= 1
+        }
+    }
+
+    val lockedOut = state.isLockedOut && secondsLeft > 0
+
+    GateColumn {
+        LockBadge()
+        Spacer(modifier = Modifier.height(24.dp))
+        Text(
+            text = "Reset PIN",
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = state.prompt,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            textAlign = TextAlign.Center
+        )
+        Spacer(modifier = Modifier.height(24.dp))
+
+        RecoveryTextField(
+            value = answer,
+            onValueChange = { answer = it },
+            label = "Answer",
+            isError = state.showError
+        )
+
+        when {
+            lockedOut -> {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Too many attempts. Try again in ${secondsLeft}s.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = OinkError
+                )
+            }
+            state.showError -> {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "That's not right. Try again.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = OinkError
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(32.dp))
+        GateButton(
+            text = "Continue",
+            enabled = !lockedOut && answer.isNotBlank(),
+            onClick = {
+                onSubmit(answer)
+                answer = ""
+            }
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        TextButton(onClick = onCancel) {
+            Text(
+                text = "Cancel",
+                style = MaterialTheme.typography.bodyMedium,
+                color = OinkTeal
+            )
+        }
+    }
+}
+
+/**
+ * Recovery step: set a new PIN once ownership has been proven (via biometric,
+ * lockscreen credential, or a correct security answer). Mirrors [PinSetupContent]'s
+ * enter-and-confirm form; completing it unlocks the area.
+ */
+@Composable
+private fun NewPinContent(
+    onSetPin: (String) -> Unit,
+    onCancel: () -> Unit
+) {
+    var pin by rememberSaveable { mutableStateOf("") }
+    var confirm by rememberSaveable { mutableStateOf("") }
+
+    val pinValid = PrivateViewModel.isValidPin(pin)
+    val matches = confirm.isNotEmpty() && pin == confirm
+    val mismatch = confirm.isNotEmpty() && pin != confirm
+
+    GateColumn {
+        LockBadge()
+        Spacer(modifier = Modifier.height(24.dp))
+        Text(
+            text = "Set a new PIN",
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        Spacer(modifier = Modifier.height(24.dp))
+
+        PinField(
+            value = pin,
+            onValueChange = { pin = it.digitsOnly() },
+            label = "New PIN"
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        PinField(
+            value = confirm,
+            onValueChange = { confirm = it.digitsOnly() },
+            label = "Confirm PIN",
+            isError = mismatch
+        )
+
+        if (mismatch) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "PINs don't match",
+                style = MaterialTheme.typography.bodySmall,
+                color = OinkError
+            )
+        }
+
+        Spacer(modifier = Modifier.height(32.dp))
+        GateButton(
+            text = "Set PIN",
+            enabled = pinValid && matches,
+            onClick = { onSetPin(pin) }
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        TextButton(onClick = onCancel) {
+            Text(
+                text = "Cancel",
+                style = MaterialTheme.typography.bodyMedium,
+                color = OinkTeal
+            )
+        }
+    }
+}
+
+/**
+ * Recovery dead end: no biometric or lockscreen credential is enrolled and no
+ * security question was configured, so there is no way to reset the PIN. The copy
+ * stays generic to preserve plausible deniability about the area's contents.
+ */
+@Composable
+private fun RecoveryUnavailableContent(onDismiss: () -> Unit) {
+    GateColumn {
+        LockBadge()
+        Spacer(modifier = Modifier.height(24.dp))
+        Text(
+            text = "Can't reset PIN",
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "No recovery method is set up on this device. Set a screen lock to " +
+                "reset your PIN with it.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            textAlign = TextAlign.Center
+        )
+        Spacer(modifier = Modifier.height(32.dp))
+        GateButton(
+            text = "Back",
+            enabled = true,
+            onClick = onDismiss
         )
     }
 }
