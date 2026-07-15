@@ -47,14 +47,17 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.oink.app.data.HabitType
 import com.oink.app.ui.components.HeroBankCard
 import com.oink.app.ui.components.OinkMascot
 import com.oink.app.ui.components.TodayCheckInControl
 import com.oink.app.utils.MascotState
 import com.oink.app.ui.theme.OinkPink
 import com.oink.app.ui.theme.OinkTeal
+import com.oink.app.ui.theme.OinkTheme
 import com.oink.app.utils.Formatters
 import com.oink.app.viewmodel.HabitCardState
 import com.oink.app.viewmodel.HabitListViewModel
@@ -340,38 +343,55 @@ private fun HabitCard(
 
             Spacer(modifier = Modifier.width(16.dp))
 
-            // Name + streak/freeze meta
+            // Two-line content column. The card carries a lot on one row - name,
+            // balance, streak/freeze meta, and up to two 48dp check-in buttons -
+            // which cannot all fit on a single line on a narrow or high-density
+            // device at elevated font scales. Splitting into two lines gives each
+            // element a real width budget: the name and meta flex and ellipsize,
+            // the balance never wraps, and nothing is ever starved into a
+            // per-character wrap the way a single weighted row was (issue #108).
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = card.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                HabitMeta(streak = card.streak, availableFreezes = card.availableFreezes)
+                // Line 1: habit name (flexes, ellipsizes) + spendable balance
+                // (visual hierarchy #1, never wraps).
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = card.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = Formatters.formatCurrency(card.spendable),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = OinkTeal,
+                        maxLines = 1,
+                        softWrap = false
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                // Line 2: streak/freeze meta (flexes, single line) + inline quick
+                // check-in - logs today without leaving the list.
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    HabitMeta(
+                        streak = card.streak,
+                        availableFreezes = card.availableFreezes,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    TodayCheckInControl(
+                        todayCompleted = card.todayCompleted,
+                        habitType = card.habitType,
+                        onCheckIn = onCheckIn
+                    )
+                }
             }
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            // Per-habit spendable balance (visual hierarchy #1).
-            Text(
-                text = Formatters.formatCurrency(card.spendable),
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = OinkTeal
-            )
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            // Inline quick check-in - logs today without leaving the list.
-            TodayCheckInControl(
-                todayCompleted = card.todayCompleted,
-                habitType = card.habitType,
-                onCheckIn = onCheckIn
-            )
         }
     }
 }
@@ -380,12 +400,17 @@ private fun HabitCard(
  * Streak text plus an optional freeze count, matching the detail screen's chips.
  */
 @Composable
-private fun HabitMeta(streak: Int, availableFreezes: Int) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
+private fun HabitMeta(streak: Int, availableFreezes: Int, modifier: Modifier = Modifier) {
+    Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
         Text(
             text = Formatters.formatStreakWithEmoji(streak),
             style = MaterialTheme.typography.bodyMedium,
-            color = if (streak > 0) OinkPink else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+            color = if (streak > 0) OinkPink else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            // Takes only the width it needs but yields to the freeze chip and
+            // ellipsizes rather than wrapping when the meta line is tight.
+            modifier = Modifier.weight(1f, fill = false)
         )
 
         if (availableFreezes > 0) {
@@ -402,6 +427,68 @@ private fun HabitMeta(streak: Int, availableFreezes: Int) {
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Bold,
                 color = OinkTeal
+            )
+        }
+    }
+}
+
+/**
+ * Regression lock for issue #108: the worst-case habit card must lay out cleanly.
+ *
+ * Long name, a three-digit streak ("🔥🔥🔥 234 days"), a large four-figure
+ * balance, an unlogged BUILD habit (the two-button check-in control), and
+ * available freezes - all at a deliberately narrow 360dp width, and again at an
+ * elevated font scale. Before the two-line layout this row starved its content
+ * column into a per-character wrap ("2/3/4/d/a/y/s") and truncated the name to
+ * "W…"; the preview exists so that regression is caught by eye in the IDE.
+ *
+ * The rendering tooling (`ui-tooling`) is a `debugImplementation`, so this only
+ * renders in debug tooling and is stripped from release.
+ */
+@Preview(name = "Habit card - worst case", widthDp = 360, showBackground = true)
+@Preview(
+    name = "Habit card - worst case @ 1.5x font",
+    widthDp = 360,
+    fontScale = 1.5f,
+    showBackground = true
+)
+@Composable
+private fun HabitCardWorstCasePreview() {
+    OinkTheme {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            HabitCard(
+                card = HabitCardState(
+                    id = 1L,
+                    emoji = "🏋️",
+                    name = "Workout with weights every morning",
+                    habitType = HabitType.BUILD,
+                    streak = 234,
+                    availableFreezes = 3,
+                    spendable = 109_728L,
+                    todayCompleted = null
+                ),
+                onClick = {},
+                onCheckIn = {}
+            )
+            // A logged QUIT habit (single-button control) for contrast.
+            HabitCard(
+                card = HabitCardState(
+                    id = 2L,
+                    emoji = "🚭",
+                    name = "No smoking",
+                    habitType = HabitType.QUIT,
+                    streak = 5,
+                    availableFreezes = 0,
+                    spendable = 4_250L,
+                    todayCompleted = true
+                ),
+                onClick = {},
+                onCheckIn = {}
             )
         }
     }
