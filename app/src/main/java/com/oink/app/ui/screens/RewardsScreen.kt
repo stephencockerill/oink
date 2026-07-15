@@ -1,23 +1,21 @@
 package com.oink.app.ui.screens
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -25,83 +23,91 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.CardGiftcard
 import androidx.compose.material.icons.filled.Celebration
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
-import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.filled.TrackChanges
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.oink.app.data.CashOut
 import com.oink.app.data.RewardCategories
 import com.oink.app.ui.components.ConfettiBurst
 import com.oink.app.ui.components.OinkMascot
+import com.oink.app.ui.components.RewardsHeroCard
+import com.oink.app.ui.theme.OinkError
+import com.oink.app.ui.theme.OinkGold
 import com.oink.app.ui.theme.OinkPink
 import com.oink.app.ui.theme.OinkPinkDark
 import com.oink.app.ui.theme.OinkSpacing
 import com.oink.app.ui.theme.OinkTeal
 import com.oink.app.ui.theme.OinkTealContainer
-import com.oink.app.ui.theme.OinkError
 import com.oink.app.ui.util.rememberReduceMotion
 import com.oink.app.utils.Formatters
 import com.oink.app.utils.HabitCopy
 import com.oink.app.utils.MascotState
+import com.oink.app.utils.MilestoneTier
+import com.oink.app.utils.MilestoneTierStatus
+import com.oink.app.utils.RewardTimelineEntry
 import com.oink.app.viewmodel.PinPromptState
 import com.oink.app.viewmodel.PrivateFundsAccess
 import com.oink.app.viewmodel.PrivateViewModel
 import com.oink.app.viewmodel.RewardsViewModel
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -109,8 +115,12 @@ import java.util.Locale
 /**
  * Rewards screen - where you CASH IN your hard-earned piggy bank funds!
  *
- * This is the celebration zone. The whole vibe should be:
- * "You EARNED this through discipline and effort. Treat yourself!"
+ * Structured as a story rather than a flat list: a compact hero (balance, mascot,
+ * "Treat yourself" CTA), a horizontal milestone track (done / active / locked
+ * tiers), expressive stat tiles, and a vertical highlight-reel timeline that
+ * interleaves earned milestone trophies with the user's cash-outs.
+ *
+ * The whole vibe: "You EARNED this through discipline and effort. Treat yourself!"
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -118,9 +128,11 @@ fun RewardsScreen(
     viewModel: RewardsViewModel,
     onNavigateBack: () -> Unit
 ) {
+    val heroState by viewModel.heroState.collectAsStateWithLifecycle()
     val balance by viewModel.currentBalance.collectAsStateWithLifecycle()
     val cashOuts by viewModel.allCashOuts.collectAsStateWithLifecycle()
-    val totalCashedOut by viewModel.totalCashedOut.collectAsStateWithLifecycle()
+    val milestoneTrack by viewModel.milestoneTrack.collectAsStateWithLifecycle()
+    val timeline by viewModel.timeline.collectAsStateWithLifecycle()
     val totalCompletedDays by viewModel.totalCompletedDays.collectAsStateWithLifecycle()
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
     val error by viewModel.error.collectAsStateWithLifecycle()
@@ -162,7 +174,7 @@ fun RewardsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("🎁 Rewards", fontWeight = FontWeight.Bold) },
+                title = { Text("Rewards", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -189,16 +201,21 @@ fun RewardsScreen(
                     .padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // Balance & Cash Out Button
+                // Hero: balance, mascot, "Treat yourself" CTA.
                 item {
                     Spacer(modifier = Modifier.height(8.dp))
-                    BalanceCard(
-                        balance = balance,
-                        onCashOut = { showCashOutSheet = true }
+                    RewardsHeroCard(
+                        state = heroState,
+                        onTreatYourself = { showCashOutSheet = true }
                     )
                 }
 
-                // Stats
+                // Milestone track: quarter pounder -> swole savings.
+                item {
+                    MilestoneTrack(tiers = milestoneTrack)
+                }
+
+                // Stat tiles.
                 item {
                     StatsRow(
                         rewardCount = cashOuts.size,
@@ -206,34 +223,32 @@ fun RewardsScreen(
                     )
                 }
 
-                // Reward History Header
                 if (cashOuts.isNotEmpty()) {
                     item {
                         Text(
-                            text = "🏆 Rewards Earned",
+                            text = "Your highlight reel",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(top = 8.dp)
                         )
                     }
-                }
 
-                // Reward History
-                items(
-                    items = cashOuts,
-                    key = { cashOut -> cashOut.id }
-                ) { cashOut ->
-                    RewardHistoryItem(
-                        cashOut = cashOut,
-                        onClick = {
-                            viewModel.selectCashOut(cashOut)
-                            showEditSheet = true
-                        }
-                    )
-                }
-
-                // Empty state
-                if (cashOuts.isEmpty()) {
+                    itemsIndexed(
+                        items = timeline,
+                        key = { _, entry -> entry.timelineKey() },
+                        contentType = { _, entry -> entry.timelineContentType() }
+                    ) { index, entry ->
+                        TimelineEntryRow(
+                            entry = entry,
+                            isFirst = index == 0,
+                            isLast = index == timeline.lastIndex,
+                            onCashoutClick = { cashOut ->
+                                viewModel.selectCashOut(cashOut)
+                                showEditSheet = true
+                            }
+                        )
+                    }
+                } else {
                     item {
                         EmptyRewardsState()
                     }
@@ -431,71 +446,141 @@ private fun PrivateFundsUnlockDialog(
     )
 }
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+// =============================================================================
+// Milestone track
+// =============================================================================
+
+/**
+ * The horizontal milestone track: the four financial tiers, each showing its
+ * done / active / locked state with a gold accent on the ones already unlocked.
+ * Scrolls horizontally so long tier names never truncate.
+ */
 @Composable
-private fun BalanceCard(
-    balance: Long,
-    onCashOut: () -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+private fun MilestoneTrack(tiers: List<MilestoneTier>) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState()),
+        verticalAlignment = Alignment.Top,
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(OinkPink, OinkPinkDark)
-                    )
-                )
-                .padding(OinkSpacing.xl)
-        ) {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = "🐷 Piggy Bank Balance",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = Color.White.copy(alpha = 0.85f)
-                )
-                Spacer(modifier = Modifier.height(OinkSpacing.sm))
-                Text(
-                    text = Formatters.formatCurrency(balance),
-                    style = MaterialTheme.typography.displayMediumEmphasized,
-                    color = Color.White
-                )
-                Spacer(modifier = Modifier.height(OinkSpacing.lg))
-                Button(
-                    onClick = onCashOut,
-                    enabled = balance > 0,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = OinkTeal
-                    ),
-                    shape = MaterialTheme.shapes.medium,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(Icons.Default.ShoppingCart, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Treat Yourself! 🎉",
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-                if (balance == 0L) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "Show up to earn rewards!",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.White.copy(alpha = 0.7f)
-                    )
-                }
+        tiers.forEachIndexed { index, tier ->
+            MilestoneNode(tier = tier)
+            if (index != tiers.lastIndex) {
+                MilestoneConnector(reached = tier.status == MilestoneTierStatus.DONE)
             }
         }
     }
 }
+
+/**
+ * A short connector between two milestone nodes, aligned to the badge center. Gold
+ * once the tier to its left has been reached, muted otherwise.
+ */
+@Composable
+private fun MilestoneConnector(reached: Boolean) {
+    Box(
+        modifier = Modifier
+            .padding(top = 20.dp)
+            .width(20.dp)
+            .height(3.dp)
+            .clip(RoundedCornerShape(50))
+            .background(
+                if (reached) OinkGold
+                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+            )
+    )
+}
+
+/**
+ * One tier in the milestone track: a status badge, the tier name, and its dollar
+ * threshold. Done tiers read gold, the active tier reads in the brand primary, and
+ * locked tiers are muted.
+ */
+@Composable
+private fun MilestoneNode(tier: MilestoneTier) {
+    val icon: ImageVector
+    val badgeColor: Color
+    val iconTint: Color
+    val accent: Color
+    when (tier.status) {
+        MilestoneTierStatus.DONE -> {
+            icon = Icons.Default.EmojiEvents
+            badgeColor = OinkGold
+            iconTint = Color.White
+            accent = OinkGold
+        }
+        MilestoneTierStatus.ACTIVE -> {
+            icon = Icons.Default.TrackChanges
+            badgeColor = MaterialTheme.colorScheme.primaryContainer
+            iconTint = MaterialTheme.colorScheme.primary
+            accent = MaterialTheme.colorScheme.primary
+        }
+        MilestoneTierStatus.LOCKED -> {
+            icon = Icons.Default.Lock
+            badgeColor = MaterialTheme.colorScheme.surfaceVariant
+            iconTint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+            accent = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+        }
+    }
+
+    val stateWord = when (tier.status) {
+        MilestoneTierStatus.DONE -> "reached"
+        MilestoneTierStatus.ACTIVE -> "next goal"
+        MilestoneTierStatus.LOCKED -> "locked"
+    }
+
+    Column(
+        modifier = Modifier
+            .width(96.dp)
+            .semantics(mergeDescendants = true) {
+                contentDescription =
+                    "${tier.name}, ${Formatters.formatCurrencyCompact(tier.thresholdCents)}, $stateWord"
+            },
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .clip(CircleShape)
+                .background(badgeColor)
+                .then(
+                    if (tier.status == MilestoneTierStatus.ACTIVE) {
+                        Modifier.border(2.dp, MaterialTheme.colorScheme.primary, CircleShape)
+                    } else {
+                        Modifier
+                    }
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = iconTint,
+                modifier = Modifier.size(24.dp)
+            )
+        }
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            text = Formatters.formatCurrencyCompact(tier.thresholdCents),
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            color = accent
+        )
+        Text(
+            text = tier.name,
+            style = MaterialTheme.typography.labelSmall,
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onSurface.copy(
+                alpha = if (tier.status == MilestoneTierStatus.LOCKED) 0.5f else 0.85f
+            )
+        )
+    }
+}
+
+// =============================================================================
+// Stat tiles
+// =============================================================================
 
 @Composable
 private fun StatsRow(
@@ -506,15 +591,17 @@ private fun StatsRow(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        StatCard(
+        StatTile(
             modifier = Modifier.weight(1f),
-            emoji = "🎁",
+            icon = Icons.Default.CardGiftcard,
+            tint = OinkTeal,
             label = "Rewards",
             value = rewardCount.toString()
         )
-        StatCard(
+        StatTile(
             modifier = Modifier.weight(1f),
-            emoji = "📅",
+            icon = Icons.Default.CalendarMonth,
+            tint = OinkGold,
             label = HabitCopy.STAT_DAYS,
             value = totalCompletedDays.toString()
         )
@@ -522,14 +609,17 @@ private fun StatsRow(
 }
 
 @Composable
-private fun StatCard(
+private fun StatTile(
     modifier: Modifier = Modifier,
-    emoji: String,
+    icon: ImageVector,
+    tint: Color,
     label: String,
     value: String
 ) {
     Card(
-        modifier = modifier,
+        modifier = modifier.semantics(mergeDescendants = true) {
+            contentDescription = "$value $label"
+        },
         shape = MaterialTheme.shapes.medium,
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
@@ -542,8 +632,13 @@ private fun StatCard(
                 .padding(12.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(text = emoji, fontSize = 24.sp)
-            Spacer(modifier = Modifier.height(4.dp))
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = tint,
+                modifier = Modifier.size(28.dp)
+            )
+            Spacer(modifier = Modifier.height(6.dp))
             Text(
                 text = value,
                 style = MaterialTheme.typography.titleMedium,
@@ -558,8 +653,164 @@ private fun StatCard(
     }
 }
 
+// =============================================================================
+// Timeline
+// =============================================================================
+
+/** Stable LazyColumn key per timeline entry. */
+private fun RewardTimelineEntry.timelineKey(): String = when (this) {
+    is RewardTimelineEntry.Trophy -> "trophy-${tier.thresholdCents}"
+    is RewardTimelineEntry.Cashout -> "cashout-${cashOut.id}"
+}
+
+/** LazyColumn content type so trophy and cash-out rows recycle separately. */
+private fun RewardTimelineEntry.timelineContentType(): String = when (this) {
+    is RewardTimelineEntry.Trophy -> "trophy"
+    is RewardTimelineEntry.Cashout -> "cashout"
+}
+
 @Composable
-private fun RewardHistoryItem(
+private fun TimelineEntryRow(
+    entry: RewardTimelineEntry,
+    isFirst: Boolean,
+    isLast: Boolean,
+    onCashoutClick: (CashOut) -> Unit
+) {
+    when (entry) {
+        is RewardTimelineEntry.Trophy -> TimelineRow(
+            isFirst = isFirst,
+            isLast = isLast,
+            marker = { TrophyMarker() }
+        ) {
+            TrophyContent(tier = entry.tier)
+        }
+        is RewardTimelineEntry.Cashout -> TimelineRow(
+            isFirst = isFirst,
+            isLast = isLast,
+            marker = { CashoutMarker(emoji = entry.cashOut.emoji) }
+        ) {
+            CashoutContent(
+                cashOut = entry.cashOut,
+                onClick = { onCashoutClick(entry.cashOut) }
+            )
+        }
+    }
+}
+
+/**
+ * A single timeline row: a fixed-width rail on the left carrying the connecting
+ * line and this entry's marker, and the entry's content filling the rest. The rail
+ * line skips above the first marker and below the last so the reel reads as one
+ * continuous thread.
+ */
+@Composable
+private fun TimelineRow(
+    isFirst: Boolean,
+    isLast: Boolean,
+    marker: @Composable () -> Unit,
+    content: @Composable () -> Unit
+) {
+    val railColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(IntrinsicSize.Min)
+    ) {
+        Box(
+            modifier = Modifier
+                .width(48.dp)
+                .fillMaxHeight()
+                .drawBehind {
+                    val centerX = size.width / 2f
+                    // Marker: 4dp top padding + 40dp circle -> center at 24dp.
+                    val markerCenterY = 24.dp.toPx()
+                    val top = if (isFirst) markerCenterY else 0f
+                    val bottom = if (isLast) markerCenterY else size.height
+                    drawLine(
+                        color = railColor,
+                        start = Offset(centerX, top),
+                        end = Offset(centerX, bottom),
+                        strokeWidth = 2.dp.toPx()
+                    )
+                },
+            contentAlignment = Alignment.TopCenter
+        ) {
+            Box(modifier = Modifier.padding(top = 4.dp)) {
+                marker()
+            }
+        }
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .padding(start = 8.dp, bottom = 12.dp)
+        ) {
+            content()
+        }
+    }
+}
+
+@Composable
+private fun TrophyMarker() {
+    Box(
+        modifier = Modifier
+            .size(40.dp)
+            .clip(CircleShape)
+            .background(OinkGold),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = Icons.Default.EmojiEvents,
+            contentDescription = null,
+            tint = Color.White,
+            modifier = Modifier.size(22.dp)
+        )
+    }
+}
+
+@Composable
+private fun CashoutMarker(emoji: String) {
+    Box(
+        modifier = Modifier
+            .size(40.dp)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.primaryContainer),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(text = emoji, fontSize = 20.sp)
+    }
+}
+
+@Composable
+private fun TrophyContent(tier: MilestoneTier) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .semantics(mergeDescendants = true) {
+                contentDescription =
+                    "Milestone reached: ${tier.name}, ${Formatters.formatCurrencyCompact(tier.thresholdCents)}"
+            },
+        shape = MaterialTheme.shapes.medium,
+        colors = CardDefaults.cardColors(
+            containerColor = OinkGold.copy(alpha = 0.12f)
+        )
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = tier.name,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = "Milestone reached · ${Formatters.formatCurrencyCompact(tier.thresholdCents)}",
+                style = MaterialTheme.typography.bodySmall,
+                color = OinkGold
+            )
+        }
+    }
+}
+
+@Composable
+private fun CashoutContent(
     cashOut: CashOut,
     onClick: () -> Unit
 ) {
@@ -568,7 +819,8 @@ private fun RewardHistoryItem(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick),
+            .clickable(onClick = onClick, onClickLabel = "Edit reward"),
+        shape = MaterialTheme.shapes.medium,
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         )
@@ -579,20 +831,6 @@ private fun RewardHistoryItem(
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Emoji
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primaryContainer),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(text = cashOut.emoji, fontSize = 24.sp)
-            }
-
-            Spacer(modifier = Modifier.width(16.dp))
-
-            // Details
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = cashOut.name,
@@ -611,7 +849,6 @@ private fun RewardHistoryItem(
                 )
             }
 
-            // Amount
             Text(
                 text = Formatters.formatCurrency(cashOut.amount),
                 style = MaterialTheme.typography.titleMedium,
@@ -630,7 +867,11 @@ private fun EmptyRewardsState() {
             .padding(32.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(text = "🎁", fontSize = 64.sp)
+        OinkMascot(
+            state = MascotState.SLEEPING,
+            contentDescription = null,
+            modifier = Modifier.size(120.dp)
+        )
         Spacer(modifier = Modifier.height(16.dp))
         Text(
             text = "No rewards yet!",
@@ -676,7 +917,7 @@ private fun CashOutBottomSheet(
         ) {
             // Header
             Text(
-                text = "🎉 Treat Yourself!",
+                text = "Treat Yourself!",
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold
             )
@@ -908,7 +1149,7 @@ private fun CelebrationOverlay(
                             containerColor = OinkTeal
                         )
                     ) {
-                        Text("Awesome! 🐷")
+                        Text("Awesome!")
                     }
                 }
             }
@@ -964,7 +1205,7 @@ private fun EditRewardBottomSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "✏️ Edit Reward",
+                    text = "Edit Reward",
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold
                 )
@@ -1121,4 +1362,3 @@ private fun DeleteRewardConfirmationDialog(
         }
     )
 }
-

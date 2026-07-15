@@ -3,9 +3,9 @@ package com.oink.app.ui.components
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -18,6 +18,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.LocalFireDepartment
+import androidx.compose.material.icons.filled.Redeem
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -50,6 +53,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.oink.app.ui.theme.OinkElevation
 import com.oink.app.ui.theme.OinkGold
+import com.oink.app.ui.theme.OinkPinkDark
 import com.oink.app.ui.theme.OinkShadowSoft
 import com.oink.app.ui.theme.OinkSuccess
 import com.oink.app.ui.theme.OinkWarning
@@ -76,14 +80,13 @@ private const val LOSS_FLASH_ALPHA = 0.45f
  * immutable [HeroBankState].
  *
  * Motion is spring-based, driven by [MaterialTheme.motionScheme] (Material 3
- * Expressive): a gain rolls the balance up on a snappy spatial spring and drops a
- * coin into the bank; a halving sweeps down on a slow, weighty spring under an
- * amber flash so the loss lands; crossing into a new milestone tier bursts
- * confetti, drops a coin, and makes the pig hop. Every animation honors the system
- * reduce-motion setting ([rememberReduceMotion]): when motion is off the balance
- * jumps straight to its value with no count-up, sweep, coin, flame flicker, or
- * confetti. Haptics (a check-in confirm is fired at the tap sites; a milestone
- * unlock fires here) are tactile, not motion, so they play regardless.
+ * Expressive) and shared with [RewardsHeroCard] through [HeroCardSurface]: a gain
+ * rolls the balance up on a snappy spatial spring and drops a coin into the bank;
+ * a halving sweeps down on a slow, weighty spring under an amber flash so the loss
+ * lands; crossing into a new milestone tier bursts confetti, drops a coin, and
+ * makes the pig hop. Every animation honors the system reduce-motion setting
+ * ([rememberReduceMotion]): when motion is off the balance jumps straight to its
+ * value with no count-up, sweep, coin, flame flicker, or confetti.
  *
  * Accessibility: the whole card is one actionable, merged semantics node with a
  * spoken summary of balance, gain, streak, and progress; decorative icons and the
@@ -100,12 +103,123 @@ fun HeroBankCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    HeroCardSurface(
+        balanceCents = state.balanceCents,
+        modifier = modifier,
+        interaction = Modifier
+            .clickable(
+                onClick = onClick,
+                onClickLabel = "Open rewards"
+            )
+            .semantics(mergeDescendants = true) {
+                role = Role.Button
+                contentDescription = heroContentDescription(state)
+            }
+    ) { displayedCents, mascotHopFraction ->
+        HeroHeaderRow(state = state)
+        Spacer(modifier = Modifier.height(12.dp))
+        HeroBalanceRow(state = state, displayedCents = displayedCents, mascotHopFraction = mascotHopFraction)
+        Spacer(modifier = Modifier.height(20.dp))
+        MilestoneBar(state = state)
+    }
+}
+
+/**
+ * The Rewards-screen hero: the same living bank card treatment as [HeroBankCard]
+ * (mesh gradient, mascot, count-up balance, streak flame, halving sweep, coin drop,
+ * and milestone celebration), but compact for the Rewards story.
+ *
+ * It drops the milestone bar - the Rewards screen has a dedicated milestone track
+ * below - and replaces the tap-to-open-rewards behavior with an explicit "Treat
+ * yourself" CTA (we are already on Rewards). The CTA is disabled at a zero balance
+ * and paired with a "show up to earn" hint.
+ *
+ * Accessibility: the balance summary is one merged, spoken node; the CTA is a
+ * separate, independently actionable button so TalkBack reaches it directly.
+ *
+ * @param state Everything to render, precomputed by the ViewModel.
+ * @param onTreatYourself Invoked when the CTA is tapped (opens the cash-out sheet).
+ * @param modifier Standard [Modifier]; the caller controls width/placement.
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+fun RewardsHeroCard(
+    state: HeroBankState,
+    onTreatYourself: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    HeroCardSurface(
+        balanceCents = state.balanceCents,
+        modifier = modifier
+    ) { displayedCents, mascotHopFraction ->
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .semantics(mergeDescendants = true) {
+                    contentDescription = rewardsHeroContentDescription(state)
+                }
+        ) {
+            HeroHeaderRow(state = state)
+            Spacer(modifier = Modifier.height(12.dp))
+            HeroBalanceRow(state = state, displayedCents = displayedCents, mascotHopFraction = mascotHopFraction)
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        TreatYourselfButton(
+            enabled = state.balanceCents > 0,
+            onClick = onTreatYourself
+        )
+
+        if (state.balanceCents == 0L) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Show up to earn rewards!",
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.White.copy(alpha = 0.8f)
+            )
+        }
+    }
+}
+
+/**
+ * The shared living-bank surface both heroes render into: mesh gradient, soft
+ * shadow, and every balance-driven animation.
+ *
+ * This is the single source of truth for the hero's motion, all spring-based off
+ * [MaterialTheme.motionScheme]: the count-up (a gain rolls up briskly, a halving
+ * sweeps down slower under an amber flash), the coin that drops in on a gain, and
+ * the milestone celebration (confetti burst + a pig hop) fired when the balance
+ * crosses into a new [Milestone] tier. Motion honors the system reduce-motion
+ * setting; the milestone haptic is tactile, not motion, so it fires regardless.
+ *
+ * The currently-displayed cents and a mascot hop-fraction provider are handed to
+ * [content] so each hero lays out its own body while the mascot hop stays driven
+ * here. The hop fraction is a provider read late in a `graphicsLayer`, so a hop
+ * redraws only the mascot rather than recomposing the body.
+ *
+ * @param balanceCents The real balance the display animates toward.
+ * @param modifier Standard [Modifier]; the caller controls width/placement.
+ * @param interaction Click and/or semantics applied to the whole card (the full
+ *   hero is one actionable node; the Rewards hero passes none and makes its CTA
+ *   the actionable element instead).
+ * @param content The card body, given the animated displayed-cents value and the
+ *   mascot hop-fraction provider.
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun HeroCardSurface(
+    balanceCents: Long,
+    modifier: Modifier = Modifier,
+    interaction: Modifier = Modifier,
+    content: @Composable ColumnScope.(displayedCents: Long, mascotHopFraction: () -> Float) -> Unit
+) {
     val reduceMotion = rememberReduceMotion()
     val view = LocalView.current
 
     // The value the balance text currently shows; count-animated toward the real
     // balance so a gain rolls up and a halving sweeps down.
-    var displayedCents by remember { mutableLongStateOf(state.balanceCents) }
+    var displayedCents by remember { mutableLongStateOf(balanceCents) }
 
     // Amber wash overlaid on a halving; 0 at rest. Read at draw time so pulsing it
     // never triggers recomposition.
@@ -118,11 +232,10 @@ fun HeroBankCard(
 
     // The milestone rank the last time balance changed. Seeded to the current rank
     // so the celebration never fires on the first composition (initial load).
-    var previousRank by remember { mutableIntStateOf(Milestone.rankFor(state.balanceCents)) }
+    var previousRank by remember { mutableIntStateOf(Milestone.rankFor(balanceCents)) }
 
     // Mascot vertical hop, in fraction of the hop height; read late in graphicsLayer.
     val hopOffset = remember { Animatable(0f) }
-    val hopDistancePx = with(LocalDensity.current) { 22.dp.toPx() }
 
     // Expressive springs: a gain is snappy, a loss is slow and weighty, the flash
     // eases out without overshoot, the hop settles with a little bounce.
@@ -131,9 +244,9 @@ fun HeroBankCard(
     val lossFlashSpec = MaterialTheme.motionScheme.slowEffectsSpec<Float>()
     val hopSpec = MaterialTheme.motionScheme.defaultSpatialSpec<Float>()
 
-    LaunchedEffect(state.balanceCents, reduceMotion) {
+    LaunchedEffect(balanceCents, reduceMotion) {
         val start = displayedCents
-        val end = state.balanceCents
+        val end = balanceCents
 
         // Detect a tier crossing before anything returns early.
         val newRank = Milestone.rankFor(end)
@@ -201,79 +314,11 @@ fun HeroBankCard(
                     drawRect(color = OinkWarning, alpha = lossFlash.value)
                 }
             }
-            .clickable(
-                onClick = onClick,
-                onClickLabel = "Open rewards"
-            )
-            .semantics(mergeDescendants = true) {
-                role = Role.Button
-                contentDescription = heroContentDescription(state)
-            }
+            .then(interaction)
             .padding(28.dp)
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
-            // Row 1: label + streak flame.
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = state.label,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = Color.White.copy(alpha = 0.9f),
-                    modifier = Modifier.weight(1f)
-                )
-                if (state.streak > 0) {
-                    StreakFlame(streak = state.streak, reduceMotion = reduceMotion)
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Row 2: balance + gain chip on the left, mascot on the right.
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = Formatters.formatCurrency(displayedCents),
-                        style = MaterialTheme.typography.displayLargeEmphasized.copy(fontSize = 44.sp),
-                        color = Color.White,
-                        maxLines = 1,
-                        softWrap = false,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    if (state.subtitle.isNotBlank()) {
-                        Text(
-                            text = state.subtitle,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Color.White.copy(alpha = 0.9f)
-                        )
-                    }
-                    if (state.dailyGainCents > 0) {
-                        Spacer(modifier = Modifier.height(10.dp))
-                        GainChip(gainCents = state.dailyGainCents)
-                    }
-                }
-
-                Spacer(modifier = Modifier.width(12.dp))
-
-                // The mascot is described by the card's merged semantics, so it
-                // carries no redundant description of its own here. It hops on a
-                // milestone unlock; the offset is read late in graphicsLayer.
-                OinkMascot(
-                    state = state.mascotState,
-                    contentDescription = null,
-                    modifier = Modifier
-                        .size(88.dp)
-                        .graphicsLayer { translationY = -hopOffset.value * hopDistancePx }
-                )
-            }
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            MilestoneBar(state = state)
+            content(displayedCents) { hopOffset.value }
         }
 
         // A coin drops into the bank on a gain; a fresh coin per gain via key().
@@ -297,6 +342,110 @@ fun HeroBankCard(
 }
 
 /**
+ * The card's top line: the label, and the streak flame when there is a streak.
+ */
+@Composable
+private fun HeroHeaderRow(state: HeroBankState) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = state.label,
+            style = MaterialTheme.typography.titleMedium,
+            color = Color.White.copy(alpha = 0.9f),
+            modifier = Modifier.weight(1f)
+        )
+        if (state.streak > 0) {
+            StreakFlame(streak = state.streak)
+        }
+    }
+}
+
+/**
+ * The card's balance line: the count-up balance, optional subtitle and gain chip
+ * on the left, and the mascot on the right. The mascot is described by the card's
+ * merged semantics, so it carries no redundant description of its own here; it
+ * hops on a milestone unlock via [mascotHopFraction], read late in a graphicsLayer.
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun HeroBalanceRow(
+    state: HeroBankState,
+    displayedCents: Long,
+    mascotHopFraction: () -> Float
+) {
+    val hopDistancePx = with(LocalDensity.current) { 22.dp.toPx() }
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = Formatters.formatCurrency(displayedCents),
+                style = MaterialTheme.typography.displayLargeEmphasized.copy(fontSize = 44.sp),
+                color = Color.White,
+                maxLines = 1,
+                softWrap = false,
+                overflow = TextOverflow.Ellipsis
+            )
+            if (state.subtitle.isNotBlank()) {
+                Text(
+                    text = state.subtitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.White.copy(alpha = 0.9f)
+                )
+            }
+            if (state.dailyGainCents > 0) {
+                Spacer(modifier = Modifier.height(10.dp))
+                GainChip(gainCents = state.dailyGainCents)
+            }
+        }
+
+        Spacer(modifier = Modifier.width(12.dp))
+
+        OinkMascot(
+            state = state.mascotState,
+            contentDescription = null,
+            modifier = Modifier
+                .size(88.dp)
+                .graphicsLayer { translationY = -mascotHopFraction() * hopDistancePx }
+        )
+    }
+}
+
+/**
+ * The Rewards hero's "Treat yourself" CTA: a full-width white button that pops on
+ * the pink gradient. Disabled at a zero balance.
+ */
+@Composable
+private fun TreatYourselfButton(enabled: Boolean, onClick: () -> Unit) {
+    Button(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = Color.White,
+            contentColor = OinkPinkDark
+        )
+    ) {
+        Icon(
+            imageVector = Icons.Default.Redeem,
+            contentDescription = null,
+            modifier = Modifier.size(20.dp)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = "Treat yourself",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold
+        )
+    }
+}
+
+/**
  * The streak flame chip: a fire icon plus the streak length.
  *
  * When motion is enabled the flame is alive - it flickers with a subtle,
@@ -306,7 +455,8 @@ fun HeroBankCard(
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun StreakFlame(streak: Int, reduceMotion: Boolean) {
+private fun StreakFlame(streak: Int) {
+    val reduceMotion = rememberReduceMotion()
     val scale = remember { Animatable(1f) }
     val rotation = remember { Animatable(0f) }
     val flameAlpha = remember { Animatable(1f) }
@@ -446,6 +596,24 @@ private fun milestoneLabel(state: HeroBankState): String {
     } else {
         "${Formatters.formatCurrency(state.balanceCents)} -> ${Formatters.formatCurrencyCompact(nextThreshold)} · $nextTier"
     }
+}
+
+/**
+ * The merged, spoken summary of the Rewards hero for TalkBack: balance, today's
+ * gain, and streak. Milestone progress is omitted - the Rewards screen has its own
+ * milestone track - and the "Treat yourself" CTA is a separate node, so this is a
+ * summary rather than an actionable element.
+ */
+private fun rewardsHeroContentDescription(state: HeroBankState): String {
+    val parts = mutableListOf<String>()
+    parts += "${state.label}: ${Formatters.formatCurrency(state.balanceCents)}"
+    if (state.dailyGainCents > 0) {
+        parts += "up ${Formatters.formatCurrency(state.dailyGainCents)} today"
+    }
+    if (state.streak > 0) {
+        parts += "${state.streak} day streak"
+    }
+    return parts.joinToString(separator = ", ")
 }
 
 /**

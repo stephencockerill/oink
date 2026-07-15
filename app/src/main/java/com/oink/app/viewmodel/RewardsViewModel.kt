@@ -11,10 +11,17 @@ import com.oink.app.AppContainer
 import com.oink.app.data.CashOut
 import com.oink.app.data.CashOutRepository
 import com.oink.app.data.CheckInRepository
+import com.oink.app.data.FreezeRepository
 import com.oink.app.data.HabitRepository
 import com.oink.app.data.PinHasher
 import com.oink.app.data.PreferencesRepository
 import com.oink.app.data.PrivateGate
+import com.oink.app.utils.Mascot
+import com.oink.app.utils.MascotState
+import com.oink.app.utils.Milestone
+import com.oink.app.utils.MilestoneTier
+import com.oink.app.utils.RewardTimeline
+import com.oink.app.utils.RewardTimelineEntry
 import com.oink.app.widget.OinkWidget
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -101,8 +108,10 @@ class RewardsViewModel(
     private val cashOutRepository: CashOutRepository,
     private val checkInRepository: CheckInRepository,
     private val habitRepository: HabitRepository,
+    private val freezeRepository: FreezeRepository,
     private val privateGate: PrivateGate,
     private val preferencesRepository: PreferencesRepository,
+    private val heroSignalSource: HeroSignalSource = HeroSignalSource(checkInRepository, freezeRepository),
     private val defaultDispatcher: CoroutineDispatcher = Dispatchers.Default
 ) : AndroidViewModel(application) {
 
@@ -218,6 +227,101 @@ class RewardsViewModel(
                 combine(inScope.map { habit -> checkInRepository.completedDayCount(habit.id) }) { counts ->
                     counts.sum()
                 }
+            }
+        }
+
+    /**
+     * The compact hero state for the Rewards bank card.
+     *
+     * Balance is the gated spendable pot ([currentBalance]); gain, streak, and the
+     * mascot's mood are aggregated across the same in-scope habit set the pot spans
+     * (public only while locked, public + private while unlocked), so the hero and
+     * the balance always agree on which habits count. Milestone progress derives
+     * from the balance. All precomputed here so the composable does no work.
+     *
+     * The Rewards hero shows a "Treat yourself" CTA instead of the home hero's
+     * milestone bar, since the Rewards screen has a dedicated milestone track below.
+     */
+    val heroState: StateFlow<HeroBankState> = combine(
+        currentBalance,
+        heroSignals()
+    ) { balance, signal ->
+        HeroBankState(
+            balanceCents = balance,
+            dailyGainCents = signal.dailyGainCents,
+            streak = signal.streak,
+            mascotState = Mascot.stateFor(
+                balanceDelta = signal.balanceDelta,
+                currentStreak = signal.streak,
+                lastCheckIn = signal.lastCheckIn,
+                today = checkInRepository.today()
+            ),
+            milestone = Milestone.resolve(balance),
+            label = HERO_LABEL,
+            subtitle = ""
+        )
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = HeroBankState(
+            balanceCents = 0L,
+            dailyGainCents = 0L,
+            streak = 0,
+            mascotState = MascotState.SLEEPING,
+            milestone = Milestone.resolve(0L),
+            label = HERO_LABEL,
+            subtitle = ""
+        )
+    )
+
+    /**
+     * The milestone track: all four financial tiers, each tagged done / active /
+     * locked, derived from cumulative lifetime earnings.
+     *
+     * Lifetime earnings = spendable balance + everything already cashed out, both
+     * following the same unlock gating, so a trophy stays earned after the user
+     * spends the money and locking the private area never revokes a publicly-earned
+     * tier. See [Milestone.track].
+     */
+    val milestoneTrack: StateFlow<List<MilestoneTier>> = combine(
+        currentBalance,
+        totalCashedOut
+    ) { balance, cashedOut ->
+        Milestone.track(balance + cashedOut)
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = Milestone.track(0L)
+    )
+
+    /**
+     * The highlight-reel timeline: earned milestone trophies interleaved with the
+     * visible cash-out history. Derived purely by [RewardTimeline.build]; both
+     * inputs already follow unlock gating.
+     */
+    val timeline: StateFlow<List<RewardTimelineEntry>> = combine(
+        milestoneTrack,
+        allCashOuts
+    ) { track, cashOuts ->
+        RewardTimeline.build(track, cashOuts)
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
+    /**
+     * Hero signals aggregated across the in-scope habit set, gated by the unlock
+     * flag so they match [currentBalance]'s scope. Rebuilds when the unlock flag or
+     * the habit set changes, then folds each in-scope habit's signal. Combining
+     * over an empty iterable never emits, so an empty in-scope set is
+     * short-circuited to a resting signal rather than hanging.
+     */
+    private fun heroSignals(): Flow<HeroAggregate> = privateGate.isUnlocked
+        .flatMapLatest { unlocked ->
+            habitRepository.allHabits.flatMapLatest { habits ->
+                val inScope = if (unlocked) habits else habits.filter { !it.isPrivate }
+                heroSignalSource.aggregatedSignals(inScope)
             }
         }
 
@@ -515,6 +619,8 @@ class RewardsViewModel(
     }
 
     companion object {
+        private const val HERO_LABEL = "Piggy Bank"
+
         /**
          * Factory that builds the ViewModel from [CreationExtras]. Rewards are
          * pot-level (a cash-out draws from every public habit), so this ViewModel
@@ -530,8 +636,10 @@ class RewardsViewModel(
                         cashOutRepository = container.cashOutRepository,
                         checkInRepository = container.checkInRepository,
                         habitRepository = container.habitRepository,
+                        freezeRepository = container.freezeRepository,
                         privateGate = container.privateGate,
-                        preferencesRepository = container.preferencesRepository
+                        preferencesRepository = container.preferencesRepository,
+                        heroSignalSource = container.heroSignalSource
                     )
                 }
             }

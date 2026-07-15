@@ -88,7 +88,60 @@ object Milestone {
             progress = progress
         )
     }
+
+    /**
+     * The full milestone track, each tier tagged with its [MilestoneTierStatus],
+     * derived from cumulative lifetime earnings rather than spendable balance.
+     *
+     * Using lifetime earnings (balance + everything already cashed out) means a
+     * trophy stays earned after the user spends the money - achievements don't
+     * un-happen when the pot shrinks. Exactly one tier is [MilestoneTierStatus.ACTIVE]
+     * (the first not-yet-reached one, the goal being chased); every lower tier is
+     * [MilestoneTierStatus.DONE] and every higher tier is [MilestoneTierStatus.LOCKED].
+     * When every tier is reached, none is ACTIVE.
+     *
+     * Pure and money-safe: [lifetimeEarnedCents] is Long cents (negative is treated
+     * as zero) and the result is trivially unit-tested at its boundaries.
+     */
+    fun track(lifetimeEarnedCents: Long): List<MilestoneTier> {
+        val earned = lifetimeEarnedCents.coerceAtLeast(0L)
+        val activeIndex = tiers.indexOfFirst { earned < it.thresholdCents }
+        return tiers.mapIndexed { index, tier ->
+            val status = when {
+                earned >= tier.thresholdCents -> MilestoneTierStatus.DONE
+                index == activeIndex -> MilestoneTierStatus.ACTIVE
+                else -> MilestoneTierStatus.LOCKED
+            }
+            MilestoneTier(thresholdCents = tier.thresholdCents, name = tier.name, status = status)
+        }
+    }
 }
+
+/**
+ * Where a single milestone tier sits relative to the user's lifetime earnings.
+ *
+ * - [DONE] - the tier's threshold has been reached; it is an earned trophy.
+ * - [ACTIVE] - the first not-yet-reached tier: the goal currently being chased.
+ *   At most one tier is ACTIVE, and none is when every tier is [DONE].
+ * - [LOCKED] - beyond the active tier; not yet in reach.
+ */
+enum class MilestoneTierStatus { DONE, ACTIVE, LOCKED }
+
+/**
+ * One financial milestone tier with its resolved [status].
+ *
+ * All `val`s and [Immutable], so a list of these is stable for Compose skipping.
+ *
+ * @param thresholdCents The lifetime-earnings threshold that unlocks the tier, in cents.
+ * @param name The tier's display name (e.g. "Century Club").
+ * @param status Where the tier sits relative to lifetime earnings.
+ */
+@Immutable
+data class MilestoneTier(
+    val thresholdCents: Long,
+    val name: String,
+    val status: MilestoneTierStatus
+)
 
 /**
  * A balance's resolved position in the financial milestone system.
