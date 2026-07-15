@@ -6,9 +6,9 @@ import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -21,6 +21,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.LocalFireDepartment
+import androidx.compose.material.icons.filled.Redeem
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -49,6 +52,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.oink.app.ui.theme.OinkElevation
 import com.oink.app.ui.theme.OinkGold
+import com.oink.app.ui.theme.OinkPinkDark
 import com.oink.app.ui.theme.OinkShadowSoft
 import com.oink.app.ui.theme.OinkSuccess
 import com.oink.app.ui.theme.OinkWarning
@@ -97,19 +101,121 @@ fun HeroBankCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    HeroCardSurface(
+        balanceCents = state.balanceCents,
+        modifier = modifier,
+        interaction = Modifier
+            .clickable(
+                onClick = onClick,
+                onClickLabel = "Open rewards"
+            )
+            .semantics(mergeDescendants = true) {
+                role = Role.Button
+                contentDescription = heroContentDescription(state)
+            }
+    ) { displayedCents ->
+        HeroHeaderRow(state = state)
+        Spacer(modifier = Modifier.height(12.dp))
+        HeroBalanceRow(state = state, displayedCents = displayedCents)
+        Spacer(modifier = Modifier.height(20.dp))
+        MilestoneBar(state = state)
+    }
+}
+
+/**
+ * The Rewards-screen hero: the same living bank card treatment as [HeroBankCard]
+ * (mesh gradient, mascot, count-up balance, streak flame, halving sweep), but
+ * compact for the Rewards story.
+ *
+ * It drops the milestone bar - the Rewards screen has a dedicated milestone track
+ * below - and replaces the tap-to-open-rewards behavior with an explicit "Treat
+ * yourself" CTA (we are already on Rewards). The CTA is disabled at a zero balance
+ * and paired with a "show up to earn" hint.
+ *
+ * Accessibility: the balance summary is one merged, spoken node; the CTA is a
+ * separate, independently actionable button so TalkBack reaches it directly.
+ *
+ * @param state Everything to render, precomputed by the ViewModel.
+ * @param onTreatYourself Invoked when the CTA is tapped (opens the cash-out sheet).
+ * @param modifier Standard [Modifier]; the caller controls width/placement.
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+fun RewardsHeroCard(
+    state: HeroBankState,
+    onTreatYourself: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    HeroCardSurface(
+        balanceCents = state.balanceCents,
+        modifier = modifier
+    ) { displayedCents ->
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .semantics(mergeDescendants = true) {
+                    contentDescription = rewardsHeroContentDescription(state)
+                }
+        ) {
+            HeroHeaderRow(state = state)
+            Spacer(modifier = Modifier.height(12.dp))
+            HeroBalanceRow(state = state, displayedCents = displayedCents)
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        TreatYourselfButton(
+            enabled = state.balanceCents > 0,
+            onClick = onTreatYourself
+        )
+
+        if (state.balanceCents == 0L) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Show up to earn rewards!",
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.White.copy(alpha = 0.8f)
+            )
+        }
+    }
+}
+
+/**
+ * The shared living-bank surface both heroes render into: mesh gradient, soft
+ * shadow, and the count-up / halving-sweep animation over the balance.
+ *
+ * Holds the single source of truth for the balance count animation - a gain rolls
+ * up briskly, a halving sweeps down slower under an amber flash - and hands the
+ * currently-displayed cents to [content] so each hero lays out its own body.
+ * Motion honors the system reduce-motion setting.
+ *
+ * @param balanceCents The real balance the display animates toward.
+ * @param modifier Standard [Modifier]; the caller controls width/placement.
+ * @param interaction Click and/or semantics applied to the whole card (the full
+ *   hero is one actionable node; the Rewards hero passes none and makes its CTA
+ *   the actionable element instead).
+ * @param content The card body, given the animated displayed-cents value.
+ */
+@Composable
+private fun HeroCardSurface(
+    balanceCents: Long,
+    modifier: Modifier = Modifier,
+    interaction: Modifier = Modifier,
+    content: @Composable ColumnScope.(displayedCents: Long) -> Unit
+) {
     val reduceMotion = rememberReduceMotion()
 
     // The value the balance text currently shows; count-animated toward the real
     // balance so a gain rolls up and a halving sweeps down.
-    var displayedCents by remember { mutableLongStateOf(state.balanceCents) }
+    var displayedCents by remember { mutableLongStateOf(balanceCents) }
 
     // Amber wash overlaid on a halving; 0 at rest. Read at draw time so pulsing it
     // never triggers recomposition.
     val lossFlash = remember { Animatable(0f) }
 
-    LaunchedEffect(state.balanceCents, reduceMotion) {
+    LaunchedEffect(balanceCents, reduceMotion) {
         val start = displayedCents
-        val end = state.balanceCents
+        val end = balanceCents
         if (start == end) return@LaunchedEffect
 
         // Reduce motion: no count-up, no sweep, no flash - jump to the value.
@@ -155,77 +261,107 @@ fun HeroBankCard(
                     drawRect(color = OinkWarning, alpha = lossFlash.value)
                 }
             }
-            .clickable(
-                onClick = onClick,
-                onClickLabel = "Open rewards"
-            )
-            .semantics(mergeDescendants = true) {
-                role = Role.Button
-                contentDescription = heroContentDescription(state)
-            }
+            .then(interaction)
             .padding(28.dp)
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
-            // Row 1: label + streak flame.
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = state.label,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = Color.White.copy(alpha = 0.9f),
-                    modifier = Modifier.weight(1f)
-                )
-                if (state.streak > 0) {
-                    StreakFlame(streak = state.streak)
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Row 2: balance + gain chip on the left, mascot on the right.
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = Formatters.formatCurrency(displayedCents),
-                        style = MaterialTheme.typography.displayLargeEmphasized.copy(fontSize = 44.sp),
-                        color = Color.White,
-                        maxLines = 1,
-                        softWrap = false,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    if (state.subtitle.isNotBlank()) {
-                        Text(
-                            text = state.subtitle,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Color.White.copy(alpha = 0.9f)
-                        )
-                    }
-                    if (state.dailyGainCents > 0) {
-                        Spacer(modifier = Modifier.height(10.dp))
-                        GainChip(gainCents = state.dailyGainCents)
-                    }
-                }
-
-                Spacer(modifier = Modifier.width(12.dp))
-
-                // The mascot is described by the card's merged semantics, so it
-                // carries no redundant description of its own here.
-                OinkMascot(
-                    state = state.mascotState,
-                    contentDescription = null,
-                    modifier = Modifier.size(88.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            MilestoneBar(state = state)
+            content(displayedCents)
         }
+    }
+}
+
+/**
+ * The card's top line: the label, and the streak flame when there is a streak.
+ */
+@Composable
+private fun HeroHeaderRow(state: HeroBankState) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = state.label,
+            style = MaterialTheme.typography.titleMedium,
+            color = Color.White.copy(alpha = 0.9f),
+            modifier = Modifier.weight(1f)
+        )
+        if (state.streak > 0) {
+            StreakFlame(streak = state.streak)
+        }
+    }
+}
+
+/**
+ * The card's balance line: the count-up balance, optional subtitle and gain chip
+ * on the left, and the mascot on the right. The mascot is described by the card's
+ * merged semantics, so it carries no redundant description of its own here.
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun HeroBalanceRow(state: HeroBankState, displayedCents: Long) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = Formatters.formatCurrency(displayedCents),
+                style = MaterialTheme.typography.displayLargeEmphasized.copy(fontSize = 44.sp),
+                color = Color.White,
+                maxLines = 1,
+                softWrap = false,
+                overflow = TextOverflow.Ellipsis
+            )
+            if (state.subtitle.isNotBlank()) {
+                Text(
+                    text = state.subtitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.White.copy(alpha = 0.9f)
+                )
+            }
+            if (state.dailyGainCents > 0) {
+                Spacer(modifier = Modifier.height(10.dp))
+                GainChip(gainCents = state.dailyGainCents)
+            }
+        }
+
+        Spacer(modifier = Modifier.width(12.dp))
+
+        OinkMascot(
+            state = state.mascotState,
+            contentDescription = null,
+            modifier = Modifier.size(88.dp)
+        )
+    }
+}
+
+/**
+ * The Rewards hero's "Treat yourself" CTA: a full-width white button that pops on
+ * the pink gradient. Disabled at a zero balance.
+ */
+@Composable
+private fun TreatYourselfButton(enabled: Boolean, onClick: () -> Unit) {
+    Button(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = Color.White,
+            contentColor = OinkPinkDark
+        )
+    ) {
+        Icon(
+            imageVector = Icons.Default.Redeem,
+            contentDescription = null,
+            modifier = Modifier.size(20.dp)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = "Treat yourself",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold
+        )
     }
 }
 
@@ -357,6 +493,24 @@ private fun milestoneLabel(state: HeroBankState): String {
     } else {
         "${Formatters.formatCurrency(state.balanceCents)} -> ${Formatters.formatCurrencyCompact(nextThreshold)} · $nextTier"
     }
+}
+
+/**
+ * The merged, spoken summary of the Rewards hero for TalkBack: balance, today's
+ * gain, and streak. Milestone progress is omitted - the Rewards screen has its own
+ * milestone track - and the "Treat yourself" CTA is a separate node, so this is a
+ * summary rather than an actionable element.
+ */
+private fun rewardsHeroContentDescription(state: HeroBankState): String {
+    val parts = mutableListOf<String>()
+    parts += "${state.label}: ${Formatters.formatCurrency(state.balanceCents)}"
+    if (state.dailyGainCents > 0) {
+        parts += "up ${Formatters.formatCurrency(state.dailyGainCents)} today"
+    }
+    if (state.streak > 0) {
+        parts += "${state.streak} day streak"
+    }
+    return parts.joinToString(separator = ", ")
 }
 
 /**

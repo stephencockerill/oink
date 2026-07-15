@@ -20,6 +20,7 @@ import com.oink.app.data.HabitRepository
 import com.oink.app.data.HabitRewardProvider
 import com.oink.app.data.PinHasher
 import com.oink.app.data.PrivateGate
+import com.oink.app.utils.MilestoneTierStatus
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
@@ -111,6 +112,7 @@ class RewardsViewModelTest {
         cashOutRepository = cashOutRepository,
         checkInRepository = checkInRepository,
         habitRepository = habitRepository,
+        freezeRepository = freezeRepository,
         privateGate = privateGate,
         preferencesRepository = fakePreferencesRepository,
         defaultDispatcher = testDispatcher
@@ -339,6 +341,29 @@ class RewardsViewModelTest {
         privateGate.unlock()
         advanceUntilIdle()
         assertEquals(5, viewModel.totalCompletedDays.value)
+    }
+
+    @Test
+    fun `milestoneTrack follows cumulative lifetime earnings and a trophy survives a cash-out`() = runTest {
+        seedHabits(Habit(id = 1L, name = "Workout", sortOrder = 0, isPrivate = false))
+        seedRawBalances(1L to 3_000L)
+
+        val viewModel = createViewModel()
+        backgroundScope.launch { viewModel.milestoneTrack.collect {} }
+        advanceUntilIdle()
+
+        // $30 earned, nothing cashed out: first tier ($25) is reached.
+        assertEquals(MilestoneTierStatus.DONE, viewModel.milestoneTrack.value[0].status)
+        assertEquals(MilestoneTierStatus.ACTIVE, viewModel.milestoneTrack.value[1].status)
+
+        // Cash out $20: spendable drops to $10 but lifetime earnings stay $30, so
+        // the first-tier trophy must remain earned.
+        cashOutRepository.cashOut("Treat", 2_000, includePrivate = false)!!
+        advanceUntilIdle()
+
+        assertEquals(1_000L, viewModel.currentBalance.value)
+        assertEquals(MilestoneTierStatus.DONE, viewModel.milestoneTrack.value[0].status)
+        assertEquals(MilestoneTierStatus.ACTIVE, viewModel.milestoneTrack.value[1].status)
     }
 
     private fun seedHabits(vararg habits: Habit) {

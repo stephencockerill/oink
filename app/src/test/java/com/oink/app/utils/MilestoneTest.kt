@@ -94,4 +94,86 @@ class MilestoneTest {
         assertEquals(2_500L, result.nextThresholdCents)
         assertEquals(0f, result.progress, 0f)
     }
+
+    // =========================================================================
+    // track() - the full per-tier status list off cumulative lifetime earnings
+    // =========================================================================
+
+    @Test
+    fun `track below the first tier makes the first tier active and the rest locked`() {
+        val track = Milestone.track(0L)
+
+        assertEquals(
+            listOf("Quarter Pounder", "Half-Swole", "Century Club", "Swole Savings"),
+            track.map { it.name }
+        )
+        assertEquals(
+            listOf(2_500L, 5_000L, 10_000L, 20_000L),
+            track.map { it.thresholdCents }
+        )
+        assertEquals(
+            listOf(
+                MilestoneTierStatus.ACTIVE,
+                MilestoneTierStatus.LOCKED,
+                MilestoneTierStatus.LOCKED,
+                MilestoneTierStatus.LOCKED
+            ),
+            track.map { it.status }
+        )
+    }
+
+    @Test
+    fun `track exactly on a threshold marks that tier done and the next active`() {
+        // Exactly $50 lifetime: first two tiers reached, third is the new goal.
+        val track = Milestone.track(5_000L)
+
+        assertEquals(
+            listOf(
+                MilestoneTierStatus.DONE,
+                MilestoneTierStatus.DONE,
+                MilestoneTierStatus.ACTIVE,
+                MilestoneTierStatus.LOCKED
+            ),
+            track.map { it.status }
+        )
+    }
+
+    @Test
+    fun `track between two tiers keeps the lower ones done and the next one active`() {
+        // $127.50 lifetime: through Century Club, chasing Swole Savings.
+        val track = Milestone.track(12_750L)
+
+        assertEquals(
+            listOf(
+                MilestoneTierStatus.DONE,
+                MilestoneTierStatus.DONE,
+                MilestoneTierStatus.DONE,
+                MilestoneTierStatus.ACTIVE
+            ),
+            track.map { it.status }
+        )
+    }
+
+    @Test
+    fun `track with every tier cleared has no active tier`() {
+        val track = Milestone.track(20_000L)
+
+        assertTrue(track.all { it.status == MilestoneTierStatus.DONE })
+        assertFalse(track.any { it.status == MilestoneTierStatus.ACTIVE })
+    }
+
+    @Test
+    fun `track above the top tier stays all done`() {
+        val track = Milestone.track(999_999L)
+
+        assertTrue(track.all { it.status == MilestoneTierStatus.DONE })
+    }
+
+    @Test
+    fun `track treats negative earnings as zero`() {
+        val track = Milestone.track(-500L)
+
+        assertEquals(MilestoneTierStatus.ACTIVE, track.first().status)
+        assertTrue(track.drop(1).all { it.status == MilestoneTierStatus.LOCKED })
+    }
 }
