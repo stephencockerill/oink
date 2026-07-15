@@ -88,3 +88,8 @@ Thumbs.db
 
 # Lavish review artifacts (regenerated locally, not source of truth)
 .lavish/
+
+# Claude Code / Cursor local files
+.claude/settings.local.json
+.claude/.claude/
+.cursor/.cursor/
