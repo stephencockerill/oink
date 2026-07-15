@@ -21,6 +21,7 @@ import com.oink.app.data.HabitRewardProvider
 import com.oink.app.data.HabitType
 import com.oink.app.data.PreferencesRepository
 import com.oink.app.data.PrivateGate
+import com.oink.app.utils.MascotState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
@@ -314,6 +315,41 @@ class MainViewModelTest {
 
         // Balance is now one reward, so completing again previews two rewards.
         assertEquals(PreferencesRepository.DEFAULT_DAILY_REWARD * 2, viewModel.completedPreview.value)
+    }
+
+    @Test
+    fun `heroState reflects this habit's balance, gain, streak, and milestone`() = runTest {
+        backgroundScope.launch { viewModel.heroState.collect {} }
+        advanceUntilIdle()
+
+        viewModel.recordTodayCheckIn(didSucceed = true)
+        advanceUntilIdle()
+
+        val hero = viewModel.heroState.value
+        val reward = PreferencesRepository.DEFAULT_DAILY_REWARD
+        assertEquals(reward, hero.balanceCents)
+        // Today's reward banked -> gain chip shows it.
+        assertEquals(reward, hero.dailyGainCents)
+        assertEquals(1, hero.streak)
+        // First tier still ahead.
+        assertEquals(2_500L, hero.milestone.nextThresholdCents)
+    }
+
+    @Test
+    fun `heroState flips the mascot to comeback on a fresh miss`() = runTest {
+        backgroundScope.launch { viewModel.heroState.collect {} }
+        advanceUntilIdle()
+
+        // Build a balance, then miss today: the latest action is a halving.
+        viewModel.recordCheckIn(java.time.LocalDate.now().minusDays(1), didSucceed = true)
+        advanceUntilIdle()
+        viewModel.recordTodayCheckIn(didSucceed = false)
+        advanceUntilIdle()
+
+        val hero = viewModel.heroState.value
+        assertEquals(0L, hero.dailyGainCents)
+        assertEquals(0, hero.streak)
+        assertEquals(MascotState.COMEBACK, hero.mascotState)
     }
 
     // ============================================================

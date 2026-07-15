@@ -22,14 +22,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.AcUnit
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.CardGiftcard
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -44,8 +42,6 @@ import com.oink.app.R
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -53,11 +49,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.oink.app.ui.components.HeroBankCard
+import com.oink.app.ui.components.OinkMascot
 import com.oink.app.ui.components.TodayCheckInControl
-import com.oink.app.ui.theme.OinkElevation
+import com.oink.app.utils.MascotState
 import com.oink.app.ui.theme.OinkPink
-import com.oink.app.ui.theme.OinkPinkDark
-import com.oink.app.ui.theme.OinkShadowSoft
 import com.oink.app.ui.theme.OinkTeal
 import com.oink.app.utils.Formatters
 import com.oink.app.viewmodel.HabitCardState
@@ -86,7 +82,7 @@ fun HabitListScreen(
     onAddHabit: () -> Unit
 ) {
     val habitCards by viewModel.habitCards.collectAsStateWithLifecycle()
-    val overallBank by viewModel.overallBank.collectAsStateWithLifecycle()
+    val heroState by viewModel.heroState.collectAsStateWithLifecycle()
     val homeListState by viewModel.homeListState.collectAsStateWithLifecycle()
 
     Scaffold(
@@ -144,8 +140,8 @@ fun HabitListScreen(
 
                 HomeListState.HasHabits -> {
                     item(key = "overall-bank", contentType = "overall-bank") {
-                        OverallBankCard(
-                            overallBank = overallBank,
+                        HeroBankCard(
+                            state = heroState,
                             onClick = onNavigateToRewards
                         )
                     }
@@ -191,7 +187,11 @@ private fun EmptyHome(onAddHabit: () -> Unit) {
                 .background(OinkPink.copy(alpha = 0.12f)),
             contentAlignment = Alignment.Center
         ) {
-            Text(text = "🐷", fontSize = 48.sp)
+            OinkMascot(
+                state = MascotState.SLEEPING,
+                contentDescription = null,
+                modifier = Modifier.size(64.dp)
+            )
         }
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -230,79 +230,6 @@ private fun EmptyHome(onAddHabit: () -> Unit) {
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
-        }
-    }
-}
-
-/**
- * The shared piggy bank total, styled like the detail balance card. Tapping it
- * opens the rewards screen, where the pot is cashed out.
- */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
-@Composable
-private fun OverallBankCard(
-    overallBank: Long,
-    onClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .shadow(
-                elevation = OinkElevation.hero,
-                shape = MaterialTheme.shapes.extraLarge,
-                ambientColor = OinkShadowSoft,
-                spotColor = OinkShadowSoft
-            )
-            .clip(MaterialTheme.shapes.extraLarge)
-            .clickable(onClick = onClick),
-        shape = MaterialTheme.shapes.extraLarge,
-        elevation = CardDefaults.cardElevation(defaultElevation = OinkElevation.level0)
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(OinkPink, OinkPinkDark)
-                    )
-                )
-                .padding(28.dp)
-        ) {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "🐷 Piggy Bank",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = Color.White.copy(alpha = 0.85f),
-                        modifier = Modifier.weight(1f)
-                    )
-                    Icon(
-                        imageVector = Icons.Default.CardGiftcard,
-                        contentDescription = "Rewards",
-                        tint = Color.White.copy(alpha = 0.85f),
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Text(
-                    text = Formatters.formatCurrency(overallBank),
-                    style = MaterialTheme.typography.displaySmallEmphasized.copy(
-                        fontSize = 44.sp
-                    ),
-                    color = Color.White
-                )
-
-                Text(
-                    text = "Shared across all your habits",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color.White.copy(alpha = 0.85f)
-                )
-            }
         }
     }
 }

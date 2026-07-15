@@ -192,8 +192,8 @@ object HabitCopy {
 
     /** Detail balance-card label: build banks a reward, quit protects a stake. */
     fun balanceLabel(type: HabitType): String = when (type) {
-        HabitType.BUILD -> "🐷 Piggy Bank"
-        HabitType.QUIT -> "🐷 Protected balance"
+        HabitType.BUILD -> "Piggy Bank"
+        HabitType.QUIT -> "Protected balance"
     }
 
     /** Today check-in prompt. */

@@ -31,6 +31,22 @@ object Formatters {
     }
 
     /**
+     * Format a balance (in cents) as currency, omitting the cents when the
+     * amount is a whole number of dollars.
+     * e.g., 20000 -> "$200", 12750 -> "$127.50"
+     *
+     * Used for milestone thresholds, which are always whole dollars, so the
+     * next-goal copy reads "$127.50 -> $200" rather than "$200.00".
+     */
+    fun formatCurrencyCompact(cents: Long): String {
+        return if (cents % 100L == 0L) {
+            currencyFormatter.format(BigDecimal(cents).movePointLeft(2)).removeSuffix(".00")
+        } else {
+            formatCurrency(cents)
+        }
+    }
+
+    /**
      * Parse a user-entered dollar string into cents.
      * e.g., "42.5" -> 4250, "12.34" -> 1234
      * Returns null if the text isn't a valid number.
