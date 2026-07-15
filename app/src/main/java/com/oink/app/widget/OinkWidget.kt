@@ -45,6 +45,7 @@ import com.oink.app.BuildConfig
 import com.oink.app.MainActivity
 import com.oink.app.OinkApplication
 import com.oink.app.R
+import com.oink.app.data.HabitType
 import com.oink.app.utils.Formatters
 import com.oink.app.utils.HabitCopy
 import com.oink.app.utils.UrgencyLevel
@@ -62,7 +63,9 @@ import kotlinx.coroutines.withContext
  * - The habit's emoji + name
  * - Its spendable balance
  * - Its streak with escalating intensity
- * - Today's status with time-based urgency
+ * - Today's status. Build habits escalate this with time-based urgency as the day
+ *   goes on; quit habits render calm (their good day is passive, and an escalating
+ *   nudge would be an ironic-process cue - see [widgetUrgency]).
  *
  * Safety: [provideGlance] re-validates the stored habit on every render via
  * [WidgetDataLoader]. If the habit is missing, deleted, or since-toggled
@@ -205,6 +208,7 @@ class OinkWidget : GlanceAppWidget() {
 data class WidgetData(
     val habitName: String,
     val habitEmoji: String,
+    val habitType: HabitType,
     val balance: Long,
     val streak: Int,
     val checkedInToday: Boolean,
@@ -246,6 +250,19 @@ private fun getUrgencyLevel(hour: Int, isLogged: Boolean): UrgencyLevel = when {
     hour < 21 -> UrgencyLevel.WARN
     else -> UrgencyLevel.CRITICAL
 }
+
+/**
+ * The urgency level the widget should render for a habit of [type].
+ *
+ * Build habits climb the time-based ladder ([getUrgencyLevel]); quit habits stay
+ * [UrgencyLevel.CALM] regardless of hour or logged state. A quit habit's good day
+ * is passive - there is nothing to "log" - and any escalating nudge about the
+ * behavior is an ironic-process cue that can trigger the very craving the app
+ * should suppress (see docs/negative-habits.md). Extracted from [WidgetContent] so
+ * this rule is unit-testable without a Glance render harness.
+ */
+internal fun widgetUrgency(type: HabitType, hour: Int, checkedInToday: Boolean): UrgencyLevel =
+    if (type == HabitType.QUIT) UrgencyLevel.CALM else getUrgencyLevel(hour, checkedInToday)
 
 /**
  * Get streak display emoji(s) based on tier.
@@ -311,7 +328,11 @@ private fun getUrgencyIndicator(urgency: UrgencyLevel): String = when (urgency) 
 @Composable
 private fun WidgetContent(data: WidgetData) {
     val streakTier = getStreakTier(data.streak)
-    val urgencyLevel = getUrgencyLevel(data.currentHour, data.checkedInToday)
+
+    // The urgency ladder (escalating CTA + warming background) is reserved for
+    // build habits; a quit habit always renders calm (see [widgetUrgency]).
+    val isQuit = data.habitType == HabitType.QUIT
+    val urgencyLevel = widgetUrgency(data.habitType, data.currentHour, data.checkedInToday)
 
     Box(
         modifier = GlanceModifier
@@ -412,8 +433,10 @@ private fun WidgetContent(data: WidgetData) {
                     }
                     Text(
                         text = when {
-                            data.didSucceedToday == true -> HabitCopy.DONE
-                            data.didSucceedToday == false -> HabitCopy.REST
+                            data.didSucceedToday == true -> HabitCopy.successStatus(data.habitType)
+                            data.didSucceedToday == false -> HabitCopy.failureStatus(data.habitType)
+                            // Quit: a clean-so-far day is a passive win, not a call to act.
+                            isQuit -> HabitCopy.STAYING_CLEAN
                             else -> HabitCopy.cta(urgencyLevel)
                         },
                         style = TextStyle(
