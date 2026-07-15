@@ -1,16 +1,6 @@
 package com.oink.app.ui.screens
 
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -42,7 +32,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -62,19 +51,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.oink.app.data.HabitType
-import com.oink.app.ui.theme.OinkElevation
+import com.oink.app.ui.components.HeroBankCard
 import com.oink.app.ui.theme.OinkPink
-import com.oink.app.ui.theme.OinkPinkDark
-import com.oink.app.ui.theme.OinkShadowSoft
 import com.oink.app.ui.theme.OinkTeal
 import com.oink.app.ui.theme.OinkTealContainer
 import com.oink.app.ui.theme.OinkWarning
@@ -115,6 +98,7 @@ fun HabitDetailScreen(
     val habitEmoji by viewModel.habitEmoji.collectAsStateWithLifecycle()
     val habitType by viewModel.habitType.collectAsStateWithLifecycle()
     val balance by viewModel.currentBalance.collectAsStateWithLifecycle()
+    val heroState by viewModel.heroState.collectAsStateWithLifecycle()
     val todayCheckIn by viewModel.todayCheckIn.collectAsStateWithLifecycle()
     val streak by viewModel.streak.collectAsStateWithLifecycle()
     val completedPreview by viewModel.completedPreview.collectAsStateWithLifecycle()
@@ -199,8 +183,11 @@ fun HabitDetailScreen(
         ) {
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Balance Card
-            BalanceCard(balance = balance, habitType = habitType)
+            // The shared hero card - the same living "score" the home screen shows.
+            HeroBankCard(
+                state = heroState,
+                onClick = onNavigateToRewards
+            )
 
             Spacer(modifier = Modifier.height(24.dp))
 
@@ -242,83 +229,6 @@ fun HabitDetailScreen(
             )
 
             Spacer(modifier = Modifier.height(24.dp))
-        }
-    }
-}
-
-/**
- * Animated balance display card.
- *
- * Uses a coral → magenta gradient for visual impact with
- * white text for maximum contrast and readability.
- */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
-@Composable
-private fun BalanceCard(balance: Long, habitType: HabitType) {
-    val scale by animateFloatAsState(
-        targetValue = 1f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessLow
-        ),
-        label = "balance_scale"
-    )
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .shadow(
-                elevation = OinkElevation.hero,
-                shape = MaterialTheme.shapes.extraLarge,
-                ambientColor = OinkShadowSoft,
-                spotColor = OinkShadowSoft
-            )
-            .scale(scale),
-        shape = MaterialTheme.shapes.extraLarge,
-        elevation = CardDefaults.cardElevation(defaultElevation = OinkElevation.level0)
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(
-                            OinkPink,              // Coral pink at top
-                            OinkPinkDark           // Deeper pink at bottom
-                        )
-                    )
-                )
-                .padding(36.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = HabitCopy.balanceLabel(habitType),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = Color.White.copy(alpha = 0.85f)
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                AnimatedContent(
-                    targetState = balance,
-                    transitionSpec = {
-                        (fadeIn(animationSpec = tween(300)) + scaleIn(initialScale = 0.8f))
-                            .togetherWith(fadeOut(animationSpec = tween(300)) + scaleOut(targetScale = 0.8f))
-                    },
-                    label = "balance_animation"
-                ) { targetBalance ->
-                    Text(
-                        text = Formatters.formatCurrency(targetBalance),
-                        style = MaterialTheme.typography.displayLargeEmphasized.copy(
-                            fontSize = 56.sp
-                        ),
-                        color = Color.White
-                    )
-                }
-            }
         }
     }
 }

@@ -19,6 +19,11 @@ import com.oink.app.data.HabitType
 import com.oink.app.data.PreferencesRepository
 import com.oink.app.data.PrivateGate
 import com.oink.app.utils.Formatters
+import com.oink.app.utils.HabitCopy
+import com.oink.app.utils.HeroSignals
+import com.oink.app.utils.Mascot
+import com.oink.app.utils.MascotState
+import com.oink.app.utils.Milestone
 import com.oink.app.widget.OinkWidget
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -239,6 +244,55 @@ class MainViewModel(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = 0
+    )
+
+    /**
+     * The detail hero state for the shared bank card.
+     *
+     * Balance is this habit's spendable balance; the gain chip shows the daily
+     * reward on a day already banked; the flame is this habit's streak; and the
+     * mascot's mood comes from the most recent check-in's balance delta and date
+     * (a fresh halving flips it to a comeback). Milestone progress derives from
+     * the balance. All precomputed here so
+     * [com.oink.app.ui.components.HeroBankCard] does no work.
+     */
+    val heroState: StateFlow<HeroBankState> = combine(
+        currentBalance,
+        streak,
+        allCheckIns,
+        dailyReward,
+        habitType
+    ) { balance, streakDays, checkIns, reward, type ->
+        val today = repository.today()
+        val todayCheckIn = checkIns.find { it.date == today }
+        val gain = if (todayCheckIn?.didSucceed == true) reward else 0L
+        val recent = HeroSignals.recent(checkIns)
+        HeroBankState(
+            balanceCents = balance,
+            dailyGainCents = gain,
+            streak = streakDays,
+            mascotState = Mascot.stateFor(
+                balanceDelta = recent.balanceDelta,
+                currentStreak = streakDays,
+                lastCheckIn = recent.lastCheckIn,
+                today = today
+            ),
+            milestone = Milestone.resolve(balance),
+            label = HabitCopy.balanceLabel(type),
+            subtitle = ""
+        )
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = HeroBankState(
+            balanceCents = 0L,
+            dailyGainCents = 0L,
+            streak = 0,
+            mascotState = MascotState.SLEEPING,
+            milestone = Milestone.resolve(0L),
+            label = HabitCopy.balanceLabel(HabitType.BUILD),
+            subtitle = ""
+        )
     )
 
     /**

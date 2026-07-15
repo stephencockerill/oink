@@ -159,7 +159,7 @@ class HabitCopyTest {
         assertEquals("Missed", HabitCopy.legendFailure(HabitType.BUILD))
         assertEquals(HabitCopy.STAT_DONE_DAYS, HabitCopy.statSuccessDays(HabitType.BUILD))
         assertEquals("Missed\nDays", HabitCopy.statFailureDays(HabitType.BUILD))
-        assertEquals("🐷 Piggy Bank", HabitCopy.balanceLabel(HabitType.BUILD))
+        assertEquals("Piggy Bank", HabitCopy.balanceLabel(HabitType.BUILD))
         assertEquals("Streak in danger!", HabitCopy.freezePromptTitle(HabitType.BUILD))
         assertEquals(
             "You missed Yesterday. Use a freeze to save your streak!",
@@ -185,7 +185,7 @@ class HabitCopyTest {
         assertEquals("Slip", HabitCopy.legendFailure(HabitType.QUIT))
         assertEquals("Clean\nDays", HabitCopy.statSuccessDays(HabitType.QUIT))
         assertEquals("Slips", HabitCopy.statFailureDays(HabitType.QUIT))
-        assertEquals("🐷 Protected balance", HabitCopy.balanceLabel(HabitType.QUIT))
+        assertEquals("Protected balance", HabitCopy.balanceLabel(HabitType.QUIT))
         assertEquals("Slips happen", HabitCopy.freezePromptTitle(HabitType.QUIT))
         assertEquals(
             "You slipped Yesterday. Spend a freeze to protect your clean streak.",

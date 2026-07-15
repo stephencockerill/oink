@@ -15,6 +15,7 @@ import com.oink.app.data.Habit
 import com.oink.app.data.HabitRepository
 import com.oink.app.data.HabitRewardProvider
 import com.oink.app.data.PreferencesRepository
+import com.oink.app.utils.MascotState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
@@ -151,6 +152,58 @@ class HabitListViewModelTest {
 
         // Two public habits at one reward each; the private habit is excluded.
         assertEquals(PreferencesRepository.DEFAULT_DAILY_REWARD * 2, viewModel.overallBank.value)
+    }
+
+    @Test
+    fun `heroState aggregates pot, gains, hottest streak, and a happy mascot`() = runTest {
+        fakeHabitDao.seed(
+            Habit(id = 1L, name = "Workout", sortOrder = 0),
+            Habit(id = 2L, name = "Meditate", sortOrder = 1),
+            Habit(id = 3L, name = "Secret", isPrivate = true, sortOrder = 2)
+        )
+        val reward = PreferencesRepository.DEFAULT_DAILY_REWARD
+        // Habit 1: done today only -> gain today, streak 1, balance one reward.
+        checkInRepository.recordCheckIn(checkInRepository.today(), didSucceed = true, habitId = 1L)
+        // Habit 2: done yesterday + today -> gain today, streak 2, balance two rewards.
+        checkInRepository.recordCheckIn(checkInRepository.today().minusDays(1), didSucceed = true, habitId = 2L)
+        checkInRepository.recordCheckIn(checkInRepository.today(), didSucceed = true, habitId = 2L)
+        // Private habit is excluded from every hero figure.
+        checkInRepository.recordCheckIn(checkInRepository.today(), didSucceed = true, habitId = 3L)
+
+        val viewModel = createViewModel()
+        backgroundScope.launch { viewModel.heroState.collect {} }
+        advanceUntilIdle()
+
+        val hero = viewModel.heroState.value
+        // Balance is the public pot: one reward + two rewards.
+        assertEquals(reward * 3, hero.balanceCents)
+        // Both public habits banked a reward today.
+        assertEquals(reward * 2, hero.dailyGainCents)
+        // Hottest public streak.
+        assertEquals(2, hero.streak)
+        // A gain on an established streak -> happy pig.
+        assertEquals(MascotState.HAPPY, hero.mascotState)
+        // Next financial tier is still the first one.
+        assertEquals(2_500L, hero.milestone.nextThresholdCents)
+        assertEquals("Quarter Pounder", hero.milestone.nextTierName)
+    }
+
+    @Test
+    fun `heroState flips the mascot to comeback on a fresh miss`() = runTest {
+        fakeHabitDao.seed(Habit(id = 1L, name = "Workout", sortOrder = 0))
+        // A done day yesterday, then a miss today: the most recent action is a loss.
+        checkInRepository.recordCheckIn(checkInRepository.today().minusDays(1), didSucceed = true, habitId = 1L)
+        checkInRepository.recordCheckIn(checkInRepository.today(), didSucceed = false, habitId = 1L)
+
+        val viewModel = createViewModel()
+        backgroundScope.launch { viewModel.heroState.collect {} }
+        advanceUntilIdle()
+
+        val hero = viewModel.heroState.value
+        // No reward banked today, streak broken, and the pig invites a comeback.
+        assertEquals(0L, hero.dailyGainCents)
+        assertEquals(0, hero.streak)
+        assertEquals(MascotState.COMEBACK, hero.mascotState)
     }
 
     @Test
