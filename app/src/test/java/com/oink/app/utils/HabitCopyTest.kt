@@ -51,7 +51,7 @@ class HabitCopyTest {
 
     @Test
     fun `done status is neutral celebration`() {
-        assertEquals("✅ Nailed it!", HabitCopy.DONE)
+        assertEquals("Nailed it!", HabitCopy.DONE)
     }
 
     @Test
@@ -173,7 +173,7 @@ class HabitCopyTest {
     fun `quit arms are clean-slip framed and never cue the behavior`() {
         assertEquals("Staying clean", HabitCopy.checkInPrompt(HabitType.QUIT))
         assertEquals("How did this day go?", HabitCopy.checkInPromptPast(HabitType.QUIT))
-        assertEquals("✅ Stayed clean", HabitCopy.successStatus(HabitType.QUIT))
+        assertEquals("Stayed clean", HabitCopy.successStatus(HabitType.QUIT))
         assertEquals("🫂 Slipped", HabitCopy.failureStatus(HabitType.QUIT))
         assertEquals("You stayed clean today", HabitCopy.successSubtitle(HabitType.QUIT))
         assertEquals("Slips happen - protect your clean streak", HabitCopy.failureSubtitle(HabitType.QUIT))
