@@ -4,8 +4,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -23,6 +24,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.rememberNestedScrollInteropConnection
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -56,7 +59,11 @@ fun EmojiPickerField(
     modifier: Modifier = Modifier
 ) {
     var showSheet by rememberSaveable { mutableStateOf(false) }
-    val sheetState = rememberModalBottomSheetState()
+    // skipPartiallyExpanded: open straight to full height. The picker is a
+    // searchable, scrollable grid with a soft keyboard - a half-expanded stop is
+    // both cramped and the offset the drag/scroll conflict used to settle into,
+    // leaving the search box unreachable.
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
 
     // The picker listener is registered once in the AndroidView factory; read the
@@ -84,6 +91,11 @@ fun EmojiPickerField(
             onDismissRequest = { showSheet = false },
             sheetState = sheetState
         ) {
+            // Bridges the embedded RecyclerView's nested-scroll deltas up to the
+            // sheet, so the grid scrolls internally and only hands over to the
+            // sheet's drag when it is already at the top - the two scroll systems
+            // no longer fight over the same vertical gesture.
+            val nestedScrollInterop = rememberNestedScrollInteropConnection()
             AndroidView(
                 factory = { context ->
                     EmojiPickerView(context).apply {
@@ -95,10 +107,15 @@ fun EmojiPickerField(
                         }
                     }
                 },
+                // fillMaxHeight gives the searchable grid room at full expansion;
+                // imePadding lifts the content above the soft keyboard so the
+                // search box and results stay visible and tappable while typing.
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(360.dp)
+                    .fillMaxHeight()
+                    .imePadding()
                     .padding(horizontal = 8.dp)
+                    .nestedScroll(nestedScrollInterop)
             )
         }
     }
