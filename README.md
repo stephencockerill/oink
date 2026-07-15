@@ -1,73 +1,105 @@
 # 🐷 Oink
 
-*A workout motivation app powered by behavioral economics—because losing money stinks.*
+*A habit motivation app powered by behavioral economics - because losing money stinks.*
+
+> 🤖 **Built with AI.**
+> This entire project was coded with AI.
+> Every layer - architecture, Compose UI, the Room data layer and migrations, tests, and this README - was written through human-AI collaboration using Cursor and Claude Code with Claude.
+> See [Built with AI](#built-with-ai) for details.
 
 ## What is Oink?
 
-Oink helps you build a consistent workout habit while earning a real fun-money budget.
+Oink helps you build consistent daily habits while earning a real fun-money budget.
 
-Exercise daily to earn $5 toward your personal "guilt-free purchase" fund. Miss a day? Your balance **halves**.
+Track any habit you want to do every day - work out, meditate, read, practice an instrument - or any habit you want to *stop*, like doom-scrolling or smoking.
+Every habit you keep pays into one shared "guilt-free purchase" fund.
+Miss a day and that day's habit **halves** your balance.
 
-Want that new guitar? Those fancy darts? A weekend trip? **Earn it by working out.** Your adorable pig companion gets stronger as your balance grows—and smaller when you skip.
+Want that new guitar?
+Those fancy darts?
+A weekend trip?
+**Earn it by showing up.**
+Your adorable pig companion gets stronger as your balance grows - and smaller when you slip.
+
+### Track Many Habits, One Piggy Bank
+
+Oink started as a workout tracker and grew into a general habit tracker.
+You can run as many habits as you like, side by side, each with its own emoji, daily reward, streak, and streak freezes.
+
+Every habit comes in one of two flavors:
+
+- 🌱 **Build habits** - things you want to *start* doing daily (workout, read, meditate). You act to claim the day; an unlogged past day stays a miss.
+- 🚫 **Quit habits** - things you want to *stop* doing (no sugar, no scrolling). Getting through the day clean is the win; a day you don't report a slip resolves to a success.
+
+Both types share the same ledger and the same halving math - a quit "slip" is arithmetically identical to a build "miss."
+All of your habits feed **one shared fun-money balance**, so consistency across your whole routine is what fills the bank.
+
+Habits you'd rather keep to yourself can be marked **private** and tucked behind a lock, out of the main list.
 
 ### The Real Money Angle
 
 **Important**: The money in Oink represents your *actual* fun-money budget.
 
-This isn't virtual points—it's an **honor system budget tracker**:
-- 💪 Work out consistently → Build real purchasing power
+This isn't virtual points - it's an **honor system budget tracker**:
+- 💪 Keep your habits consistently → Build real purchasing power
 - 🎸 Want something non-essential? → Check your Oink balance
 - 💰 Cash out when ready → Actually buy that thing you earned
 
-Think of it like this: Every workout is worth $5 (can change value in settings) of real money you're allowing yourself to budget for non-essentials. The app keeps you honest about what you've earned.
+Think of it like this: every successful day is worth a few dollars (you set the value per habit) of real money you're allowing yourself to budget for non-essentials.
+The app keeps you honest about what you've earned.
 
-### Any Workout Counts
+### Any Effort Counts
 
-Oink doesn't care if you ran a marathon or did 10 push-ups. **Consistency beats intensity.**
+Oink doesn't care if you ran a marathon or did 10 push-ups, read a chapter or a single page.
+**Consistency beats intensity.**
 
-The goal is to exercise *with intention* every single day—whether that's:
-- A full gym session
-- A 15-minute walk
-- Stretching and mobility work
-- A quick yoga flow
-- Playing ultimate frisbee with friends
+The goal is to show up *with intention* every single day - whether that's:
+- A full gym session or a 15-minute walk
+- Ten minutes of reading
+- A short meditation or breathing exercise
+- Practicing an instrument
+- Simply getting through the day without the thing you're quitting
 
-What matters is showing up and moving your body deliberately. We're building a habit, not training for the Olympics. The halving mechanic keeps you honest—you decide what counts as exercise.
+What matters is showing up deliberately.
+We're building habits, not training for the Olympics.
+The halving mechanic keeps you honest - you decide what counts.
 
 ## How It Works
 
 ### The Rules
 
-1. **Start at $0.00**
-2. **Exercise today?**
-   - ✅ Yes → Add $5.00 to your balance
+1. **Every habit starts at $0.00** and pays into your shared balance.
+2. **Did you keep the habit today?**
+   - ✅ Yes → Add that habit's reward (default $5.00) to your balance
    - ❌ No → Balance ÷ 2
-3. **One check-in per day** (can't game the system)
+3. **One check-in per habit per day** (can't game the system)
 4. **Watch your pig get swole** 💪
 5. **Cash out when ready** → Actually buy that thing you earned! 🎉
 
 ### Streak Freezes ❄️
 
-Life happens. Sick days, travel, emergencies—sometimes you legitimately can't work out.
+Life happens.
+Sick days, travel, emergencies - sometimes you legitimately can't keep a habit.
 
-**Streak Freezes** let you protect your streak when you miss a day:
-- Cost **2× your workout reward** ($10 at default settings)
-- Hold up to **2 freezes** at a time
+**Streak Freezes** let you protect a habit's streak when you miss a day:
+- Cost **2× that habit's reward** ($10 at default settings)
+- Hold up to **2 freezes** per habit at a time
 - Use them retroactively when you miss a day
 
-Freezes cost double because they should feel like insurance, not a loophole. You're paying "two workouts worth" to skip one—expensive enough to discourage abuse, cheap enough to save you from genuine emergencies.
+Freezes cost double because they should feel like insurance, not a loophole.
+You're paying "two days' worth" to skip one - expensive enough to discourage abuse, cheap enough to save you from genuine emergencies.
 
-The goal isn't to punish you for missing a workout. It's to keep you coming back.
+The goal isn't to punish you for missing a day.
+It's to keep you coming back.
 
 ### Example Journey
 ```
-Day 1: Walk 20min → $5.00
-Day 2: Gym session → $10.00
-Day 3: Yoga → $15.00
-Day 4: Skip (busy day) → $7.50 (÷2)
-Day 5: Quick stretching → $12.50
-Day 6: Ultimate frisbee → $17.50
-Day 7: Cash out $10 for new video game → $7.50 remaining
+Day 1: Workout ✅ +$5.00, Read ✅ +$5.00     → $10.00
+Day 2: Workout ✅, Read ✅                    → $20.00
+Day 3: Workout ✅, Read skipped (÷2)          → $22.50
+Day 4: Workout ✅, Read ✅                    → $32.50
+Day 5: Both ✅, No-sugar clean day ✅         → $50.00
+Day 6: Cash out $20 for a new video game      → $30.00 remaining
 ```
 
 The halving mechanic means:
@@ -79,7 +111,9 @@ The halving mechanic means:
 
 ### Loss Aversion
 
-The core mechanic leverages **loss aversion**—the principle that losses feel roughly twice as painful as equivalent gains feel good[^1][^2]. When you miss a workout, you don't just fail to gain $5, you **lose half your balance**. Your brain fights harder to protect what you've earned than it would to build it in the first place.
+The core mechanic leverages **loss aversion** - the principle that losses feel roughly twice as painful as equivalent gains feel good[^1][^2].
+When you miss a day, you don't just fail to gain your reward, you **lose half your balance**.
+Your brain fights harder to protect what you've earned than it would to build it in the first place.
 
 This has been validated across 19 countries[^3] and is one of the most influential concepts in behavioral science.
 
@@ -98,14 +132,17 @@ Oink combines proven patterns from successful habit apps:
 - **Habitica**: Gamified progression for routine tasks[^7]
 - **StickK**: Financial commitment devices[^8]
 
-But Oink has a unique twist: **you're building toward rewards (things you want to buy) while protecting against losses (the halving mechanic)**. Unlike penalty apps where you risk your own money upfront, you start at zero and earn your way up. Unlike virtual reward apps, your balance represents real purchasing power. It's loss aversion applied to *gains you've earned*, not money you started with.
+But Oink has a unique twist: **you're building toward rewards (things you want to buy) while protecting against losses (the halving mechanic)**.
+Unlike penalty apps where you risk your own money upfront, you start at zero and earn your way up.
+Unlike virtual reward apps, your balance represents real purchasing power.
+It's loss aversion applied to *gains you've earned*, not money you started with.
 
 ## Design Principles
 
 Every feature follows these psychology-backed guidelines:
 
 1. **Positive Reinforcement** - Celebrate wins, frame recovery as achievable, no shame or guilt[^6]
-2. **Visual Progress** - Pig's appearance reflects your commitment, animations create delight
+2. **Visual Progress** - The pig's appearance reflects your commitment, animations create delight
 3. **Recovery Friendly** - Halving hurts but you can always bounce back (3x better retention)[^5]
 4. **Clear Feedback** - Always know what you'll gain (+$5) or lose (÷2) before checking in
 5. **Honor System** - You commit to yourself; the app tracks, you manage the actual money
@@ -113,19 +150,19 @@ Every feature follows these psychology-backed guidelines:
 ## Milestones & Achievements
 
 **Financial Milestones**:
-- 💰 $25 — Quarter Pounder
-- 💰 $50 — Half-Swole
-- 💰 $100 — Century Club
-- 💰 $200 — Swole Savings
+- 💰 $25 - Quarter Pounder
+- 💰 $50 - Half-Swole
+- 💰 $100 - Century Club
+- 💰 $200 - Swole Savings
 
 **Streak Milestones**:
-- 🔥 7 days — Week Warrior
-- 🔥 30 days — Monthly Muscle
-- 🔥 60 days — Habit Hero
+- 🔥 7 days - Week Warrior
+- 🔥 30 days - Monthly Muscle
+- 🔥 60 days - Habit Hero
 
 **Cash-Out Achievements**:
-- 🎁 First Purchase — "Earned It"
-- 🎁 $200 total spent — "Living the Dream"
+- 🎁 First Purchase - "Earned It"
+- 🎁 $200 total spent - "Living the Dream"
 
 ## Use Cases
 
@@ -137,24 +174,31 @@ What people are earning:
 - 🎮 Video games or entertainment
 - ✈️ Weekend trips or experiences
 
-**The rule**: If it's non-essential but would bring you joy, earn it through consistent exercise.
+**The rule**: If it's non-essential but would bring you joy, earn it through consistent habits.
 
 ## Tech Stack
 
-- **Language**: Kotlin
+- **Language**: Kotlin 2.0
 - **UI**: Jetpack Compose with Material 3
-- **Architecture**: MVVM with ViewModels
-- **Database**: Room (local storage)
+- **Architecture**: MVVM + Repository, with `StateFlow`-backed UI state and manual dependency injection (no Hilt)
+- **Database**: Room + KSP, with versioned migrations for safe upgrades
+- **Persistence**: DataStore Preferences for settings and per-habit state
+- **Background work**: WorkManager for reminders and daily rollovers
+- **Home screen**: Glance widgets for per-habit check-ins
+- **Navigation**: Navigation Compose
+- **Min SDK**: 26
 
 ## Why "Oink"?
 
-The piggy bank is the universal symbol of saving money. Oink combines that metaphor with a character that grows stronger with you, plus the satisfaction of breaking it open when you cash out.
+The piggy bank is the universal symbol of saving money.
+Oink combines that metaphor with a character that grows stronger with you, plus the satisfaction of breaking it open when you cash out.
 
-Plus, "Did you Oink today?" is way more fun than "Did you work out today?"
+Plus, "Did you Oink today?" is way more fun than "Did you keep your habits today?"
 
 ## Contributing
 
-This is a personal project to help build workout consistency while earning guilt-free fun purchases. Feel free to:
+This is a personal project to help build habit consistency while earning guilt-free fun purchases.
+Feel free to:
 - Report bugs or suggest features
 - Share your experience using Oink
 - Propose psychology-backed improvements
@@ -197,11 +241,15 @@ MIT License
 
 ## Acknowledgments
 
-Built with inspiration from behavioral economics research and proven gamification patterns. Special thanks to Kahneman & Tversky for prospect theory, and to the teams behind Duolingo, Finch, Habitica, and StickK for showing what works.
+Built with inspiration from behavioral economics research and proven gamification patterns.
+Special thanks to Kahneman & Tversky for prospect theory, and to the teams behind Duolingo, Finch, Habitica, and StickK for showing what works.
 
 ### Built with AI
 
-This app was developed heavily using [Cursor](https://cursor.com) with Claude as the AI pair programmer. From architecture decisions to UI implementation to debugging widget update issues, entire codebase was a human-AI collaboration. The psychology-driven design principles, behavioral economics integration, and Kotlin/Compose implementation were all shaped through iterative AI-assisted development.
+This project was coded end to end with AI.
+It began in [Cursor](https://cursor.com) with Claude as the AI pair programmer and continued with [Claude Code](https://claude.com/claude-code), also powered by Claude.
+From architecture decisions to Compose UI, the Room data model and its migrations, widget behavior, tests, and debugging, the entire codebase was a human-AI collaboration.
+The psychology-driven design principles, behavioral economics integration, and Kotlin/Compose implementation were all shaped through iterative AI-assisted development.
 
 ---
 
