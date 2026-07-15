@@ -61,3 +61,4 @@ These cannot be overridden without explicit human sign-off:
 3. **Every Room schema change ships a migration and a migration test.** Never reintroduce `fallbackToDestructiveMigration()` outside dev - it wipes user data. `exportSchema=true` and the committed schema JSON under `app/schemas/` stay that way.
 4. **Dependency versions live only in `gradle/libs.versions.toml`** - never hardcode a version in `build.gradle.kts`.
 5. **Never push directly to `main`.** PRs only.
+6. **When merging a PR into `main`, delete the origin branch.**
