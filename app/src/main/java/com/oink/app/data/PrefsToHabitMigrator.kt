@@ -2,9 +2,9 @@ package com.oink.app.data
 
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.doublePreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
-import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import java.time.LocalDate
 
@@ -53,7 +53,11 @@ class PrefsToHabitMigrator(
             val reward = prefs[OinkPreferenceKeys.DAILY_REWARD]
                 ?: PreferencesRepository.DEFAULT_DAILY_REWARD
             val availableFreezes = prefs[LEGACY_AVAILABLE_FREEZES] ?: 0
-            val totalFreezeSpending = prefs[LEGACY_TOTAL_FREEZE_SPENDING] ?: 0L
+            // The legacy key holds dollars as a Double; the habit row stores cents
+            // as a Long. Round dollars to whole cents on the way in.
+            val totalFreezeSpending = prefs[LEGACY_TOTAL_FREEZE_SPENDING]
+                ?.let { dollars -> Math.round(dollars * 100) }
+                ?: 0L
             val frozenEpochDays = prefs[LEGACY_FROZEN_DATES] ?: emptySet()
 
             // A fresh install at v4 has no seeded habit: MIGRATION_3_4 seeds
@@ -89,13 +93,19 @@ class PrefsToHabitMigrator(
          * DataStore keys for the freeze state that predates per-habit storage.
          * This migrator is their only remaining reader - it drains them onto the
          * habit row - so they are defined here rather than in [OinkPreferenceKeys].
-         * The names must match the strings the legacy app wrote.
+         *
+         * The names AND value types must match what the legacy app wrote, because
+         * a DataStore [Preferences.Key] matches purely on its name: reading a
+         * Double-typed value through a Long key returns the stored Double and
+         * throws [ClassCastException] on unboxing. The legacy app stored
+         * `total_freeze_spending` as a Double of dollars, so it is read with
+         * [doublePreferencesKey] and converted to Long cents above.
          *
          * Internal so the migrator's test can seed legacy values without
          * duplicating the key names.
          */
         internal val LEGACY_AVAILABLE_FREEZES = intPreferencesKey("available_freezes")
         internal val LEGACY_FROZEN_DATES = stringSetPreferencesKey("frozen_dates")
-        internal val LEGACY_TOTAL_FREEZE_SPENDING = longPreferencesKey("total_freeze_spending")
+        internal val LEGACY_TOTAL_FREEZE_SPENDING = doublePreferencesKey("total_freeze_spending")
     }
 }

@@ -5,6 +5,7 @@ import androidx.datastore.core.DataMigration
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.doublePreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -72,19 +73,27 @@ internal object OinkPreferenceKeys {
 }
 
 /**
- * The daily-reward preference key string as it was originally written. Its value
- * is copied onto [OinkPreferenceKeys.DAILY_REWARD] and the old key dropped, so
- * an existing user's configured reward survives the rename with no data loss.
+ * The daily-reward preference key as the legacy app wrote it: a Double of
+ * dollars under the name `exercise_reward`.
+ *
+ * Both the type and the name matter. A DataStore [Preferences.Key] matches purely
+ * on its name, so the value must be read with the same [doublePreferencesKey]
+ * type it was written with - reading it through a Long key returns the stored
+ * Double and throws [ClassCastException] on unboxing. Its dollar value is
+ * converted to whole cents onto [OinkPreferenceKeys.DAILY_REWARD], which the rest
+ * of the app treats as Long cents.
  */
-private val LEGACY_DAILY_REWARD = longPreferencesKey("exercise_reward")
+private val LEGACY_DAILY_REWARD = doublePreferencesKey("exercise_reward")
 
 /**
- * Copies the legacy reward value onto [OinkPreferenceKeys.DAILY_REWARD] and
- * removes the old key.
+ * Converts the legacy dollar reward onto [OinkPreferenceKeys.DAILY_REWARD] as
+ * whole cents and removes the old key.
  *
  * Idempotent: it runs whenever the legacy key is still present, only writes the
  * new key when it is not already set (so a value written under the new key is
- * never clobbered), and always drops the legacy key.
+ * never clobbered), and always drops the legacy key. When the legacy key is
+ * absent this never runs, so a user who never customized their reward keeps the
+ * app's default with no write.
  */
 internal val DailyRewardKeyMigration = object : DataMigration<Preferences> {
     override suspend fun shouldMigrate(currentData: Preferences): Boolean =
@@ -92,9 +101,9 @@ internal val DailyRewardKeyMigration = object : DataMigration<Preferences> {
 
     override suspend fun migrate(currentData: Preferences): Preferences {
         val mutablePrefs = currentData.toMutablePreferences()
-        val legacyValue = currentData[LEGACY_DAILY_REWARD]
-        if (legacyValue != null && !currentData.contains(OinkPreferenceKeys.DAILY_REWARD)) {
-            mutablePrefs[OinkPreferenceKeys.DAILY_REWARD] = legacyValue
+        val legacyDollars = currentData[LEGACY_DAILY_REWARD]
+        if (legacyDollars != null && !currentData.contains(OinkPreferenceKeys.DAILY_REWARD)) {
+            mutablePrefs[OinkPreferenceKeys.DAILY_REWARD] = Math.round(legacyDollars * 100)
         }
         mutablePrefs.remove(LEGACY_DAILY_REWARD)
         return mutablePrefs.toPreferences()
