@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Oink mascot - HAPPY / flexing: beaming pig, big open sparkly eyes, rosy cheeks, wide grin,
+     amber sparkle. Shown when the balance is growing on a streak. Original geometric art
+     cohesive with ic_oink_logo (teal sweatband, pink snout, cream body). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+
+    <!-- Ears -->
+    <path android:fillColor="#FFFDF1DE" android:strokeColor="#FFD9A67E" android:strokeWidth="1"
+        android:pathData="M13,15 L9,5 L19,12 Z" />
+    <path android:fillColor="#FFFDF1DE" android:strokeColor="#FFD9A67E" android:strokeWidth="1"
+        android:pathData="M35,15 L39,5 L29,12 Z" />
+    <path android:fillColor="#FFFF6B9D" android:pathData="M13,13 L11,7 L16,11 Z" />
+    <path android:fillColor="#FFFF6B9D" android:pathData="M35,13 L37,7 L32,11 Z" />
+
+    <!-- Head -->
+    <path android:fillColor="#FFFDF1DE" android:strokeColor="#FFD9A67E" android:strokeWidth="1"
+        android:pathData="M8,27 a16,14 0 1,0 32,0 a16,14 0 1,0 -32,0 Z" />
+
+    <!-- Sweatband -->
+    <path android:fillColor="#FF28BD96"
+        android:pathData="M14,15 L34,15 Q37,15 37,18 Q37,21 34,21 L14,21 Q11,21 11,18 Q11,15 14,15 Z" />
+    <path android:strokeColor="#FF20C997" android:strokeWidth="1" android:strokeLineCap="round"
+        android:pathData="M13,18 L35,18" />
+
+    <!-- Cheeks -->
+    <path android:fillColor="#66FF6B9D"
+        android:pathData="M10.3,30 a2.2,1.8 0 1,0 4.4,0 a2.2,1.8 0 1,0 -4.4,0 Z" />
+    <path android:fillColor="#66FF6B9D"
+        android:pathData="M33.3,30 a2.2,1.8 0 1,0 4.4,0 a2.2,1.8 0 1,0 -4.4,0 Z" />
+
+    <!-- Eyes (big and bright) -->
+    <path android:fillColor="#FF5A4A42"
+        android:pathData="M16,24 a2,2 0 1,0 4,0 a2,2 0 1,0 -4,0 Z" />
+    <path android:fillColor="#FF5A4A42"
+        android:pathData="M28,24 a2,2 0 1,0 4,0 a2,2 0 1,0 -4,0 Z" />
+    <path android:fillColor="#FFFFFFFF"
+        android:pathData="M18,23 a0.6,0.6 0 1,0 1.2,0 a0.6,0.6 0 1,0 -1.2,0 Z" />
+    <path android:fillColor="#FFFFFFFF"
+        android:pathData="M30,23 a0.6,0.6 0 1,0 1.2,0 a0.6,0.6 0 1,0 -1.2,0 Z" />
+
+    <!-- Snout -->
+    <path android:fillColor="#FFFF6B9D" android:strokeColor="#FFE0557F" android:strokeWidth="1"
+        android:pathData="M17.5,32 a6.5,5 0 1,0 13,0 a6.5,5 0 1,0 -13,0 Z" />
+    <path android:fillColor="#FFE0557F"
+        android:pathData="M20.3,32 a1.1,1.6 0 1,0 2.2,0 a1.1,1.6 0 1,0 -2.2,0 Z" />
+    <path android:fillColor="#FFE0557F"
+        android:pathData="M25.5,32 a1.1,1.6 0 1,0 2.2,0 a1.1,1.6 0 1,0 -2.2,0 Z" />
+
+    <!-- Big grin -->
+    <path android:strokeColor="#FF5A4A42" android:strokeWidth="1.8" android:strokeLineCap="round"
+        android:pathData="M17,35 Q24,42 31,35" />
+
+    <!-- Sparkle -->
+    <path android:fillColor="#FFF5A623"
+        android:pathData="M40,9.5 L40.8,11.2 L42.5,12 L40.8,12.8 L40,14.5 L39.2,12.8 L37.5,12 L39.2,11.2 Z" />
+</vector>

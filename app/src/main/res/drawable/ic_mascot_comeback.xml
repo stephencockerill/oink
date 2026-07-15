@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Oink mascot - COMEBACK: shown after a miss / halving. Softened, hopeful - never "dead".
+     Amber sweatband accent, gently raised hopeful eyebrows, small warm smile, single hopeful
+     sparkle. Original geometric art cohesive with ic_oink_logo (pink snout, cream body). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+
+    <!-- Ears -->
+    <path android:fillColor="#FFFDF1DE" android:strokeColor="#FFD9A67E" android:strokeWidth="1"
+        android:pathData="M13,15 L9,5 L19,12 Z" />
+    <path android:fillColor="#FFFDF1DE" android:strokeColor="#FFD9A67E" android:strokeWidth="1"
+        android:pathData="M35,15 L39,5 L29,12 Z" />
+    <path android:fillColor="#FFFF6B9D" android:pathData="M13,13 L11,7 L16,11 Z" />
+    <path android:fillColor="#FFFF6B9D" android:pathData="M35,13 L37,7 L32,11 Z" />
+
+    <!-- Head -->
+    <path android:fillColor="#FFFDF1DE" android:strokeColor="#FFD9A67E" android:strokeWidth="1"
+        android:pathData="M8,27 a16,14 0 1,0 32,0 a16,14 0 1,0 -32,0 Z" />
+
+    <!-- Sweatband (amber accent for the comeback moment) -->
+    <path android:fillColor="#FFF5A623"
+        android:pathData="M14,15 L34,15 Q37,15 37,18 Q37,21 34,21 L14,21 Q11,21 11,18 Q11,15 14,15 Z" />
+    <path android:strokeColor="#FFDB921A" android:strokeWidth="1" android:strokeLineCap="round"
+        android:pathData="M13,18 L35,18" />
+
+    <!-- Hopeful raised eyebrows -->
+    <path android:strokeColor="#FF5A4A42" android:strokeWidth="1.2" android:strokeLineCap="round"
+        android:pathData="M15.8,22 Q18,21 20.2,21.8" />
+    <path android:strokeColor="#FF5A4A42" android:strokeWidth="1.2" android:strokeLineCap="round"
+        android:pathData="M27.8,21.8 Q30,21 32.2,22" />
+
+    <!-- Eyes -->
+    <path android:fillColor="#FF5A4A42"
+        android:pathData="M16.4,24.5 a1.6,1.6 0 1,0 3.2,0 a1.6,1.6 0 1,0 -3.2,0 Z" />
+    <path android:fillColor="#FF5A4A42"
+        android:pathData="M28.4,24.5 a1.6,1.6 0 1,0 3.2,0 a1.6,1.6 0 1,0 -3.2,0 Z" />
+
+    <!-- Snout -->
+    <path android:fillColor="#FFFF6B9D" android:strokeColor="#FFE0557F" android:strokeWidth="1"
+        android:pathData="M17.5,32 a6.5,5 0 1,0 13,0 a6.5,5 0 1,0 -13,0 Z" />
+    <path android:fillColor="#FFE0557F"
+        android:pathData="M20.3,32 a1.1,1.6 0 1,0 2.2,0 a1.1,1.6 0 1,0 -2.2,0 Z" />
+    <path android:fillColor="#FFE0557F"
+        android:pathData="M25.5,32 a1.1,1.6 0 1,0 2.2,0 a1.1,1.6 0 1,0 -2.2,0 Z" />
+
+    <!-- Soft hopeful smile -->
+    <path android:strokeColor="#FF5A4A42" android:strokeWidth="1.6" android:strokeLineCap="round"
+        android:pathData="M20,39 Q24,41.5 28,39" />
+
+    <!-- Small sparkle of hope -->
+    <path android:fillColor="#FFF5A623"
+        android:pathData="M40,11 L40.6,12.4 L42,13 L40.6,13.6 L40,15 L39.4,13.6 L38,13 L39.4,12.4 Z" />
+</vector>

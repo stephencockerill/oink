@@ -2,5 +2,11 @@
 <resources>
     <string name="app_name">Oink</string>
     <string name="widget_description">Shows your piggy bank balance and streak at a glance</string>
+
+    <!-- Mascot accessibility labels -->
+    <string name="mascot_desc_happy">Oink the pig, beaming and flexing</string>
+    <string name="mascot_desc_comeback">Oink the pig, hopeful and ready for a comeback</string>
+    <string name="mascot_desc_sleeping">Oink the pig, sleeping</string>
+    <string name="mascot_desc_neutral">Oink the pig</string>
 </resources>
 

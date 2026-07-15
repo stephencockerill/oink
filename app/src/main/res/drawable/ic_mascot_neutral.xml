@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Oink mascot - NEUTRAL baseline: calm pig, teal sweatband, open round eyes, gentle mouth.
+     Original hand-authored geometric art (ellipse/arc primitives), cohesive with ic_oink_logo.
+     Cream body reads on the pink hero gradient and stays legible in dark theme; tan outline
+     keeps it from disappearing on light surfaces. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+
+    <!-- Ears -->
+    <path android:fillColor="#FFFDF1DE" android:strokeColor="#FFD9A67E" android:strokeWidth="1"
+        android:pathData="M13,15 L9,5 L19,12 Z" />
+    <path android:fillColor="#FFFDF1DE" android:strokeColor="#FFD9A67E" android:strokeWidth="1"
+        android:pathData="M35,15 L39,5 L29,12 Z" />
+    <path android:fillColor="#FFFF6B9D" android:pathData="M13,13 L11,7 L16,11 Z" />
+    <path android:fillColor="#FFFF6B9D" android:pathData="M35,13 L37,7 L32,11 Z" />
+
+    <!-- Head -->
+    <path android:fillColor="#FFFDF1DE" android:strokeColor="#FFD9A67E" android:strokeWidth="1"
+        android:pathData="M8,27 a16,14 0 1,0 32,0 a16,14 0 1,0 -32,0 Z" />
+
+    <!-- Sweatband -->
+    <path android:fillColor="#FF28BD96"
+        android:pathData="M14,15 L34,15 Q37,15 37,18 Q37,21 34,21 L14,21 Q11,21 11,18 Q11,15 14,15 Z" />
+    <path android:strokeColor="#FF20C997" android:strokeWidth="1" android:strokeLineCap="round"
+        android:pathData="M13,18 L35,18" />
+
+    <!-- Eyes -->
+    <path android:fillColor="#FF5A4A42"
+        android:pathData="M16.4,24 a1.6,1.6 0 1,0 3.2,0 a1.6,1.6 0 1,0 -3.2,0 Z" />
+    <path android:fillColor="#FF5A4A42"
+        android:pathData="M28.4,24 a1.6,1.6 0 1,0 3.2,0 a1.6,1.6 0 1,0 -3.2,0 Z" />
+
+    <!-- Snout -->
+    <path android:fillColor="#FFFF6B9D" android:strokeColor="#FFE0557F" android:strokeWidth="1"
+        android:pathData="M17.5,32 a6.5,5 0 1,0 13,0 a6.5,5 0 1,0 -13,0 Z" />
+    <path android:fillColor="#FFE0557F"
+        android:pathData="M20.3,32 a1.1,1.6 0 1,0 2.2,0 a1.1,1.6 0 1,0 -2.2,0 Z" />
+    <path android:fillColor="#FFE0557F"
+        android:pathData="M25.5,32 a1.1,1.6 0 1,0 2.2,0 a1.1,1.6 0 1,0 -2.2,0 Z" />
+
+    <!-- Mouth -->
+    <path android:strokeColor="#FF5A4A42" android:strokeWidth="1.6" android:strokeLineCap="round"
+        android:pathData="M21,39 Q24,40.5 27,39" />
+</vector>
