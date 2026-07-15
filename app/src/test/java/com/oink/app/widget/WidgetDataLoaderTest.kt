@@ -14,6 +14,7 @@ import com.oink.app.data.FreezeRepository
 import com.oink.app.data.Habit
 import com.oink.app.data.HabitRepository
 import com.oink.app.data.HabitRewardProvider
+import com.oink.app.data.HabitType
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -144,6 +145,7 @@ class WidgetDataLoaderTest {
         requireNotNull(data)
         assertEquals("Workout", data.habitName)
         assertEquals("🏋️", data.habitEmoji)
+        assertEquals(HabitType.BUILD, data.habitType)
         assertEquals(1500L, data.balance)
         assertEquals(2, data.streak)
         assertTrue(data.checkedInToday)
@@ -160,6 +162,26 @@ class WidgetDataLoaderTest {
         assertEquals(0, data.streak)
         assertFalse(data.checkedInToday)
         assertNull(data.didSucceedToday)
+    }
+
+    @Test
+    fun `quit habit carries its type through so the widget can branch copy`() = runTest {
+        val quitHabitId = 4L
+        fakeHabitDao.insert(
+            Habit(
+                id = quitHabitId,
+                name = "No vaping",
+                emoji = "🚭",
+                isPrivate = false,
+                habitType = HabitType.QUIT
+            )
+        )
+
+        val data = loader.resolveWidgetData(quitHabitId)
+
+        assertNotNull(data)
+        requireNotNull(data)
+        assertEquals(HabitType.QUIT, data.habitType)
     }
 
     @Test

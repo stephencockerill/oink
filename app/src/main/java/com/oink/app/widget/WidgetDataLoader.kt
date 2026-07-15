@@ -53,6 +53,7 @@ class WidgetDataLoader(
         return WidgetData(
             habitName = habit.name,
             habitEmoji = habit.emoji,
+            habitType = habit.habitType,
             balance = balance,
             streak = streak,
             checkedInToday = todayCheckIn != null,
