@@ -84,14 +84,18 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.oink.app.data.CashOut
 import com.oink.app.data.RewardCategories
+import com.oink.app.ui.components.ConfettiBurst
+import com.oink.app.ui.components.OinkMascot
 import com.oink.app.ui.theme.OinkPink
 import com.oink.app.ui.theme.OinkPinkDark
 import com.oink.app.ui.theme.OinkSpacing
 import com.oink.app.ui.theme.OinkTeal
 import com.oink.app.ui.theme.OinkTealContainer
 import com.oink.app.ui.theme.OinkError
+import com.oink.app.ui.util.rememberReduceMotion
 import com.oink.app.utils.Formatters
 import com.oink.app.utils.HabitCopy
+import com.oink.app.utils.MascotState
 import com.oink.app.viewmodel.PinPromptState
 import com.oink.app.viewmodel.PrivateFundsAccess
 import com.oink.app.viewmodel.PrivateViewModel
@@ -794,6 +798,7 @@ private fun CelebrationOverlay(
     cashOut: CashOut,
     onDismiss: () -> Unit
 ) {
+    val reduceMotion = rememberReduceMotion()
     val scale by animateFloatAsState(
         targetValue = 1f,
         animationSpec = spring(
@@ -804,103 +809,114 @@ private fun CelebrationOverlay(
     )
 
     Dialog(onDismissRequest = onDismiss) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .scale(scale),
-            shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface
-            )
-        ) {
-            Column(
+        Box {
+            Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(32.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                    .scale(scale),
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                )
             ) {
-                // Big celebration emoji
-                Text(
-                    text = "🎉",
-                    fontSize = 64.sp
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Text(
-                    text = "YOU EARNED IT!",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = OinkTeal
-                )
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                // Reward details
-                Box(
+                Column(
                     modifier = Modifier
-                        .size(80.dp)
-                        .clip(CircleShape)
-                        .background(
-                            Brush.radialGradient(
-                                colors = listOf(
-                                    OinkTeal.copy(alpha = 0.3f),
-                                    OinkTeal.copy(alpha = 0.1f)
-                                )
-                            )
-                        ),
-                    contentAlignment = Alignment.Center
+                        .fillMaxWidth()
+                        .padding(32.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text(text = cashOut.emoji, fontSize = 40.sp)
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Text(
-                    text = cashOut.name,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Text(
-                    text = Formatters.formatCurrency(cashOut.amount),
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = OinkTeal
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.CalendarMonth,
+                    // The happy pig is the celebratory focal point; a Compose-native
+                    // confetti burst rains over the dialog (below), honoring
+                    // reduce-motion.
+                    OinkMascot(
+                        state = MascotState.HAPPY,
                         contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                        modifier = Modifier.size(72.dp)
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
                     Text(
-                        text = "${HabitCopy.dayCount(cashOut.daysToEarn)} made this possible!",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                        text = "YOU EARNED IT!",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = OinkTeal
                     )
-                }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(24.dp))
 
-                Button(
-                    onClick = onDismiss,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = OinkTeal
+                    // Reward details
+                    Box(
+                        modifier = Modifier
+                            .size(80.dp)
+                            .clip(CircleShape)
+                            .background(
+                                Brush.radialGradient(
+                                    colors = listOf(
+                                        OinkTeal.copy(alpha = 0.3f),
+                                        OinkTeal.copy(alpha = 0.1f)
+                                    )
+                                )
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(text = cashOut.emoji, fontSize = 40.sp)
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Text(
+                        text = cashOut.name,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center
                     )
-                ) {
-                    Text("Awesome! 🐷")
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text(
+                        text = Formatters.formatCurrency(cashOut.amount),
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = OinkTeal
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CalendarMonth,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "${HabitCopy.dayCount(cashOut.daysToEarn)} made this possible!",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    Button(
+                        onClick = onDismiss,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = OinkTeal
+                        )
+                    ) {
+                        Text("Awesome! 🐷")
+                    }
                 }
+            }
+
+            // Compose-native confetti rains over the reward card; skipped under
+            // reduce-motion so the dialog simply appears.
+            if (!reduceMotion) {
+                ConfettiBurst(modifier = Modifier.matchParentSize())
             }
         }
     }

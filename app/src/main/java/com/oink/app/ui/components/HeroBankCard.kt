@@ -1,9 +1,6 @@
 package com.oink.app.ui.components
 
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.LinearOutSlowInEasing
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -29,6 +26,8 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -38,7 +37,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -53,17 +54,13 @@ import com.oink.app.ui.theme.OinkShadowSoft
 import com.oink.app.ui.theme.OinkSuccess
 import com.oink.app.ui.theme.OinkWarning
 import com.oink.app.ui.theme.oinkHeroBrush
+import com.oink.app.ui.util.Haptics
+import com.oink.app.ui.util.rememberReduceMotion
 import com.oink.app.utils.Formatters
-import com.oink.app.utils.Motion
+import com.oink.app.utils.Milestone
 import com.oink.app.viewmodel.HeroBankState
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-
-// Count-up runs briskly; a gain should feel snappy and celebratory.
-private const val GAIN_DURATION_MS = 650
-
-// The halving sweeps down slower and heavier so the loss lands - loss aversion
-// made visible (docs/habit-psychology.md). Paired with an amber flash.
-private const val LOSS_DURATION_MS = 1_150
 
 // Peak opacity of the amber loss flash washed over the card on a halving. Amber,
 // not red: the penalty is clear but never punitive.
@@ -78,9 +75,15 @@ private const val LOSS_FLASH_ALPHA = 0.45f
  * daily-gain chip, a streak flame, and a milestone progress bar, all off an
  * immutable [HeroBankState].
  *
- * Motion honors the system reduce-motion setting: when animations are off
- * ([Motion.prefersReducedMotion]) the balance jumps straight to its value with no
- * count-up and no loss sweep.
+ * Motion is spring-based, driven by [MaterialTheme.motionScheme] (Material 3
+ * Expressive): a gain rolls the balance up on a snappy spatial spring and drops a
+ * coin into the bank; a halving sweeps down on a slow, weighty spring under an
+ * amber flash so the loss lands; crossing into a new milestone tier bursts
+ * confetti, drops a coin, and makes the pig hop. Every animation honors the system
+ * reduce-motion setting ([rememberReduceMotion]): when motion is off the balance
+ * jumps straight to its value with no count-up, sweep, coin, flame flicker, or
+ * confetti. Haptics (a check-in confirm is fired at the tap sites; a milestone
+ * unlock fires here) are tactile, not motion, so they play regardless.
  *
  * Accessibility: the whole card is one actionable, merged semantics node with a
  * spoken summary of balance, gain, streak, and progress; decorative icons and the
@@ -98,6 +101,7 @@ fun HeroBankCard(
     modifier: Modifier = Modifier
 ) {
     val reduceMotion = rememberReduceMotion()
+    val view = LocalView.current
 
     // The value the balance text currently shows; count-animated toward the real
     // balance so a gain rolls up and a halving sweeps down.
@@ -107,36 +111,78 @@ fun HeroBankCard(
     // never triggers recomposition.
     val lossFlash = remember { Animatable(0f) }
 
+    // Replay counters: bumped to fire a fresh coin drop (a gain) and a fresh
+    // milestone celebration (confetti + pig hop) via key().
+    var coinDropId by remember { mutableIntStateOf(0) }
+    var celebrateId by remember { mutableIntStateOf(0) }
+
+    // The milestone rank the last time balance changed. Seeded to the current rank
+    // so the celebration never fires on the first composition (initial load).
+    var previousRank by remember { mutableIntStateOf(Milestone.rankFor(state.balanceCents)) }
+
+    // Mascot vertical hop, in fraction of the hop height; read late in graphicsLayer.
+    val hopOffset = remember { Animatable(0f) }
+    val hopDistancePx = with(LocalDensity.current) { 22.dp.toPx() }
+
+    // Expressive springs: a gain is snappy, a loss is slow and weighty, the flash
+    // eases out without overshoot, the hop settles with a little bounce.
+    val gainSpec = MaterialTheme.motionScheme.fastSpatialSpec<Float>()
+    val lossSpec = MaterialTheme.motionScheme.slowSpatialSpec<Float>()
+    val lossFlashSpec = MaterialTheme.motionScheme.slowEffectsSpec<Float>()
+    val hopSpec = MaterialTheme.motionScheme.defaultSpatialSpec<Float>()
+
     LaunchedEffect(state.balanceCents, reduceMotion) {
         val start = displayedCents
         val end = state.balanceCents
+
+        // Detect a tier crossing before anything returns early.
+        val newRank = Milestone.rankFor(end)
+        val crossedUp = newRank > previousRank
+        previousRank = newRank
+        if (crossedUp) {
+            // Haptics are tactile, not motion - fire on unlock regardless.
+            Haptics.milestone(view)
+            if (!reduceMotion) celebrateId++
+        }
+
         if (start == end) return@LaunchedEffect
 
-        // Reduce motion: no count-up, no sweep, no flash - jump to the value.
+        // Reduce motion: no count-up, no sweep, no flash, no coin - jump to value.
         if (reduceMotion) {
             displayedCents = end
             return@LaunchedEffect
         }
 
-        val decreasing = end < start
-        if (decreasing) {
+        val increasing = end > start
+        if (increasing) {
+            coinDropId++
+        } else {
             // Flash concurrently with the down-sweep.
             launch {
                 lossFlash.snapTo(LOSS_FLASH_ALPHA)
-                lossFlash.animateTo(0f, tween(durationMillis = LOSS_DURATION_MS, easing = FastOutSlowInEasing))
+                lossFlash.animateTo(0f, lossFlashSpec)
             }
         }
 
+        // Clamp within the endpoints so a bouncy spatial spring can't momentarily
+        // show more (or less) money than was actually earned or lost.
+        val lo = minOf(start, end)
+        val hi = maxOf(start, end)
         Animatable(0f).animateTo(
             targetValue = 1f,
-            animationSpec = tween(
-                durationMillis = if (decreasing) LOSS_DURATION_MS else GAIN_DURATION_MS,
-                easing = if (decreasing) FastOutSlowInEasing else LinearOutSlowInEasing
-            )
+            animationSpec = if (increasing) gainSpec else lossSpec
         ) {
-            displayedCents = start + ((end - start) * value).toLong()
+            displayedCents = (start + ((end - start) * value).toLong()).coerceIn(lo, hi)
         }
         displayedCents = end
+    }
+
+    // The pig hops when a new tier unlocks: up, then a bouncy landing.
+    LaunchedEffect(celebrateId) {
+        if (celebrateId == 0 || reduceMotion) return@LaunchedEffect
+        hopOffset.snapTo(0f)
+        hopOffset.animateTo(1f, hopSpec)
+        hopOffset.animateTo(0f, hopSpec)
     }
 
     Box(
@@ -178,7 +224,7 @@ fun HeroBankCard(
                     modifier = Modifier.weight(1f)
                 )
                 if (state.streak > 0) {
-                    StreakFlame(streak = state.streak)
+                    StreakFlame(streak = state.streak, reduceMotion = reduceMotion)
                 }
             }
 
@@ -214,11 +260,14 @@ fun HeroBankCard(
                 Spacer(modifier = Modifier.width(12.dp))
 
                 // The mascot is described by the card's merged semantics, so it
-                // carries no redundant description of its own here.
+                // carries no redundant description of its own here. It hops on a
+                // milestone unlock; the offset is read late in graphicsLayer.
                 OinkMascot(
                     state = state.mascotState,
                     contentDescription = null,
-                    modifier = Modifier.size(88.dp)
+                    modifier = Modifier
+                        .size(88.dp)
+                        .graphicsLayer { translationY = -hopOffset.value * hopDistancePx }
                 )
             }
 
@@ -226,27 +275,60 @@ fun HeroBankCard(
 
             MilestoneBar(state = state)
         }
-    }
-}
 
-/**
- * Whether animations should be skipped, read from the system animator duration
- * scale. Held for the composition; a mid-session accessibility change applies on
- * the next recomposition, which is enough for a value this coarse.
- */
-@Composable
-private fun rememberReduceMotion(): Boolean {
-    val context = LocalContext.current
-    return remember(context) {
-        Motion.prefersReducedMotion(Motion.animatorDurationScale(context.contentResolver))
+        // A coin drops into the bank on a gain; a fresh coin per gain via key().
+        if (!reduceMotion && coinDropId > 0) {
+            key(coinDropId) {
+                FallingCoin(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(top = 44.dp, end = 40.dp)
+                )
+            }
+        }
+
+        // A confetti burst on a milestone unlock; a fresh burst per crossing.
+        if (!reduceMotion && celebrateId > 0) {
+            key(celebrateId) {
+                ConfettiBurst(modifier = Modifier.matchParentSize())
+            }
+        }
     }
 }
 
 /**
  * The streak flame chip: a fire icon plus the streak length.
+ *
+ * When motion is enabled the flame is alive - it flickers with a subtle,
+ * organically-timed scale, rotation, and opacity driven by looping
+ * [MaterialTheme.motionScheme] springs, read late in a `graphicsLayer` so only the
+ * draw phase re-runs. When motion is reduced the flame is static.
  */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun StreakFlame(streak: Int) {
+private fun StreakFlame(streak: Int, reduceMotion: Boolean) {
+    val scale = remember { Animatable(1f) }
+    val rotation = remember { Animatable(0f) }
+    val flameAlpha = remember { Animatable(1f) }
+
+    val fastSpec = MaterialTheme.motionScheme.fastSpatialSpec<Float>()
+    val slowSpec = MaterialTheme.motionScheme.slowSpatialSpec<Float>()
+    val effectsSpec = MaterialTheme.motionScheme.defaultEffectsSpec<Float>()
+
+    LaunchedEffect(reduceMotion) {
+        if (reduceMotion) {
+            scale.snapTo(1f)
+            rotation.snapTo(0f)
+            flameAlpha.snapTo(1f)
+            return@LaunchedEffect
+        }
+        // Three independent loops so scale, sway, and glow drift out of phase and
+        // read as a living flicker rather than a metronome.
+        launch { while (isActive) { scale.animateTo(1.16f, fastSpec); scale.animateTo(0.9f, slowSpec) } }
+        launch { while (isActive) { rotation.animateTo(7f, fastSpec); rotation.animateTo(-7f, slowSpec) } }
+        launch { while (isActive) { flameAlpha.animateTo(1f, effectsSpec); flameAlpha.animateTo(0.7f, effectsSpec) } }
+    }
+
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
@@ -258,7 +340,14 @@ private fun StreakFlame(streak: Int) {
             imageVector = Icons.Default.LocalFireDepartment,
             contentDescription = null,
             tint = OinkGold,
-            modifier = Modifier.size(18.dp)
+            modifier = Modifier
+                .size(18.dp)
+                .graphicsLayer {
+                    scaleX = scale.value
+                    scaleY = scale.value
+                    rotationZ = rotation.value
+                    alpha = flameAlpha.value
+                }
         )
         Spacer(modifier = Modifier.width(4.dp))
         Text(
