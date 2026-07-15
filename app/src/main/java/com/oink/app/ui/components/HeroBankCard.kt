@@ -49,6 +49,7 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.oink.app.ui.theme.OinkElevation
@@ -57,11 +58,14 @@ import com.oink.app.ui.theme.OinkPinkDark
 import com.oink.app.ui.theme.OinkShadowSoft
 import com.oink.app.ui.theme.OinkSuccess
 import com.oink.app.ui.theme.OinkWarning
+import com.oink.app.ui.theme.OinkTheme
 import com.oink.app.ui.theme.oinkHeroBrush
 import com.oink.app.ui.util.Haptics
 import com.oink.app.ui.util.rememberReduceMotion
 import com.oink.app.utils.Formatters
+import com.oink.app.utils.MascotState
 import com.oink.app.utils.Milestone
+import com.oink.app.utils.MilestoneProgress
 import com.oink.app.viewmodel.HeroBankState
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -382,13 +386,20 @@ private fun HeroBalanceRow(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(
+            AutoResizeText(
                 text = Formatters.formatCurrency(displayedCents),
-                style = MaterialTheme.typography.displayLargeEmphasized.copy(fontSize = 44.sp),
+                // Measure the fit against the widest value on screen this frame so
+                // the balance is always shown in full (issue #108). At rest this is
+                // the real balance; during a halving down-sweep it tracks the larger
+                // in-flight value so the sweep never clips. On a gain the displayed
+                // value never exceeds the target, so the fitted size stays fixed and
+                // the count-up rolls up without the text resizing underneath it.
+                sizingText = Formatters.formatCurrency(maxOf(displayedCents, state.balanceCents)),
+                style = MaterialTheme.typography.displayLargeEmphasized,
                 color = Color.White,
-                maxLines = 1,
-                softWrap = false,
-                overflow = TextOverflow.Ellipsis
+                maxFontSize = 44.sp,
+                minFontSize = 24.sp,
+                modifier = Modifier.fillMaxWidth()
             )
             if (state.subtitle.isNotBlank()) {
                 Text(
@@ -638,4 +649,62 @@ private fun heroContentDescription(state: HeroBankState): String {
         parts += "top milestone reached"
     }
     return parts.joinToString(separator = ", ")
+}
+
+/**
+ * A hero card sample for tooling previews, defaulting to the long-balance case
+ * from issue #108 ($1,097.28). Override [balanceCents] to preview other lengths.
+ */
+private fun previewHeroState(balanceCents: Long = 109_728L) = HeroBankState(
+    balanceCents = balanceCents,
+    dailyGainCents = 500L,
+    streak = 274,
+    mascotState = MascotState.HAPPY,
+    milestone = MilestoneProgress(
+        currentTierName = "Piggy Starter",
+        nextThresholdCents = 200_000L,
+        nextTierName = "Swole Savings",
+        prevThresholdCents = 100_000L,
+        progress = 0.55f
+    ),
+    label = "Piggy Bank",
+    subtitle = ""
+)
+
+/**
+ * Regression lock for issue #108: the hero balance must render in full, never
+ * ellipsized, even in the width-starved conditions that reproduced the bug -
+ * a narrow card at an elevated font scale, with a long and an extra-long balance.
+ * The [AutoResizeText] fit shrinks the number to fit rather than truncating it.
+ */
+@Preview(name = "Hero balance - $1,097.28 @ 320dp", widthDp = 320, showBackground = true)
+@Preview(
+    name = "Hero balance - $1,097.28 @ 320dp, 1.5x font",
+    widthDp = 320,
+    fontScale = 1.5f,
+    showBackground = true
+)
+@Composable
+private fun HeroBankCardLongBalancePreview() {
+    OinkTheme {
+        Column(modifier = Modifier.padding(16.dp)) {
+            HeroBankCard(state = previewHeroState(), onClick = {})
+        }
+    }
+}
+
+@Preview(name = "Hero balance - $12,345.67 @ 320dp", widthDp = 320, showBackground = true)
+@Preview(
+    name = "Hero balance - $12,345.67 @ 320dp, 1.5x font",
+    widthDp = 320,
+    fontScale = 1.5f,
+    showBackground = true
+)
+@Composable
+private fun HeroBankCardHugeBalancePreview() {
+    OinkTheme {
+        Column(modifier = Modifier.padding(16.dp)) {
+            HeroBankCard(state = previewHeroState(balanceCents = 1_234_567L), onClick = {})
+        }
+    }
 }
