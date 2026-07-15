@@ -38,7 +38,7 @@ object HabitCopy {
     const val CHECK_IN_PROMPT_PAST = "Did you do it on this day?"
 
     /** Today's status once the habit is logged as done. */
-    const val DONE = "✅ Nailed it!"
+    const val DONE = "Nailed it!"
 
     /** Today's status once the day is logged as an off day. */
     const val REST = "😴 Off day"
@@ -147,7 +147,7 @@ object HabitCopy {
     // =====================================================================
 
     /** Quit today-status once the day resolves clean. */
-    const val CLEAN = "✅ Stayed clean"
+    const val CLEAN = "Stayed clean"
 
     /** Quit today-status once a slip is logged. Supportive, not shaming. */
     const val SLIPPED = "🫂 Slipped"
