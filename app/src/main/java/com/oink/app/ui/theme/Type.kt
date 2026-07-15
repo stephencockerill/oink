@@ -1,5 +1,6 @@
 package com.oink.app.ui.theme
 
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
@@ -44,6 +45,7 @@ val InterFontFamily = FontFamily(
 // TYPOGRAPHY SYSTEM
 // =============================================================================
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 val OinkTypography = Typography(
     // -------------------------------------------------------------------------
     // DISPLAY - Poppins Bold (Big balance numbers, milestone displays)
@@ -63,6 +65,35 @@ val OinkTypography = Typography(
         letterSpacing = 0.sp
     ),
     displaySmall = TextStyle(
+        fontFamily = PoppinsFontFamily,
+        fontWeight = FontWeight.Bold,
+        fontSize = 36.sp,
+        lineHeight = 44.sp,
+        letterSpacing = 0.sp
+    ),
+
+    // -------------------------------------------------------------------------
+    // DISPLAY EMPHASIZED - Poppins Bold (dedicated role for balance numbers)
+    // -------------------------------------------------------------------------
+    // The emphasized display role reads as "this is the number that matters".
+    // Poppins tops out at Bold, so these mirror the display metrics rather than
+    // stacking extra weight - balance numbers reference the role directly
+    // instead of re-applying `fontWeight = FontWeight.Bold` on a display style.
+    displayLargeEmphasized = TextStyle(
+        fontFamily = PoppinsFontFamily,
+        fontWeight = FontWeight.Bold,
+        fontSize = 57.sp,
+        lineHeight = 64.sp,
+        letterSpacing = (-0.25).sp
+    ),
+    displayMediumEmphasized = TextStyle(
+        fontFamily = PoppinsFontFamily,
+        fontWeight = FontWeight.Bold,
+        fontSize = 45.sp,
+        lineHeight = 52.sp,
+        letterSpacing = 0.sp
+    ),
+    displaySmallEmphasized = TextStyle(
         fontFamily = PoppinsFontFamily,
         fontWeight = FontWeight.Bold,
         fontSize = 36.sp,
