@@ -52,11 +52,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.oink.app.data.HabitType
 import com.oink.app.ui.components.HeroBankCard
+import com.oink.app.ui.util.Haptics
 import com.oink.app.ui.theme.OinkPink
 import com.oink.app.ui.theme.OinkTeal
 import com.oink.app.ui.theme.OinkTealContainer
@@ -109,6 +111,7 @@ fun HabitDetailScreen(
     val freezeCost by viewModel.freezeCost.collectAsStateWithLifecycle()
 
     val snackbarHostState = remember { SnackbarHostState() }
+    val view = LocalView.current
 
     // Show error in snackbar
     LaunchedEffect(error) {
@@ -223,6 +226,9 @@ fun HabitDetailScreen(
                 habitType = habitType,
                 isLoading = isLoading,
                 onCheckIn = { didSucceed ->
+                    // Haptic confirmation for an important action (a check-in);
+                    // tactile, not motion, so it fires regardless of reduce-motion.
+                    if (didSucceed) Haptics.confirm(view) else Haptics.reject(view)
                     viewModel.recordTodayCheckIn(didSucceed)
                 }
             )

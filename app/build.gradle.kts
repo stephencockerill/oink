@@ -73,6 +73,9 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation(libs.androidx.material.icons.extended)
 
+    // Shape morphing for the Expressive check-in button.
+    implementation(libs.androidx.graphics.shapes)
+
     // Navigation
     implementation(libs.androidx.navigation.compose)
 

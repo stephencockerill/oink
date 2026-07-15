@@ -1,5 +1,6 @@
 package com.oink.app.ui.components
 
+import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
@@ -8,19 +9,31 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
+import androidx.graphics.shapes.CornerRounding
+import androidx.graphics.shapes.Morph
+import androidx.graphics.shapes.RoundedPolygon
+import androidx.graphics.shapes.circle
+import androidx.graphics.shapes.star
 import com.oink.app.data.HabitType
 import com.oink.app.ui.theme.OinkTeal
 import com.oink.app.ui.theme.OinkWarning
+import com.oink.app.ui.util.Haptics
+import com.oink.app.ui.util.rememberReduceMotion
 import com.oink.app.utils.HabitCopy
+import kotlinx.coroutines.launch
 
 /**
  * The inline quick check-in control shown on a habit card, trailing the balance.
@@ -41,7 +54,9 @@ import com.oink.app.utils.HabitCopy
  *   balance and replayed, not off the halved value.
  *
  * Every control is a 48dp [IconButton], satisfying the minimum touch-target size,
- * and carries a spoken [contentDescription] for TalkBack.
+ * and carries a spoken [contentDescription] for TalkBack. A tap fires a haptic
+ * (confirm for a done/clean day, a softer reject for a miss/slip) regardless of
+ * reduce-motion, and the affirmative "done" control shape-morphs on tap.
  *
  * A quit habit reads the same [todayCompleted] differently: a clean day is the
  * passive default and the one affirmative action is reporting a slip, so instead
@@ -76,12 +91,15 @@ private fun BuildCheckInControl(
                 icon = Icons.Default.Check,
                 tint = OinkTeal,
                 contentDescription = HabitCopy.CHECK_IN_DONE_ACTION,
+                done = true,
+                celebratory = true,
                 onClick = { onCheckIn(true) }
             )
             CheckInIconButton(
                 icon = Icons.Default.Close,
                 tint = OinkWarning,
                 contentDescription = HabitCopy.CHECK_IN_MISSED_ACTION,
+                done = false,
                 onClick = { onCheckIn(false) }
             )
         }
@@ -91,6 +109,8 @@ private fun BuildCheckInControl(
             icon = if (todayCompleted) Icons.Default.Check else Icons.Default.Close,
             tint = tint,
             contentDescription = HabitCopy.CHECK_IN_CHANGE_ACTION,
+            done = !todayCompleted,
+            celebratory = !todayCompleted,
             onClick = { onCheckIn(!todayCompleted) },
             modifier = modifier
         )
@@ -109,6 +129,7 @@ private fun QuitCheckInControl(
             icon = Icons.Default.Close,
             tint = OinkWarning,
             contentDescription = HabitCopy.CHECK_IN_SLIP_ACTION,
+            done = false,
             onClick = { onCheckIn(false) },
             modifier = modifier
         )
@@ -117,6 +138,7 @@ private fun QuitCheckInControl(
             icon = Icons.Default.Close,
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
             contentDescription = HabitCopy.CHECK_IN_SLIP_CHANGE_ACTION,
+            done = true,
             onClick = { onCheckIn(true) },
             modifier = modifier
         )
@@ -125,6 +147,7 @@ private fun QuitCheckInControl(
             icon = Icons.Default.Check,
             tint = OinkTeal,
             contentDescription = HabitCopy.CHECK_IN_SLIP_CHANGE_ACTION,
+            done = false,
             onClick = { onCheckIn(false) },
             modifier = modifier
         )
@@ -134,21 +157,55 @@ private fun QuitCheckInControl(
 /**
  * A single circular, tinted 48dp check-in affordance. The 48dp [IconButton] is
  * the touch target; the tinted circle inside is the visible surface.
+ *
+ * @param done Whether this tap records a positive outcome (done / clean day),
+ *   which selects the confirm haptic; a miss / slip uses the softer reject.
+ * @param celebratory When true and motion is enabled, the button shape-morphs
+ *   from a disc to a scalloped star on tap - the Expressive flourish reserved for
+ *   the affirmative "done" action.
  */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun CheckInIconButton(
     icon: ImageVector,
     tint: Color,
     contentDescription: String,
+    done: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    celebratory: Boolean = false
 ) {
+    val view = LocalView.current
+    val reduceMotion = rememberReduceMotion()
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+
+    val morphEnabled = celebratory && !reduceMotion
+    val morph = remember { Morph(checkInDisc, checkInStar) }
+    val morphProgress = remember { Animatable(0f) }
+    val pulseSpec = MaterialTheme.motionScheme.fastSpatialSpec<Float>()
+
+    val shape: Shape = if (morphEnabled) {
+        MorphPolygonShape(morph, morphProgress.value)
+    } else {
+        CircleShape
+    }
+
     IconButton(
-        onClick = onClick,
+        onClick = {
+            if (done) Haptics.confirm(view) else Haptics.reject(view)
+            if (morphEnabled) {
+                scope.launch {
+                    morphProgress.snapTo(0f)
+                    morphProgress.animateTo(1f, pulseSpec)
+                    morphProgress.animateTo(0f, pulseSpec)
+                }
+            }
+            onClick()
+        },
         modifier = modifier
             .size(48.dp)
-            .clip(CircleShape)
-            .background(tint.copy(alpha = 0.12f))
+            .clip(shape)
+            .background(tint.copy(alpha = 0.12f), shape)
     ) {
         Icon(
             imageVector = icon,
@@ -158,3 +215,15 @@ private fun CheckInIconButton(
         )
     }
 }
+
+/**
+ * The two shapes the affirmative check-in button morphs between: a smooth disc at
+ * rest and a scalloped star at the peak of the tap pulse. Built once - polygon
+ * construction is pure and cheap - and shared across every check-in button.
+ */
+private val checkInDisc: RoundedPolygon = RoundedPolygon.circle(numVertices = 12)
+private val checkInStar: RoundedPolygon = RoundedPolygon.star(
+    numVerticesPerRadius = 8,
+    innerRadius = 0.75f,
+    rounding = CornerRounding(radius = 0.2f)
+)

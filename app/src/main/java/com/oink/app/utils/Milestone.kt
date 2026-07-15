@@ -35,6 +35,21 @@ object Milestone {
     )
 
     /**
+     * The number of tiers a balance has cleared - its milestone "rank".
+     *
+     * `0` below the first tier, rising by one at each threshold reached, up to
+     * [tiers]`.size` when every tier is cleared. Pure and money-safe (Long cents,
+     * negative treated as zero) so a UI can detect a tier crossing by comparing
+     * the rank before and after a balance change without re-deriving thresholds.
+     *
+     * @param balanceCents Current balance in cents (negative is treated as zero).
+     */
+    fun rankFor(balanceCents: Long): Int {
+        val balance = balanceCents.coerceAtLeast(0L)
+        return tiers.count { balance >= it.thresholdCents }
+    }
+
+    /**
      * Resolve a balance to its milestone progress.
      *
      * @param balanceCents Current balance in cents (negative is treated as zero).

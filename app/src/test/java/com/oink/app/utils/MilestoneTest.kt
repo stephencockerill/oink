@@ -95,6 +95,39 @@ class MilestoneTest {
         assertEquals(0f, result.progress, 0f)
     }
 
+    @Test
+    fun `rankFor is zero below the first tier`() {
+        assertEquals(0, Milestone.rankFor(0L))
+        assertEquals(0, Milestone.rankFor(2_499L))
+    }
+
+    @Test
+    fun `rankFor treats a negative balance as zero rank`() {
+        assertEquals(0, Milestone.rankFor(-500L))
+    }
+
+    @Test
+    fun `rankFor increments exactly on each threshold`() {
+        assertEquals(1, Milestone.rankFor(2_500L))
+        assertEquals(2, Milestone.rankFor(5_000L))
+        assertEquals(3, Milestone.rankFor(10_000L))
+        assertEquals(4, Milestone.rankFor(20_000L))
+    }
+
+    @Test
+    fun `rankFor holds steady between thresholds`() {
+        // Just past a threshold and just before the next both read the lower rank.
+        assertEquals(1, Milestone.rankFor(2_501L))
+        assertEquals(1, Milestone.rankFor(4_999L))
+        assertEquals(3, Milestone.rankFor(12_750L))
+    }
+
+    @Test
+    fun `rankFor caps at the top tier above the highest threshold`() {
+        assertEquals(4, Milestone.rankFor(50_000L))
+        assertEquals(4, Milestone.rankFor(Long.MAX_VALUE))
+    }
+
     // =========================================================================
     // track() - the full per-tier status list off cumulative lifetime earnings
     // =========================================================================

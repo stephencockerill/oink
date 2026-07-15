@@ -1,9 +1,6 @@
 package com.oink.app.ui.components
 
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.LinearOutSlowInEasing
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -32,6 +29,8 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -41,7 +40,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -57,17 +58,13 @@ import com.oink.app.ui.theme.OinkShadowSoft
 import com.oink.app.ui.theme.OinkSuccess
 import com.oink.app.ui.theme.OinkWarning
 import com.oink.app.ui.theme.oinkHeroBrush
+import com.oink.app.ui.util.Haptics
+import com.oink.app.ui.util.rememberReduceMotion
 import com.oink.app.utils.Formatters
-import com.oink.app.utils.Motion
+import com.oink.app.utils.Milestone
 import com.oink.app.viewmodel.HeroBankState
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-
-// Count-up runs briskly; a gain should feel snappy and celebratory.
-private const val GAIN_DURATION_MS = 650
-
-// The halving sweeps down slower and heavier so the loss lands - loss aversion
-// made visible (docs/habit-psychology.md). Paired with an amber flash.
-private const val LOSS_DURATION_MS = 1_150
 
 // Peak opacity of the amber loss flash washed over the card on a halving. Amber,
 // not red: the penalty is clear but never punitive.
@@ -82,9 +79,14 @@ private const val LOSS_FLASH_ALPHA = 0.45f
  * daily-gain chip, a streak flame, and a milestone progress bar, all off an
  * immutable [HeroBankState].
  *
- * Motion honors the system reduce-motion setting: when animations are off
- * ([Motion.prefersReducedMotion]) the balance jumps straight to its value with no
- * count-up and no loss sweep.
+ * Motion is spring-based, driven by [MaterialTheme.motionScheme] (Material 3
+ * Expressive) and shared with [RewardsHeroCard] through [HeroCardSurface]: a gain
+ * rolls the balance up on a snappy spatial spring and drops a coin into the bank;
+ * a halving sweeps down on a slow, weighty spring under an amber flash so the loss
+ * lands; crossing into a new milestone tier bursts confetti, drops a coin, and
+ * makes the pig hop. Every animation honors the system reduce-motion setting
+ * ([rememberReduceMotion]): when motion is off the balance jumps straight to its
+ * value with no count-up, sweep, coin, flame flicker, or confetti.
  *
  * Accessibility: the whole card is one actionable, merged semantics node with a
  * spoken summary of balance, gain, streak, and progress; decorative icons and the
@@ -113,10 +115,10 @@ fun HeroBankCard(
                 role = Role.Button
                 contentDescription = heroContentDescription(state)
             }
-    ) { displayedCents ->
+    ) { displayedCents, mascotHopFraction ->
         HeroHeaderRow(state = state)
         Spacer(modifier = Modifier.height(12.dp))
-        HeroBalanceRow(state = state, displayedCents = displayedCents)
+        HeroBalanceRow(state = state, displayedCents = displayedCents, mascotHopFraction = mascotHopFraction)
         Spacer(modifier = Modifier.height(20.dp))
         MilestoneBar(state = state)
     }
@@ -124,8 +126,8 @@ fun HeroBankCard(
 
 /**
  * The Rewards-screen hero: the same living bank card treatment as [HeroBankCard]
- * (mesh gradient, mascot, count-up balance, streak flame, halving sweep), but
- * compact for the Rewards story.
+ * (mesh gradient, mascot, count-up balance, streak flame, halving sweep, coin drop,
+ * and milestone celebration), but compact for the Rewards story.
  *
  * It drops the milestone bar - the Rewards screen has a dedicated milestone track
  * below - and replaces the tap-to-open-rewards behavior with an explicit "Treat
@@ -149,7 +151,7 @@ fun RewardsHeroCard(
     HeroCardSurface(
         balanceCents = state.balanceCents,
         modifier = modifier
-    ) { displayedCents ->
+    ) { displayedCents, mascotHopFraction ->
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -159,7 +161,7 @@ fun RewardsHeroCard(
         ) {
             HeroHeaderRow(state = state)
             Spacer(modifier = Modifier.height(12.dp))
-            HeroBalanceRow(state = state, displayedCents = displayedCents)
+            HeroBalanceRow(state = state, displayedCents = displayedCents, mascotHopFraction = mascotHopFraction)
         }
 
         Spacer(modifier = Modifier.height(20.dp))
@@ -182,28 +184,38 @@ fun RewardsHeroCard(
 
 /**
  * The shared living-bank surface both heroes render into: mesh gradient, soft
- * shadow, and the count-up / halving-sweep animation over the balance.
+ * shadow, and every balance-driven animation.
  *
- * Holds the single source of truth for the balance count animation - a gain rolls
- * up briskly, a halving sweeps down slower under an amber flash - and hands the
- * currently-displayed cents to [content] so each hero lays out its own body.
- * Motion honors the system reduce-motion setting.
+ * This is the single source of truth for the hero's motion, all spring-based off
+ * [MaterialTheme.motionScheme]: the count-up (a gain rolls up briskly, a halving
+ * sweeps down slower under an amber flash), the coin that drops in on a gain, and
+ * the milestone celebration (confetti burst + a pig hop) fired when the balance
+ * crosses into a new [Milestone] tier. Motion honors the system reduce-motion
+ * setting; the milestone haptic is tactile, not motion, so it fires regardless.
+ *
+ * The currently-displayed cents and a mascot hop-fraction provider are handed to
+ * [content] so each hero lays out its own body while the mascot hop stays driven
+ * here. The hop fraction is a provider read late in a `graphicsLayer`, so a hop
+ * redraws only the mascot rather than recomposing the body.
  *
  * @param balanceCents The real balance the display animates toward.
  * @param modifier Standard [Modifier]; the caller controls width/placement.
  * @param interaction Click and/or semantics applied to the whole card (the full
  *   hero is one actionable node; the Rewards hero passes none and makes its CTA
  *   the actionable element instead).
- * @param content The card body, given the animated displayed-cents value.
+ * @param content The card body, given the animated displayed-cents value and the
+ *   mascot hop-fraction provider.
  */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun HeroCardSurface(
     balanceCents: Long,
     modifier: Modifier = Modifier,
     interaction: Modifier = Modifier,
-    content: @Composable ColumnScope.(displayedCents: Long) -> Unit
+    content: @Composable ColumnScope.(displayedCents: Long, mascotHopFraction: () -> Float) -> Unit
 ) {
     val reduceMotion = rememberReduceMotion()
+    val view = LocalView.current
 
     // The value the balance text currently shows; count-animated toward the real
     // balance so a gain rolls up and a halving sweeps down.
@@ -213,36 +225,77 @@ private fun HeroCardSurface(
     // never triggers recomposition.
     val lossFlash = remember { Animatable(0f) }
 
+    // Replay counters: bumped to fire a fresh coin drop (a gain) and a fresh
+    // milestone celebration (confetti + pig hop) via key().
+    var coinDropId by remember { mutableIntStateOf(0) }
+    var celebrateId by remember { mutableIntStateOf(0) }
+
+    // The milestone rank the last time balance changed. Seeded to the current rank
+    // so the celebration never fires on the first composition (initial load).
+    var previousRank by remember { mutableIntStateOf(Milestone.rankFor(balanceCents)) }
+
+    // Mascot vertical hop, in fraction of the hop height; read late in graphicsLayer.
+    val hopOffset = remember { Animatable(0f) }
+
+    // Expressive springs: a gain is snappy, a loss is slow and weighty, the flash
+    // eases out without overshoot, the hop settles with a little bounce.
+    val gainSpec = MaterialTheme.motionScheme.fastSpatialSpec<Float>()
+    val lossSpec = MaterialTheme.motionScheme.slowSpatialSpec<Float>()
+    val lossFlashSpec = MaterialTheme.motionScheme.slowEffectsSpec<Float>()
+    val hopSpec = MaterialTheme.motionScheme.defaultSpatialSpec<Float>()
+
     LaunchedEffect(balanceCents, reduceMotion) {
         val start = displayedCents
         val end = balanceCents
+
+        // Detect a tier crossing before anything returns early.
+        val newRank = Milestone.rankFor(end)
+        val crossedUp = newRank > previousRank
+        previousRank = newRank
+        if (crossedUp) {
+            // Haptics are tactile, not motion - fire on unlock regardless.
+            Haptics.milestone(view)
+            if (!reduceMotion) celebrateId++
+        }
+
         if (start == end) return@LaunchedEffect
 
-        // Reduce motion: no count-up, no sweep, no flash - jump to the value.
+        // Reduce motion: no count-up, no sweep, no flash, no coin - jump to value.
         if (reduceMotion) {
             displayedCents = end
             return@LaunchedEffect
         }
 
-        val decreasing = end < start
-        if (decreasing) {
+        val increasing = end > start
+        if (increasing) {
+            coinDropId++
+        } else {
             // Flash concurrently with the down-sweep.
             launch {
                 lossFlash.snapTo(LOSS_FLASH_ALPHA)
-                lossFlash.animateTo(0f, tween(durationMillis = LOSS_DURATION_MS, easing = FastOutSlowInEasing))
+                lossFlash.animateTo(0f, lossFlashSpec)
             }
         }
 
+        // Clamp within the endpoints so a bouncy spatial spring can't momentarily
+        // show more (or less) money than was actually earned or lost.
+        val lo = minOf(start, end)
+        val hi = maxOf(start, end)
         Animatable(0f).animateTo(
             targetValue = 1f,
-            animationSpec = tween(
-                durationMillis = if (decreasing) LOSS_DURATION_MS else GAIN_DURATION_MS,
-                easing = if (decreasing) FastOutSlowInEasing else LinearOutSlowInEasing
-            )
+            animationSpec = if (increasing) gainSpec else lossSpec
         ) {
-            displayedCents = start + ((end - start) * value).toLong()
+            displayedCents = (start + ((end - start) * value).toLong()).coerceIn(lo, hi)
         }
         displayedCents = end
+    }
+
+    // The pig hops when a new tier unlocks: up, then a bouncy landing.
+    LaunchedEffect(celebrateId) {
+        if (celebrateId == 0 || reduceMotion) return@LaunchedEffect
+        hopOffset.snapTo(0f)
+        hopOffset.animateTo(1f, hopSpec)
+        hopOffset.animateTo(0f, hopSpec)
     }
 
     Box(
@@ -265,7 +318,25 @@ private fun HeroCardSurface(
             .padding(28.dp)
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
-            content(displayedCents)
+            content(displayedCents) { hopOffset.value }
+        }
+
+        // A coin drops into the bank on a gain; a fresh coin per gain via key().
+        if (!reduceMotion && coinDropId > 0) {
+            key(coinDropId) {
+                FallingCoin(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(top = 44.dp, end = 40.dp)
+                )
+            }
+        }
+
+        // A confetti burst on a milestone unlock; a fresh burst per crossing.
+        if (!reduceMotion && celebrateId > 0) {
+            key(celebrateId) {
+                ConfettiBurst(modifier = Modifier.matchParentSize())
+            }
         }
     }
 }
@@ -294,11 +365,18 @@ private fun HeroHeaderRow(state: HeroBankState) {
 /**
  * The card's balance line: the count-up balance, optional subtitle and gain chip
  * on the left, and the mascot on the right. The mascot is described by the card's
- * merged semantics, so it carries no redundant description of its own here.
+ * merged semantics, so it carries no redundant description of its own here; it
+ * hops on a milestone unlock via [mascotHopFraction], read late in a graphicsLayer.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun HeroBalanceRow(state: HeroBankState, displayedCents: Long) {
+private fun HeroBalanceRow(
+    state: HeroBankState,
+    displayedCents: Long,
+    mascotHopFraction: () -> Float
+) {
+    val hopDistancePx = with(LocalDensity.current) { 22.dp.toPx() }
+
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
@@ -330,7 +408,9 @@ private fun HeroBalanceRow(state: HeroBankState, displayedCents: Long) {
         OinkMascot(
             state = state.mascotState,
             contentDescription = null,
-            modifier = Modifier.size(88.dp)
+            modifier = Modifier
+                .size(88.dp)
+                .graphicsLayer { translationY = -mascotHopFraction() * hopDistancePx }
         )
     }
 }
@@ -366,23 +446,39 @@ private fun TreatYourselfButton(enabled: Boolean, onClick: () -> Unit) {
 }
 
 /**
- * Whether animations should be skipped, read from the system animator duration
- * scale. Held for the composition; a mid-session accessibility change applies on
- * the next recomposition, which is enough for a value this coarse.
- */
-@Composable
-private fun rememberReduceMotion(): Boolean {
-    val context = LocalContext.current
-    return remember(context) {
-        Motion.prefersReducedMotion(Motion.animatorDurationScale(context.contentResolver))
-    }
-}
-
-/**
  * The streak flame chip: a fire icon plus the streak length.
+ *
+ * When motion is enabled the flame is alive - it flickers with a subtle,
+ * organically-timed scale, rotation, and opacity driven by looping
+ * [MaterialTheme.motionScheme] springs, read late in a `graphicsLayer` so only the
+ * draw phase re-runs. When motion is reduced the flame is static.
  */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun StreakFlame(streak: Int) {
+    val reduceMotion = rememberReduceMotion()
+    val scale = remember { Animatable(1f) }
+    val rotation = remember { Animatable(0f) }
+    val flameAlpha = remember { Animatable(1f) }
+
+    val fastSpec = MaterialTheme.motionScheme.fastSpatialSpec<Float>()
+    val slowSpec = MaterialTheme.motionScheme.slowSpatialSpec<Float>()
+    val effectsSpec = MaterialTheme.motionScheme.defaultEffectsSpec<Float>()
+
+    LaunchedEffect(reduceMotion) {
+        if (reduceMotion) {
+            scale.snapTo(1f)
+            rotation.snapTo(0f)
+            flameAlpha.snapTo(1f)
+            return@LaunchedEffect
+        }
+        // Three independent loops so scale, sway, and glow drift out of phase and
+        // read as a living flicker rather than a metronome.
+        launch { while (isActive) { scale.animateTo(1.16f, fastSpec); scale.animateTo(0.9f, slowSpec) } }
+        launch { while (isActive) { rotation.animateTo(7f, fastSpec); rotation.animateTo(-7f, slowSpec) } }
+        launch { while (isActive) { flameAlpha.animateTo(1f, effectsSpec); flameAlpha.animateTo(0.7f, effectsSpec) } }
+    }
+
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
@@ -394,7 +490,14 @@ private fun StreakFlame(streak: Int) {
             imageVector = Icons.Default.LocalFireDepartment,
             contentDescription = null,
             tint = OinkGold,
-            modifier = Modifier.size(18.dp)
+            modifier = Modifier
+                .size(18.dp)
+                .graphicsLayer {
+                    scaleX = scale.value
+                    scaleY = scale.value
+                    rotationZ = rotation.value
+                    alpha = flameAlpha.value
+                }
         )
         Spacer(modifier = Modifier.width(4.dp))
         Text(

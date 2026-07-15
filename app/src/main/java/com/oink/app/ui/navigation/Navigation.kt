@@ -1,5 +1,13 @@
 package com.oink.app.ui.navigation
 
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -19,6 +27,7 @@ import com.oink.app.ui.screens.PrivateScreen
 import com.oink.app.ui.screens.RewardsScreen
 import com.oink.app.ui.screens.SettingsScreen
 import com.oink.app.ui.security.rememberDeviceAuthLauncher
+import com.oink.app.ui.util.rememberReduceMotion
 import com.oink.app.viewmodel.AddHabitViewModel
 import com.oink.app.viewmodel.HabitListViewModel
 import com.oink.app.viewmodel.MainViewModel
@@ -83,6 +92,7 @@ sealed class Screen(val route: String) {
  * `viewModel(factory = ...)`, so each `habit/{habitId}...` entry gets its own
  * habit-scoped instance and no state leaks between habits.
  */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun OinkNavHost(
     navController: NavHostController,
@@ -91,6 +101,14 @@ fun OinkNavHost(
     val habitIdArguments = listOf(
         navArgument(Screen.HABIT_ID_ARG) { type = NavType.LongType }
     )
+
+    // Spring-based container-transform-style transitions for Home -> HabitDetail
+    // -> Rewards (and every destination): a scale + fade drawn from the Expressive
+    // MotionScheme. Reduce-motion is captured here and honored in each transition
+    // lambda, which falls back to an instant cut.
+    val reduceMotion = rememberReduceMotion()
+    val transitionSpatialSpec = MaterialTheme.motionScheme.defaultSpatialSpec<Float>()
+    val transitionEffectsSpec = MaterialTheme.motionScheme.defaultEffectsSpec<Float>()
 
     /**
      * Leave the private-habit subtree when the gate re-locks. Private habits are
@@ -107,7 +125,39 @@ fun OinkNavHost(
 
     NavHost(
         navController = navController,
-        startDestination = Screen.Home.route
+        startDestination = Screen.Home.route,
+        enterTransition = {
+            if (reduceMotion) {
+                EnterTransition.None
+            } else {
+                scaleIn(animationSpec = transitionSpatialSpec, initialScale = 0.92f) +
+                    fadeIn(animationSpec = transitionEffectsSpec)
+            }
+        },
+        exitTransition = {
+            if (reduceMotion) {
+                ExitTransition.None
+            } else {
+                scaleOut(animationSpec = transitionSpatialSpec, targetScale = 1.05f) +
+                    fadeOut(animationSpec = transitionEffectsSpec)
+            }
+        },
+        popEnterTransition = {
+            if (reduceMotion) {
+                EnterTransition.None
+            } else {
+                scaleIn(animationSpec = transitionSpatialSpec, initialScale = 1.05f) +
+                    fadeIn(animationSpec = transitionEffectsSpec)
+            }
+        },
+        popExitTransition = {
+            if (reduceMotion) {
+                ExitTransition.None
+            } else {
+                scaleOut(animationSpec = transitionSpatialSpec, targetScale = 0.92f) +
+                    fadeOut(animationSpec = transitionEffectsSpec)
+            }
+        }
     ) {
         composable(Screen.Home.route) {
             val habitListViewModel: HabitListViewModel =
