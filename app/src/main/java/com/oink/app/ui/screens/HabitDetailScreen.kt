@@ -95,7 +95,6 @@ fun HabitDetailScreen(
     }
 
     val habitName by viewModel.habitName.collectAsStateWithLifecycle()
-    val habitEmoji by viewModel.habitEmoji.collectAsStateWithLifecycle()
     val habitType by viewModel.habitType.collectAsStateWithLifecycle()
     val balance by viewModel.currentBalance.collectAsStateWithLifecycle()
     val heroState by viewModel.heroState.collectAsStateWithLifecycle()
@@ -120,7 +119,7 @@ fun HabitDetailScreen(
     }
 
     // Title falls back to the brand mark until the habit row loads.
-    val title = if (habitName.isBlank()) "🐷 Oink" else "$habitEmoji $habitName".trim()
+    val title = if (habitName.isBlank()) "Oink" else habitName
 
     Scaffold(
         topBar = {
