@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -19,7 +20,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.AcUnit
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Lock
@@ -30,6 +30,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -72,8 +73,9 @@ import com.oink.app.viewmodel.HomeListState
  * Tapping a habit card opens that habit's detail.
  *
  * With no public habits the overall-bank card and cards are replaced by a
- * no-habit hero that invites adding the first habit; the Private tile stays put
- * so private-only users keep a way in. See [HomeListState].
+ * no-habit hero that invites adding the first habit; the muted lock entry point
+ * pinned at the bottom stays put so private-only users keep a way in. See
+ * [HomeListState].
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -114,6 +116,9 @@ fun HabitListScreen(
                     contentDescription = "Add habit"
                 )
             }
+        },
+        bottomBar = {
+            PrivateEntryPoint(onClick = onPrivateClick)
         }
     ) { paddingValues ->
         LazyColumn(
@@ -129,15 +134,12 @@ fun HabitListScreen(
                 HomeListState.Loading -> Unit
 
                 // No public habits: lead with the empty-state hero and its primary
-                // action, hide the meaningless overall-bank card, and keep the
-                // Private tile as the sole entry point to any private habits.
+                // action and hide the meaningless overall-bank card. The private
+                // entry point lives in the Scaffold's bottomBar, so private-only
+                // users keep a way in.
                 HomeListState.Empty -> {
                     item(key = "empty-state", contentType = "empty-state") {
                         EmptyHome(onAddHabit = onAddHabit)
-                    }
-
-                    item(key = "private-tile", contentType = "private-tile") {
-                        PrivateTile(onClick = onPrivateClick)
                     }
                 }
 
@@ -147,10 +149,6 @@ fun HabitListScreen(
                             state = heroState,
                             onClick = onNavigateToRewards
                         )
-                    }
-
-                    item(key = "private-tile", contentType = "private-tile") {
-                        PrivateTile(onClick = onPrivateClick)
                     }
 
                     items(
@@ -172,8 +170,9 @@ fun HabitListScreen(
 
 /**
  * The no-habit home state: a friendly hero that frames adding a habit as the way
- * to start earning, plus a prominent primary action. The Private tile is rendered
- * by the caller, so a user whose only habits are private stays reachable.
+ * to start earning, plus a prominent primary action. The private entry point sits
+ * in the Scaffold's bottomBar, so a user whose only habits are private stays
+ * reachable.
  */
 @Composable
 private fun EmptyHome(onAddHabit: () -> Unit) {
@@ -240,59 +239,27 @@ private fun EmptyHome(onAddHabit: () -> Unit) {
 /**
  * The always-present entry point to the private area.
  *
- * Fixed in the list regardless of whether any private habits exist and
- * regardless of the lock state, and rendered identically every time, so its
- * presence leaks nothing about whether the user hides anything. Tapping it
- * opens the PIN gate.
+ * A single muted lock icon pinned to the bottom of the home screen, centered and
+ * wrapped in an [IconButton] for a full 48dp touch target. Present regardless of
+ * whether any private habits exist and regardless of the lock state, and rendered
+ * identically every time, so its presence leaks nothing about whether the user
+ * hides anything. Tapping it opens the PIN gate.
  */
 @Composable
-private fun PrivateTile(onClick: () -> Unit) {
-    Card(
+private fun PrivateEntryPoint(onClick: () -> Unit) {
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(MaterialTheme.shapes.large)
-            .clickable(onClick = onClick),
-        shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+            .navigationBarsPadding()
+            .padding(bottom = 8.dp),
+        contentAlignment = Alignment.Center
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-                    .background(OinkTeal.copy(alpha = 0.12f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Lock,
-                    contentDescription = null,
-                    tint = OinkTeal,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.width(16.dp))
-
-            Text(
-                text = "Private",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.weight(1f)
-            )
-
+        IconButton(onClick = onClick) {
             Icon(
-                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                imageVector = Icons.Default.Lock,
+                contentDescription = "Private",
+                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+                modifier = Modifier.size(20.dp)
             )
         }
     }
