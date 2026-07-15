@@ -44,6 +44,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -85,6 +86,7 @@ import com.oink.app.data.CashOut
 import com.oink.app.data.RewardCategories
 import com.oink.app.ui.theme.OinkPink
 import com.oink.app.ui.theme.OinkPinkDark
+import com.oink.app.ui.theme.OinkSpacing
 import com.oink.app.ui.theme.OinkTeal
 import com.oink.app.ui.theme.OinkTealContainer
 import com.oink.app.ui.theme.OinkError
@@ -425,6 +427,7 @@ private fun PrivateFundsUnlockDialog(
     )
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun BalanceCard(
     balance: Long,
@@ -443,7 +446,7 @@ private fun BalanceCard(
                         colors = listOf(OinkPink, OinkPinkDark)
                     )
                 )
-                .padding(24.dp)
+                .padding(OinkSpacing.xl)
         ) {
             Column(
                 modifier = Modifier.fillMaxWidth(),
@@ -454,21 +457,20 @@ private fun BalanceCard(
                     style = MaterialTheme.typography.titleMedium,
                     color = Color.White.copy(alpha = 0.85f)
                 )
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(OinkSpacing.sm))
                 Text(
                     text = Formatters.formatCurrency(balance),
-                    style = MaterialTheme.typography.displayMedium,
-                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.displayMediumEmphasized,
                     color = Color.White
                 )
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(OinkSpacing.lg))
                 Button(
                     onClick = onCashOut,
                     enabled = balance > 0,
                     colors = ButtonDefaults.buttonColors(
                         containerColor = OinkTeal
                     ),
-                    shape = RoundedCornerShape(16.dp),
+                    shape = MaterialTheme.shapes.medium,
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Icon(Icons.Default.ShoppingCart, contentDescription = null)
@@ -524,7 +526,7 @@ private fun StatCard(
 ) {
     Card(
         modifier = modifier,
-        shape = RoundedCornerShape(16.dp),
+        shape = MaterialTheme.shapes.medium,
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         ),

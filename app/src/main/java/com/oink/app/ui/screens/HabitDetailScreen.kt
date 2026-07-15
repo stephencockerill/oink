@@ -25,7 +25,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -43,6 +42,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -63,6 +63,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -70,8 +71,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.oink.app.data.HabitType
+import com.oink.app.ui.theme.OinkElevation
 import com.oink.app.ui.theme.OinkPink
 import com.oink.app.ui.theme.OinkPinkDark
+import com.oink.app.ui.theme.OinkShadowSoft
 import com.oink.app.ui.theme.OinkTeal
 import com.oink.app.ui.theme.OinkTealContainer
 import com.oink.app.ui.theme.OinkWarning
@@ -249,6 +252,7 @@ fun HabitDetailScreen(
  * Uses a coral → magenta gradient for visual impact with
  * white text for maximum contrast and readability.
  */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun BalanceCard(balance: Long, habitType: HabitType) {
     val scale by animateFloatAsState(
@@ -263,9 +267,15 @@ private fun BalanceCard(balance: Long, habitType: HabitType) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
+            .shadow(
+                elevation = OinkElevation.hero,
+                shape = MaterialTheme.shapes.extraLarge,
+                ambientColor = OinkShadowSoft,
+                spotColor = OinkShadowSoft
+            )
             .scale(scale),
-        shape = RoundedCornerShape(28.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 12.dp)
+        shape = MaterialTheme.shapes.extraLarge,
+        elevation = CardDefaults.cardElevation(defaultElevation = OinkElevation.level0)
     ) {
         Box(
             modifier = Modifier
@@ -302,9 +312,8 @@ private fun BalanceCard(balance: Long, habitType: HabitType) {
                 ) { targetBalance ->
                     Text(
                         text = Formatters.formatCurrency(targetBalance),
-                        style = MaterialTheme.typography.displayLarge.copy(
-                            fontSize = 56.sp,
-                            fontWeight = FontWeight.Bold
+                        style = MaterialTheme.typography.displayLargeEmphasized.copy(
+                            fontSize = 56.sp
                         ),
                         color = Color.White
                     )
@@ -333,7 +342,7 @@ private fun StreakAndFreezeDisplay(streak: Int, availableFreezes: Int, habitType
                 else "${Formatters.formatStreakWithEmoji(streak)} clean"
         }
         Surface(
-            shape = RoundedCornerShape(20.dp),
+            shape = MaterialTheme.shapes.large,
             color = if (streak > 0) OinkPink.copy(alpha = 0.15f) else Color.Transparent
         ) {
             Row(
@@ -353,7 +362,7 @@ private fun StreakAndFreezeDisplay(streak: Int, availableFreezes: Int, habitType
         if (availableFreezes > 0) {
             Spacer(modifier = Modifier.width(12.dp))
             Surface(
-                shape = RoundedCornerShape(20.dp),
+                shape = MaterialTheme.shapes.large,
                 color = OinkTeal.copy(alpha = 0.15f)
             ) {
                 Row(
@@ -406,7 +415,7 @@ private fun FreezePromptCard(
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
+        shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(
             containerColor = OinkWarning.copy(alpha = 0.12f)
         )
@@ -448,7 +457,7 @@ private fun FreezePromptCard(
                 OutlinedButton(
                     onClick = onDismiss,
                     modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = MaterialTheme.shapes.small
                 ) {
                     Text("Let it go")
                 }
@@ -458,7 +467,7 @@ private fun FreezePromptCard(
                     Button(
                         onClick = onUseFreeze,
                         modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(12.dp),
+                        shape = MaterialTheme.shapes.small,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = OinkTeal
                         )
@@ -475,7 +484,7 @@ private fun FreezePromptCard(
                     Button(
                         onClick = onNavigateToSettings,
                         modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(12.dp),
+                        shape = MaterialTheme.shapes.small,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = OinkPink
                         )
@@ -486,7 +495,7 @@ private fun FreezePromptCard(
                     Button(
                         onClick = {},
                         modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(12.dp),
+                        shape = MaterialTheme.shapes.small,
                         enabled = false
                     ) {
                         Text("Need ${Formatters.formatCurrency(freezeCost)}")
@@ -516,7 +525,7 @@ private fun CheckInSection(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
+        shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         ),
@@ -590,7 +599,7 @@ private fun BuildCheckInContent(
                 colors = ButtonDefaults.buttonColors(
                     containerColor = OinkTeal
                 ),
-                shape = RoundedCornerShape(16.dp),
+                shape = MaterialTheme.shapes.medium,
                 elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
             ) {
                 Icon(
@@ -616,7 +625,7 @@ private fun BuildCheckInContent(
                 colors = ButtonDefaults.outlinedButtonColors(
                     contentColor = OinkWarning
                 ),
-                shape = RoundedCornerShape(16.dp)
+                shape = MaterialTheme.shapes.medium
             ) {
                 Icon(
                     imageVector = Icons.Default.Close,
@@ -647,7 +656,7 @@ private fun BuildCheckInContent(
         OutlinedButton(
             onClick = { onCheckIn(!todayCheckIn.didSucceed) },
             enabled = !isLoading,
-            shape = RoundedCornerShape(12.dp)
+            shape = MaterialTheme.shapes.small
         ) {
             Text(
                 text = if (todayCheckIn.didSucceed) HabitCopy.UNDO_DONE else HabitCopy.UNDO_REST,
@@ -708,7 +717,7 @@ private fun QuitCheckInContent(
             OutlinedButton(
                 onClick = { onCheckIn(true) },
                 enabled = !isLoading,
-                shape = RoundedCornerShape(12.dp)
+                shape = MaterialTheme.shapes.small
             ) {
                 Text(
                     text = HabitCopy.UNDO_SLIP,
@@ -742,7 +751,7 @@ private fun SlipButton(isLoading: Boolean, onSlip: () -> Unit) {
         colors = ButtonDefaults.outlinedButtonColors(
             contentColor = MaterialTheme.colorScheme.error
         ),
-        shape = RoundedCornerShape(16.dp)
+        shape = MaterialTheme.shapes.medium
     ) {
         Icon(
             imageVector = Icons.Default.Close,
@@ -861,7 +870,7 @@ private fun CheckInStatus(didSucceed: Boolean, habitType: HabitType) {
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        shape = MaterialTheme.shapes.medium,
         color = backgroundColor
     ) {
         Row(

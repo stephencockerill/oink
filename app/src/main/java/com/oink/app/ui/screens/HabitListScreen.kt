@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.AcUnit
@@ -30,6 +29,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -44,6 +44,7 @@ import com.oink.app.R
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
@@ -53,8 +54,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.oink.app.ui.components.TodayCheckInControl
+import com.oink.app.ui.theme.OinkElevation
 import com.oink.app.ui.theme.OinkPink
 import com.oink.app.ui.theme.OinkPinkDark
+import com.oink.app.ui.theme.OinkShadowSoft
 import com.oink.app.ui.theme.OinkTeal
 import com.oink.app.utils.Formatters
 import com.oink.app.viewmodel.HabitCardState
@@ -216,7 +219,7 @@ private fun EmptyHome(onAddHabit: () -> Unit) {
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp),
-            shape = RoundedCornerShape(16.dp),
+            shape = MaterialTheme.shapes.medium,
             colors = ButtonDefaults.buttonColors(
                 containerColor = OinkPink,
                 contentColor = Color.White
@@ -235,6 +238,7 @@ private fun EmptyHome(onAddHabit: () -> Unit) {
  * The shared piggy bank total, styled like the detail balance card. Tapping it
  * opens the rewards screen, where the pot is cashed out.
  */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun OverallBankCard(
     overallBank: Long,
@@ -243,10 +247,16 @@ private fun OverallBankCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(28.dp))
+            .shadow(
+                elevation = OinkElevation.hero,
+                shape = MaterialTheme.shapes.extraLarge,
+                ambientColor = OinkShadowSoft,
+                spotColor = OinkShadowSoft
+            )
+            .clip(MaterialTheme.shapes.extraLarge)
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(28.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 12.dp)
+        shape = MaterialTheme.shapes.extraLarge,
+        elevation = CardDefaults.cardElevation(defaultElevation = OinkElevation.level0)
     ) {
         Box(
             modifier = Modifier
@@ -281,9 +291,8 @@ private fun OverallBankCard(
 
                 Text(
                     text = Formatters.formatCurrency(overallBank),
-                    style = MaterialTheme.typography.displaySmall.copy(
-                        fontSize = 44.sp,
-                        fontWeight = FontWeight.Bold
+                    style = MaterialTheme.typography.displaySmallEmphasized.copy(
+                        fontSize = 44.sp
                     ),
                     color = Color.White
                 )
@@ -311,9 +320,9 @@ private fun PrivateTile(onClick: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
+            .clip(MaterialTheme.shapes.large)
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(20.dp),
+        shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         ),
@@ -374,9 +383,9 @@ private fun HabitCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
+            .clip(MaterialTheme.shapes.large)
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(20.dp),
+        shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         ),

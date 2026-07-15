@@ -3,7 +3,9 @@ package com.oink.app.ui.theme
 import android.app.Activity
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
@@ -129,6 +131,7 @@ private val DarkColorScheme = darkColorScheme(
  * @param dynamicColor Whether to use Android 12+ dynamic colors (disabled to keep brand)
  * @param content The content to apply the theme to
  */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun OinkTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
@@ -155,7 +158,13 @@ fun OinkTheme(
 
     MaterialTheme(
         colorScheme = colorScheme,
+        shapes = OinkShapes,
         typography = OinkTypography,
+        // Expressive springs are the app's default motion source. Set on the
+        // standard MaterialTheme (not MaterialExpressiveTheme) so component
+        // visuals stay unchanged while animations read from the expressive
+        // scheme via MaterialTheme.motionScheme.
+        motionScheme = MotionScheme.expressive(),
         content = content
     )
 }
@@ -180,6 +189,12 @@ object OinkColors {
     val warningContainer = OinkWarningContainer
     val onWarning = OnOinkWarning
     val onWarningContainer = OnOinkWarningContainer
+
+    // Reserved gold accent for milestone/trophy moments only.
+    val gold = OinkGold
+
+    // Soft ambient shadow color for hero surfaces.
+    val shadowSoft = OinkShadowSoft
 
     // For dark mode
     val successDark = OinkSuccessDark

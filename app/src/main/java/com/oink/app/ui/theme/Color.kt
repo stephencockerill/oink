@@ -101,6 +101,22 @@ val OnOinkErrorDark = Color(0xFF7F1D1D)
 val OnOinkErrorContainerDark = Color(0xFFFEE2E2)
 
 // =============================================================================
+// MILESTONE ACCENT - Gold (reserved for milestone/trophy moments only)
+// =============================================================================
+// Reserved for milestone and trophy accents (achievement badges, celebration
+// highlights). Not a general-purpose color - do not use it for ordinary UI.
+val OinkGold = Color(0xFFF5B942)
+
+// =============================================================================
+// SHADOW - Soft ambient shadow for hero surfaces
+// =============================================================================
+// Low-alpha shadow color used for hero cards. Keeps a hero reading as elevated
+// while softening the drop so it never looks like a hard cutout. Custom shadow
+// colors render on API 28+; below that the platform falls back to its default
+// shadow, which is still gentle at hero elevation.
+val OinkShadowSoft = Color(0x33202A3B)
+
+// =============================================================================
 // NEUTRALS - Background, surface, text
 // =============================================================================
 // Light mode
