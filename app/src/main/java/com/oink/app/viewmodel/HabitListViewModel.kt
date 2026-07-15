@@ -12,12 +12,10 @@ import com.oink.app.data.FreezeRepository
 import com.oink.app.data.Habit
 import com.oink.app.data.HabitRepository
 import com.oink.app.data.HabitType
-import com.oink.app.utils.HeroSignals
 import com.oink.app.utils.Mascot
 import com.oink.app.utils.MascotState
 import com.oink.app.utils.Milestone
 import com.oink.app.widget.WidgetUpdater
-import java.time.LocalDate
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -85,7 +83,8 @@ class HabitListViewModel(
     private val checkInRepository: CheckInRepository,
     private val freezeRepository: FreezeRepository,
     private val cashOutRepository: CashOutRepository,
-    private val widgetUpdater: WidgetUpdater = WidgetUpdater.NoOp
+    private val widgetUpdater: WidgetUpdater = WidgetUpdater.NoOp,
+    private val heroSignalSource: HeroSignalSource = HeroSignalSource(checkInRepository, freezeRepository)
 ) : ViewModel() {
 
     /**
@@ -187,67 +186,15 @@ class HabitListViewModel(
     )
 
     /**
-     * One public habit's hero signals, folded together across the set by
-     * [aggregate]. Combining over an empty iterable never emits, so an empty
-     * public set is short-circuited to a resting signal rather than hanging.
+     * The public habits' hero signals, folded together across the set by
+     * [HeroSignalSource]. The home list is always public-only, so the private
+     * habits are filtered out before aggregation.
      */
     @OptIn(ExperimentalCoroutinesApi::class)
-    private fun publicHeroSignals(): Flow<AggregateSignal> = habitRepository.allHabits
+    private fun publicHeroSignals(): Flow<HeroAggregate> = habitRepository.allHabits
         .flatMapLatest { habits ->
-            val public = habits.filter { !it.isPrivate }
-            if (public.isEmpty()) {
-                flowOf(AggregateSignal(streak = 0, dailyGainCents = 0L, lastCheckIn = null, balanceDelta = 0L))
-            } else {
-                combine(public.map { habit -> habitSignalFlow(habit) }) { signals ->
-                    aggregate(signals.toList())
-                }
-            }
+            heroSignalSource.aggregatedSignals(habits.filter { !it.isPrivate })
         }
-
-    /**
-     * A single public habit's hero signals: its streak, the reward it banked
-     * today (if any), and the date and balance delta of its most recent check-in.
-     */
-    private fun habitSignalFlow(habit: Habit): Flow<HabitSignal> = combine(
-        streakFlow(habit.id),
-        checkInRepository.allCheckIns(habit.id)
-    ) { streak, checkIns ->
-        val today = checkInRepository.today()
-        val todayCheckIn = checkIns.find { it.date == today }
-        val gain = if (todayCheckIn?.didSucceed == true) habit.rewardValue else 0L
-        val recent = HeroSignals.recent(checkIns)
-        HabitSignal(
-            streak = streak,
-            gainCents = gain,
-            lastCheckIn = recent.lastCheckIn,
-            balanceDelta = recent.balanceDelta
-        )
-    }
-
-    /**
-     * Fold per-habit signals into the one aggregate the hero renders.
-     *
-     * Streak is the hottest across habits; gains sum. The mascot delta comes only
-     * from habits that acted on the most recent day, and a fresh loss on any of
-     * them takes precedence over another habit's gain - matching [Mascot]'s own
-     * "a streak can't paper over a loss" precedence.
-     */
-    private fun aggregate(signals: List<HabitSignal>): AggregateSignal {
-        val maxStreak = signals.maxOfOrNull { it.streak } ?: 0
-        val totalGain = signals.sumOf { it.gainCents }
-        val latestDate = signals.mapNotNull { it.lastCheckIn }.maxOrNull()
-        val onLatest = signals.filter { it.lastCheckIn == latestDate }
-        val delta = when {
-            onLatest.any { it.balanceDelta < 0 } -> onLatest.minOf { it.balanceDelta }
-            else -> onLatest.maxOfOrNull { it.balanceDelta } ?: 0L
-        }
-        return AggregateSignal(
-            streak = maxStreak,
-            dailyGainCents = totalGain,
-            lastCheckIn = latestDate,
-            balanceDelta = delta
-        )
-    }
 
     /**
      * Combine one habit's reactive fields (spendable, freezes, streak) into a
@@ -256,7 +203,7 @@ class HabitListViewModel(
     private fun cardStateFlow(habit: Habit): Flow<HabitCardState> = combine(
         cashOutRepository.spendable(habit.id),
         freezeRepository.availableFreezes(habit.id),
-        streakFlow(habit.id),
+        heroSignalSource.streakFlow(habit.id),
         todayCompletedFlow(habit.id)
     ) { spendable, freezes, streak, todayCompleted ->
         HabitCardState(
@@ -308,37 +255,6 @@ class HabitListViewModel(
         }
     }
 
-    /**
-     * A habit's current streak, derived from its check-ins and frozen days so it
-     * can never go stale: any check-in or freeze change re-emits and recomputes.
-     */
-    private fun streakFlow(habitId: Long): Flow<Int> = combine(
-        checkInRepository.allCheckIns(habitId),
-        freezeRepository.frozenDates(habitId)
-    ) { checkIns, frozen ->
-        checkInRepository.calculateStreak(checkIns, frozen)
-    }
-
-    /**
-     * One public habit's contribution to the hero, before aggregation.
-     */
-    private data class HabitSignal(
-        val streak: Int,
-        val gainCents: Long,
-        val lastCheckIn: LocalDate?,
-        val balanceDelta: Long
-    )
-
-    /**
-     * The public-habit set folded into a single hero signal.
-     */
-    private data class AggregateSignal(
-        val streak: Int,
-        val dailyGainCents: Long,
-        val lastCheckIn: LocalDate?,
-        val balanceDelta: Long
-    )
-
     companion object {
         private const val HERO_LABEL = "Piggy Bank"
         private const val HERO_SUBTITLE = "Shared across all your habits"
@@ -356,7 +272,8 @@ class HabitListViewModel(
                         checkInRepository = container.checkInRepository,
                         freezeRepository = container.freezeRepository,
                         cashOutRepository = container.cashOutRepository,
-                        widgetUpdater = container.widgetUpdater
+                        widgetUpdater = container.widgetUpdater,
+                        heroSignalSource = container.heroSignalSource
                     )
                 }
             }

@@ -15,6 +15,7 @@ import com.oink.app.data.RoomTransactionRunner
 import com.oink.app.data.SecurityQuestionLimiter
 import com.oink.app.security.AndroidDeviceCredentialAvailability
 import com.oink.app.security.DeviceCredentialAvailability
+import com.oink.app.viewmodel.HeroSignalSource
 import com.oink.app.widget.OinkWidget
 import com.oink.app.widget.WidgetUpdater
 
@@ -90,6 +91,16 @@ class AppContainer(context: Context) {
         habitRepository,
         freezeRepository,
         RoomTransactionRunner(database)
+    )
+
+    /**
+     * Shared derivation of the hero-card signals (streak, today's gain, mascot
+     * delta) for the home list and Rewards screens. Habit-agnostic over the two
+     * repositories it reads; each ViewModel supplies its own in-scope habit set.
+     */
+    val heroSignalSource: HeroSignalSource = HeroSignalSource(
+        checkInRepository,
+        freezeRepository
     )
 
     /**

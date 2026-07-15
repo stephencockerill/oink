@@ -12,12 +12,10 @@ import com.oink.app.data.CashOut
 import com.oink.app.data.CashOutRepository
 import com.oink.app.data.CheckInRepository
 import com.oink.app.data.FreezeRepository
-import com.oink.app.data.Habit
 import com.oink.app.data.HabitRepository
 import com.oink.app.data.PinHasher
 import com.oink.app.data.PreferencesRepository
 import com.oink.app.data.PrivateGate
-import com.oink.app.utils.HeroSignals
 import com.oink.app.utils.Mascot
 import com.oink.app.utils.MascotState
 import com.oink.app.utils.Milestone
@@ -25,7 +23,6 @@ import com.oink.app.utils.MilestoneTier
 import com.oink.app.utils.RewardTimeline
 import com.oink.app.utils.RewardTimelineEntry
 import com.oink.app.widget.OinkWidget
-import java.time.LocalDate
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -114,6 +111,7 @@ class RewardsViewModel(
     private val freezeRepository: FreezeRepository,
     private val privateGate: PrivateGate,
     private val preferencesRepository: PreferencesRepository,
+    private val heroSignalSource: HeroSignalSource = HeroSignalSource(checkInRepository, freezeRepository),
     private val defaultDispatcher: CoroutineDispatcher = Dispatchers.Default
 ) : AndroidViewModel(application) {
 
@@ -323,89 +321,9 @@ class RewardsViewModel(
         .flatMapLatest { unlocked ->
             habitRepository.allHabits.flatMapLatest { habits ->
                 val inScope = if (unlocked) habits else habits.filter { !it.isPrivate }
-                if (inScope.isEmpty()) {
-                    flowOf(HeroAggregate(streak = 0, dailyGainCents = 0L, lastCheckIn = null, balanceDelta = 0L))
-                } else {
-                    combine(inScope.map { habit -> habitSignalFlow(habit) }) { signals ->
-                        aggregate(signals.toList())
-                    }
-                }
+                heroSignalSource.aggregatedSignals(inScope)
             }
         }
-
-    /**
-     * A single habit's hero signals: its streak, the reward it banked today (if
-     * any), and the date and balance delta of its most recent check-in.
-     */
-    private fun habitSignalFlow(habit: Habit): Flow<HabitSignal> = combine(
-        streakFlow(habit.id),
-        checkInRepository.allCheckIns(habit.id)
-    ) { streak, checkIns ->
-        val today = checkInRepository.today()
-        val todayCheckIn = checkIns.find { it.date == today }
-        val gain = if (todayCheckIn?.didSucceed == true) habit.rewardValue else 0L
-        val recent = HeroSignals.recent(checkIns)
-        HabitSignal(
-            streak = streak,
-            gainCents = gain,
-            lastCheckIn = recent.lastCheckIn,
-            balanceDelta = recent.balanceDelta
-        )
-    }
-
-    /**
-     * A habit's current streak, derived from its check-ins and frozen days so it
-     * can never go stale: any check-in or freeze change re-emits and recomputes.
-     */
-    private fun streakFlow(habitId: Long): Flow<Int> = combine(
-        checkInRepository.allCheckIns(habitId),
-        freezeRepository.frozenDates(habitId)
-    ) { checkIns, frozen ->
-        checkInRepository.calculateStreak(checkIns, frozen)
-    }
-
-    /**
-     * Fold per-habit signals into the one aggregate the hero renders: hottest
-     * streak, summed gains, and the mascot delta from habits that acted on the most
-     * recent day - a fresh loss on any of them wins over another's gain, matching
-     * [Mascot]'s "a streak can't paper over a loss" precedence.
-     */
-    private fun aggregate(signals: List<HabitSignal>): HeroAggregate {
-        val maxStreak = signals.maxOfOrNull { it.streak } ?: 0
-        val totalGain = signals.sumOf { it.gainCents }
-        val latestDate = signals.mapNotNull { it.lastCheckIn }.maxOrNull()
-        val onLatest = signals.filter { it.lastCheckIn == latestDate }
-        val delta = when {
-            onLatest.any { it.balanceDelta < 0 } -> onLatest.minOf { it.balanceDelta }
-            else -> onLatest.maxOfOrNull { it.balanceDelta } ?: 0L
-        }
-        return HeroAggregate(
-            streak = maxStreak,
-            dailyGainCents = totalGain,
-            lastCheckIn = latestDate,
-            balanceDelta = delta
-        )
-    }
-
-    /**
-     * One in-scope habit's contribution to the hero, before aggregation.
-     */
-    private data class HabitSignal(
-        val streak: Int,
-        val gainCents: Long,
-        val lastCheckIn: LocalDate?,
-        val balanceDelta: Long
-    )
-
-    /**
-     * The in-scope habit set folded into a single hero signal.
-     */
-    private data class HeroAggregate(
-        val streak: Int,
-        val dailyGainCents: Long,
-        val lastCheckIn: LocalDate?,
-        val balanceDelta: Long
-    )
 
     /**
      * Loading state.
@@ -720,7 +638,8 @@ class RewardsViewModel(
                         habitRepository = container.habitRepository,
                         freezeRepository = container.freezeRepository,
                         privateGate = container.privateGate,
-                        preferencesRepository = container.preferencesRepository
+                        preferencesRepository = container.preferencesRepository,
+                        heroSignalSource = container.heroSignalSource
                     )
                 }
             }
